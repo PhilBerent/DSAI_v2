@@ -37,8 +37,8 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 
 # --- Configuration --- (Adjusted)
 CHAPTER_PATTERNS = [
-    # Drastically simplified: Start of line, optional space, CHAPTER, spaces, Roman numerals
-    re.compile(r"^\s*CHAPTER\s+([IVXLCDM]+)", re.IGNORECASE | re.MULTILINE), # Capture numeral as group 1
+    # Find anywhere: CHAPTER, spaces, Roman OR Arabic numerals. Capture type and numeral.
+    re.compile(r"(CHAPTER|PART|BOOK)\s+([IVXLCDM\d]+)", re.IGNORECASE),
 ]
 # Keywords to ignore if a potential chapter line starts with them
 IGNORE_PREFIXES = ("to ", "heading to ", "contents:", "illustrations:")
@@ -76,21 +76,37 @@ def coarse_chunk_by_structure(full_text: str) -> List[Dict[str, Any]]:
     coarse_chunks = []
     split_points = [0] # Start at the beginning
     marker_refs = {}
-    # marker_types = {} # Type is assumed "Chapter" with this simple regex
+    marker_types = {}
 
     # Find all matches for chapter patterns
     for pattern_idx, pattern in enumerate(CHAPTER_PATTERNS):
-        matches = pattern.finditer(full_text)
-        for match in matches:
-            start_index = match.start()
-            # Log the raw matched line for debugging
-            matched_text_line = full_text[start_index:].split('\n', 1)[0].strip()
-            logging.debug(f"Regex matched potential marker at index {start_index}: '{matched_text_line}'")
+        matches = list(pattern.finditer(full_text))
+        # --- IMPORTANT --- #
+        # DO NOT iterate over 'matches' here (e.g., for printing) before the main loop below.
+        # 'finditer' returns a one-time-use iterator.
 
-            line_text = matched_text_line # Use the stripped line for filtering
+        # Iterate through the matches iterator ONLY ONCE here:
+        for match in matches: # Removed extra parentheses
+            # --- Debugging Print (Optional) ---
+            # print(f"Processing match: {match}") # Add print inside the loop if needed
+            # --------------------------------
+
+            start_index = match.start()
+            # Get context around the match for logging
+            context_start = max(0, start_index - 20)
+            context_end = min(len(full_text), start_index + 50)
+            logging.debug(f"Regex matched potential marker starting at index {start_index}: ...'{full_text[context_start:context_end]}'...")
+
+            # Get the full line containing the match start for filtering
+            line_start = full_text.rfind('\n', 0, start_index) + 1
+            line_end = full_text.find('\n', start_index)
+            if line_end == -1: line_end = len(full_text)
+            line_text = full_text[line_start:line_end].strip()
+            logging.debug(f"  >> Line for filtering: '{line_text}'")
 
             # --- Filtering Logic --- #
             is_false_positive = False
+            # Check if the line text (not just the match) starts with ignore prefix
             for prefix in IGNORE_PREFIXES:
                 if line_text.lower().startswith(prefix):
                     is_false_positive = True
@@ -100,16 +116,20 @@ def coarse_chunk_by_structure(full_text: str) -> List[Dict[str, Any]]:
                 continue
             # --- End Filtering Logic --- #
 
-            # Only add if it's a new split point and looks like start of line
-            if start_index > 0 and start_index not in split_points:
-                 # Check if previous char is newline or start of doc
-                 if full_text[start_index-1].isspace() or start_index == 0:
-                     split_points.append(start_index)
-                     # Store the captured numeral (group 1 in simplified regex)
-                     numeral = match.group(1).strip() if len(match.groups()) >= 1 else "UnknownNum"
-                     marker_refs[start_index] = numeral
-                     # Type is assumed Chapter here
-                     # marker_types[start_index] = "Chapter"
+            # Condition: Simply check if it's a new split point
+            if start_index not in split_points:
+                # Check if preceded immediately by non-space (might indicate false positive like "see chapter X")
+                if start_index > 0 and not full_text[start_index-1].isspace():
+                    logging.debug(f"  >> Match at {start_index} rejected. Preceded by non-space: '{full_text[start_index-1]}'")
+                    continue # Skip this match, likely embedded in text
+
+                logging.debug(f"  >> Adding split point: {start_index}")
+                split_points.append(start_index)
+                # Store the captured numeral (group 2)
+                numeral = match.group(2).strip() if len(match.groups()) >= 2 else "UnknownNum"
+                marker_refs[start_index] = numeral
+                # Store the captured type (group 1)
+                marker_types[start_index] = match.group(1).strip().capitalize()
 
     split_points = sorted(list(set(split_points)))
 
@@ -122,14 +142,14 @@ def coarse_chunk_by_structure(full_text: str) -> List[Dict[str, Any]]:
             if not text: continue
 
             # Determine type and reference using stored info
-            unit_type = "Chapter" # Assume Chapter type based on simplified regex
+            unit_type = marker_types.get(start_pos, "DetectedStructure") # Use stored type
             ref = marker_refs.get(start_pos, f"Unit {i+1}")
 
             coarse_chunks.append({'text': text, 'type': unit_type, 'ref': ref})
         logging.info(f"Coarse chunking resulted in {len(coarse_chunks)} structure-based blocks.")
 
     else: # No reliable structure found, use fallback
-        logging.warning("No reliable structural markers found after filtering (using simplified regex). Using fallback token-based coarse chunking.")
+        logging.warning("No reliable structural markers found after filtering (using revised regex). Using fallback token-based coarse chunking.")
         # Simple token-based splitting (can use LangChain's splitter for more robustness)
         current_pos = 0
         block_index = 1

@@ -6,6 +6,7 @@
 import os
 import logging
 import sys
+import re
 
 # Adjust path to import from parent directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -48,8 +49,11 @@ def ingest_document(file_path: str) -> str:
         logging.info(f"Successfully ingested document: {os.path.basename(file_path)}")
 
         # Basic Cleaning (optional, can be expanded)
-        # Normalize whitespace: replace multiple spaces/newlines with single ones
-        cleaned_text = ' '.join(raw_text.split())
+        # Replace multiple spaces/tabs within lines with a single space
+        cleaned_text = re.sub(r'[ \t]+', ' ', raw_text)
+        # Replace multiple consecutive newlines (and surrounding space) with a single newline
+        # This preserves paragraph breaks but collapses excessive blank lines
+        cleaned_text = re.sub(r'\s*\n\s*', '\n', cleaned_text).strip()
 
         # TODO: Add more sophisticated cleaning if needed based on document types
         # e.g., handling specific artifacts from PDF/DOCX conversion if applicable
