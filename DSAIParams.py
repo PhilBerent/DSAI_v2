@@ -74,3 +74,11 @@ Embeddings_model = OpenAIEmbeddings(model=Embeddings_model_name)
 LLMInstructions = "You are a helpful assistant."
 MAX_BATCH_EMBED_RETRIES = 3
 INITIAL_BATCH_EMBED_BACKOFF = 1
+
+# OpenAI GPT-4o Rate Limits (ensure these reflect your actual account limits)
+GPT4O_TPM = 450000  # Tokens Per Minute
+GPT4O_RPM = 5000   # Requests Per Minute
+WORKER_SAFETY_FACTOR = 0.85 # Safety margin for API calls (e.g., 85%)
+ANALYSIS_SAMPLE_SIZE = 3 # Number of blocks to sample for token estimation
+MAX_WORKERS_FALLBACK = 5 # Fallback worker count if sampling fails
+WORKER_RATE_LIMIT_DIVISOR = 6 # Divisor to convert RPM to concurrent workers (e.g., 6 for 10-second intervals)
