@@ -36,7 +36,7 @@ try:
 
     # Assign GPT-4o if Glt_model isn't already set to it
     CHAT_MODEL_NAME = "gpt-4o" if Glt_model != "gpt-4o" else Glt_model
-
+    
 except NameError as e:
     print(f"Missing required parameter in DSAIParams.py: {e}")
     # Handle missing specific parameters
