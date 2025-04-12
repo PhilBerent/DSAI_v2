@@ -26,10 +26,10 @@ except ImportError as e:
 # Pipeline components (using absolute imports from DSAI_v2_Scripts level)
 try:
     from storage_pipeline.config_loader import DocToAddPath, Chunk_size, Chunk_overlap
-    from storage_pipeline.db_connections import get_pinecone_index, get_neo4j_driver, test_connections
+    from storage_pipeline.db_connections import get_pinecone_index, get_neo4j_driver_local, test_connections
     from storage_pipeline.ingestion import ingest_document
-    from storage_pipeline.analysis import analyze_document_structure, analyze_chunk_details
-    from storage_pipeline.chunking import adaptive_chunking
+    from storage_pipeline.analysis import analyze_document_iteratively, analyze_chunk_details
+    from storage_pipeline.chunking import coarse_chunk_by_structure, adaptive_chunking
     from storage_pipeline.embedding import generate_embeddings
     from storage_pipeline.graph_builder import build_graph_data
     from storage_pipeline.storage import store_embeddings_pinecone, store_graph_data_neo4j, store_chunk_metadata_docstore
@@ -53,7 +53,7 @@ def run_pipeline(document_path: str):
         logging.info("Testing database connections...")
         # test_connections() # Optional: Run connection tests first
         pinecone_index = get_pinecone_index()
-        neo4j_driver = get_neo4j_driver()
+        neo4j_driver = get_neo4j_driver_local()
         # Generate a unique ID for this document ingestion run
         # Using filename for simplicity, consider more robust ID generation
         document_id = os.path.splitext(os.path.basename(document_path))[0]
@@ -69,34 +69,48 @@ def run_pipeline(document_path: str):
         raw_text = ingest_document(document_path)
         logging.info(f"Ingestion complete. Text length: {len(raw_text)} chars.")
 
-        # --- 2. High-Level Analysis ---
-        logging.info("Step 2: Performing high-level document analysis...")
-        doc_analysis_result = analyze_document_structure(raw_text)
-        # logging.info(f"Document analysis result: {doc_analysis_result}")
+        # --- 2. Initial Structural Scan & Coarse Chunking ---
+        logging.info("Step 2: Performing initial structural scan and coarse chunking...")
+        large_blocks = coarse_chunk_by_structure(raw_text)
+        if not large_blocks:
+            raise ValueError("Coarse chunking resulted in zero blocks. Aborting.")
+        logging.info(f"Coarse chunking complete. Generated {len(large_blocks)} large blocks.")
 
-        # --- 3. Adaptive Chunking ---
-        logging.info("Step 3: Performing adaptive chunking...")
-        chunks = adaptive_chunking(
+        # --- 3. Iterative Document Analysis (Map-Reduce) ---
+        logging.info("Step 3: Performing iterative document analysis...")
+        # Pass the large_blocks, not raw_text
+        doc_analysis_result = analyze_document_iteratively(large_blocks)
+        if "error" in doc_analysis_result:
+            logging.error(f"Iterative document analysis failed: {doc_analysis_result['error']}")
+            # Decide how to proceed - maybe use default/empty analysis?
+            # For now, raise error if analysis failed completely
+            raise ValueError(f"Iterative document analysis failed: {doc_analysis_result['error']}")
+        logging.info("Iterative document analysis complete.")
+        # logging.info(f"Document analysis result: {doc_analysis_result}") # Log if needed
+
+        # --- 4. Adaptive Fine-Grained Chunking ---
+        logging.info("Step 4: Performing adaptive fine-grained chunking...")
+        final_chunks = adaptive_chunking(
             raw_text,
             document_structure=doc_analysis_result, # Pass structure info
             target_chunk_size=Chunk_size, # Use params from config
             chunk_overlap=Chunk_overlap
         )
-        if not chunks:
+        if not final_chunks:
              raise ValueError("Chunking resulted in zero chunks. Aborting.")
-        logging.info(f"Chunking complete. Generated {len(chunks)} chunks.")
+        logging.info(f"Chunking complete. Generated {len(final_chunks)} chunks.")
         # Add document_id to chunk metadata
-        for chunk in chunks:
+        for chunk in final_chunks:
              chunk['metadata']['document_id'] = document_id
 
 
-        # --- 4. Chunk-Level Analysis ---
-        logging.info("Step 4: Performing detailed chunk analysis...")
+        # --- 5. Chunk-Level Analysis ---
+        logging.info("Step 5: Performing detailed chunk analysis...")
         chunks_with_analysis = []
         processed_chunks = 0
         # Process in batches or sequentially - simple sequential for now
-        for i, chunk in enumerate(chunks):
-            logging.info(f"Analyzing chunk {i+1}/{len(chunks)} (ID: {chunk['chunk_id']})...")
+        for i, chunk in enumerate(final_chunks):
+            logging.info(f"Analyzing chunk {i+1}/{len(final_chunks)} (ID: {chunk['chunk_id']})...")
             try:
                 chunk_analysis_result = analyze_chunk_details(
                     chunk_text=chunk['text'],
@@ -110,24 +124,24 @@ def run_pipeline(document_path: str):
                 logging.error(f"Failed to analyze chunk {chunk['chunk_id']}: {e}. Skipping chunk.")
             # Optional: Add delay between API calls if needed
             # time.sleep(0.5)
-        logging.info(f"Chunk analysis complete. Successfully analyzed {processed_chunks}/{len(chunks)} chunks.")
+        logging.info(f"Chunk analysis complete. Successfully analyzed {processed_chunks}/{len(final_chunks)} chunks.")
         if not chunks_with_analysis:
              raise ValueError("Chunk analysis failed for all chunks. Aborting.")
 
-        # --- 5. Embedding Generation ---
-        logging.info("Step 5: Generating embeddings...")
+        # --- 6. Embedding Generation ---
+        logging.info("Step 6: Generating embeddings...")
         embeddings_dict = generate_embeddings(chunks_with_analysis)
         if not embeddings_dict:
             raise ValueError("Embedding generation failed for all processed chunks. Aborting.")
         logging.info(f"Embedding generation complete. Generated {len(embeddings_dict)} embeddings.")
 
-        # --- 6. Graph Data Construction ---
-        logging.info("Step 6: Constructing graph data...")
+        # --- 7. Graph Data Construction ---
+        logging.info("Step 7: Constructing graph data...")
         graph_nodes, graph_edges = build_graph_data(document_id, doc_analysis_result, chunks_with_analysis)
         logging.info(f"Graph construction complete. Nodes: {len(graph_nodes)}, Edges: {len(graph_edges)}.")
 
-        # --- 7. Data Storage ---
-        logging.info("Step 7: Storing data...")
+        # --- 8. Data Storage ---
+        logging.info("Step 8: Storing data...")
         # Store embeddings (and basic chunk metadata) in Pinecone
         store_embeddings_pinecone(pinecone_index, embeddings_dict, chunks_with_analysis)
         # Store graph data in Neo4j

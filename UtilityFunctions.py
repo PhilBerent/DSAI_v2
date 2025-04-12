@@ -288,6 +288,11 @@ def WriteToFile(obj, filename = g.tempOutputFile):
     elif isinstance(obj, str):
             with open(filename, "w") as f:
                 f.write(obj)
+    # else if the object is a callable_iterator, convert it to a list and write to file
+    elif hasattr(obj, '__iter__') and not isinstance(obj, str):
+        with open(filename, "w") as f:
+            for elem in list(obj):
+                f.write(str(elem) + "\n")
     else:
         return
 
