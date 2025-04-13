@@ -15,3 +15,4 @@ filepathRawDataLive = f'C:\\Users\Phil\Documents\StockPredictor Project\DataFile
 dongo=3
 EndMarker = "===================================================================================================="
 FakeDocumentBasePath = r"C:/Users/Phil/Documents/DataSphere AI/DataSphere AI Not Code/Inputs And Outputs/Outputs/FakeDocuments/"
+DocumentTypeList = ["Novel", "Biography", "Journal Article"]

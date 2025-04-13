@@ -12,6 +12,7 @@ import concurrent.futures
 import tiktoken # Add tiktoken import
 import time # Added for rate limit sleep
 import openai # Added for RateLimitError
+from enum import Enum
 
 # Adjust path to import from parent directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -23,7 +24,7 @@ try:
     from globals import *
     from UtilityFunctions import *
     from DSAIParams import *
-    from enums import *
+    from enums_and_constants import *
 except ImportError as e:
     print(f"Error importing core modules (globals, UtilityFunctions, DSAIParams): {e}")
     raise
