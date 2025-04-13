@@ -14,19 +14,20 @@ import time # Added for rate limit sleep
 import openai # Added for RateLimitError
 from enum import Enum
 
-# Adjust path to import from parent directory
+# Adjust path to import from parent directory AND sibling directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(script_dir)
-sys.path.insert(0, parent_dir)
+sys.path.insert(0, parent_dir) # Add parent DSAI_v2_Scripts
 
 # Import required global modules
 try:
     from globals import *
     from UtilityFunctions import *
     from DSAIParams import *
-    from enums_and_constants import *
+    # Import from the new constants file
+    from enums_and_constants import DocumentType, DocumentTypeList, additions_to_reduce_prompt
 except ImportError as e:
-    print(f"Error importing core modules (globals, UtilityFunctions, DSAIParams): {e}")
+    print(f"Error importing core modules or enums_and_constants: {e}")
     raise
 
 from .db_connections import client # OpenAI client
@@ -294,7 +295,7 @@ def analyze_document_iteratively(large_blocks: List[Dict[str, Any]]) -> Dict[str
     logging.info(f"Map phase complete. Successfully analyzed {successful_count}/{total_count} blocks. ({failed_count} failures/skips)")
 
     # --- 3.2 Reduce Phase --- #
-    logging.info("Starting Reduce phase: Synthesizing document overview...")
+    logging.info("Starting Reduce phase: Synthesizing document overview with type-specific instructions...")
 
     # Prepare input for the reduction prompt
     synthesis_input = ""
@@ -331,36 +332,62 @@ def analyze_document_iteratively(large_blocks: List[Dict[str, Any]]) -> Dict[str
     # Convert sets back to lists for the final structure
     final_entities = {k: sorted(list(v)) for k, v in consolidated_entities.items()} # Sort for consistency
 
-    # Build the reduction prompt
+    # --- Build the new Reduce Prompt --- #
+    # Format the type list and specific instructions for the prompt
+    allowed_types_str = ", ".join([f"'{t}'" for t in DocumentTypeList]) # e.g., "'Novel', 'Biography', ..."
+    # Safely get instructions, providing a default if a type is missing in the dictionary
+    novel_instructions = additions_to_reduce_prompt.get(DocumentType.NOVEL, "Default instructions: Provide a comprehensive analysis including type, structure, summary, and key entities.")
+    biography_instructions = additions_to_reduce_prompt.get(DocumentType.BIOGRAPHY, "Default instructions: Provide a comprehensive analysis including type, structure, summary, and key entities.")
+    journal_instructions = additions_to_reduce_prompt.get(DocumentType.JOURNAL_ARTICLE, "Default instructions: Provide a comprehensive analysis including type, structure, summary, and key entities.")
+    # Add others here if your enum expands, using .get() for safety
+
     reduce_prompt = f"""
-    Based on the following summaries and key entities extracted from consecutive blocks of a large document, synthesize an overall analysis. Provide the overall document type, a concise overall summary, a consolidated list of preliminary key entities (most important ones overall), and refine the list of structural markers into a coherent document structure. Adhere strictly to the provided JSON schema.
+You will analyze summaries extracted from consecutive blocks of a large document. Follow these steps carefully:
 
-    JSON Schema:
-    {json.dumps(DOCUMENT_ANALYSIS_SCHEMA, indent=2)}
+1.  **Determine Document Type:** Based on the content of the summaries, determine the overall document type. Choose ONLY ONE type from the following list: [{allowed_types_str}].
 
-    Summaries & Entities from Blocks:
-    --- START BLOCK DATA ---
-    {synthesis_input[:100000]}
-    --- END BLOCK DATA ---
-    (Note: Block data may be truncated if excessively long)
+2.  **Apply Specific Instructions:** Based *only* on the Document Type you determined in Step 1, follow the corresponding specific instructions below to guide your analysis:
 
-    Provide the synthesized analysis ONLY in the specified JSON format. Ensure the 'structure' list is ordered correctly based on block appearance.
-    """
+    --- Instructions for '{DocumentType.NOVEL.value}' ---
+    {novel_instructions}
+    --- End Instructions for '{DocumentType.NOVEL.value}' ---
+
+    --- Instructions for '{DocumentType.BIOGRAPHY.value}' ---
+    {biography_instructions}
+    --- End Instructions for '{DocumentType.BIOGRAPHY.value}' ---
+
+    --- Instructions for '{DocumentType.JOURNAL_ARTICLE.value}' ---
+    {journal_instructions}
+    --- End Instructions for '{DocumentType.JOURNAL_ARTICLE.value}' ---
+    
+
+3.  **Generate Output:** Using the insights from the summaries and the specific instructions you followed, generate the final analysis. Adhere strictly to the provided JSON Schema. Ensure the 'structure' list reflects the instructions for the determined document type (e.g., individual chapters for Novels if requested). Ensure 'preliminary_key_entities' reflects consolidation rules if specified (e.g., handling 'Darcy'/'Mr. Darcy').
+
+JSON Schema:
+{json.dumps(DOCUMENT_ANALYSIS_SCHEMA, indent=2)}
+
+Summaries from Blocks:
+--- START BLOCK DATA ---
+{synthesis_input[:120000]} 
+--- END BLOCK DATA ---
+(Note: Block data may be truncated if excessively long)
+
+Provide the complete synthesized analysis ONLY in the specified JSON format, including the determined 'document_type'.
+"""
 
     # Call LLM for reduction
     try:
         final_analysis = _call_openai_json_mode(reduce_prompt, DOCUMENT_ANALYSIS_SCHEMA)
-        logging.info("Reduce phase complete. Synthesized document analysis.")
-        # Optional: Post-process final_analysis['structure'] using structure_list_from_map
-        # For now, rely on the LLM's synthesis based on the prompt.
+        logging.info("Reduce phase complete. Synthesized document analysis using type-specific instructions.")
+        # Optional: Add validation here to check if final_analysis['document_type'] is in DocumentTypeList
     except Exception as e:
         logging.error(f"Reduce phase failed: {e}")
         # Fallback: return partial data or error
         final_analysis = {
             "document_type": "Unknown (Synthesis Failed)",
-            "structure": structure_list_from_map, # Best guess from map phase markers
+            "structure": [], # Cannot rely on structure_list_from_map as it wasn't requested in prompt
             "overall_summary": "Synthesis failed, see block summaries for details.",
-            "preliminary_key_entities": final_entities, # From consolidation
+            "preliminary_key_entities": final_entities, # From local consolidation
             "error": f"Reduce phase failed: {str(e)}"
         }
 
