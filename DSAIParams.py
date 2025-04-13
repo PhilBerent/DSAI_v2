@@ -84,3 +84,8 @@ MAX_WORKERS_FALLBACK = 10 # Fallback worker count if sampling fails (Increased)
 WORKER_RATE_LIMIT_DIVISOR = 6 # Divisor to convert RPM to concurrent workers (e.g., 6 for 10-second intervals)
 ESTIMATED_OUTPUT_TOKEN_FRACTION = 0.2 # Estimated output tokens as a fraction of input tokens
 RATE_LIMIT_SLEEP_SECONDS = 5 # Seconds to sleep after hitting a rate limit error
+UseDebugMode = True
+AllowUseOfTrainingKnowledge = True
+if UseDebugMode:
+    # Debugging prompt for additional information
+    AllowUseOfTrainingKnowledge = False

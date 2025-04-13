@@ -332,14 +332,28 @@ def analyze_document_iteratively(large_blocks: List[Dict[str, Any]]) -> Dict[str
     # Convert sets back to lists for the final structure
     final_entities = {k: sorted(list(v)) for k, v in consolidated_entities.items()} # Sort for consistency
 
+    # --- Format final_entities for the prompt --- #
+    try:
+        # Convert the lists into a readable string format
+        formatted_entities_str = json.dumps(final_entities, indent=2)
+    except Exception as json_err:
+        logging.warning(f"Could not format final_entities for prompt: {json_err}")
+        formatted_entities_str = "Error formatting entities." # Fallback
+
     # --- Build the new Reduce Prompt --- #
     # Format the type list and specific instructions for the prompt
     allowed_types_str = ", ".join([f"'{t}'" for t in DocumentTypeList]) # e.g., "'Novel', 'Biography', ..."
     # Safely get instructions, providing a default if a type is missing in the dictionary
-    novel_instructions = additions_to_reduce_prompt.get(DocumentType.NOVEL, "Default instructions: Provide a comprehensive analysis including type, structure, summary, and key entities.")
+    # Assuming keys are Enum members based on user correction (use .value if keys are strings)
+    novel_instructions = additions_to_reduce_prompt.get(DocumentType.NOVEL, "Default novel instructions... list all characters/locations/orgs.")
     biography_instructions = additions_to_reduce_prompt.get(DocumentType.BIOGRAPHY, "Default instructions: Provide a comprehensive analysis including type, structure, summary, and key entities.")
     journal_instructions = additions_to_reduce_prompt.get(DocumentType.JOURNAL_ARTICLE, "Default instructions: Provide a comprehensive analysis including type, structure, summary, and key entities.")
     # Add others here if your enum expands, using .get() for safety
+
+    # Increase truncation limit slightly, but WARN about token limits
+    # We should ideally calculate total prompt tokens and truncate dynamically.
+    # synthesis_input_truncated = synthesis_input[:130000] # Example adjustment - REMOVED
+    # entities_input_truncated = formatted_entities_str[:20000] # Also truncate entities if needed - REMOVED
 
     reduce_prompt = f"""
 You will analyze summaries extracted from consecutive blocks of a large document. Follow these steps carefully:
@@ -359,18 +373,23 @@ You will analyze summaries extracted from consecutive blocks of a large document
     --- Instructions for '{DocumentType.JOURNAL_ARTICLE.value}' ---
     {journal_instructions}
     --- End Instructions for '{DocumentType.JOURNAL_ARTICLE.value}' ---
-    
 
-3.  **Generate Output:** Using the insights from the summaries and the specific instructions you followed, generate the final analysis. Adhere strictly to the provided JSON Schema. Ensure the 'structure' list reflects the instructions for the determined document type (e.g., individual chapters for Novels if requested). Ensure 'preliminary_key_entities' reflects consolidation rules if specified (e.g., handling 'Darcy'/'Mr. Darcy').
+3.  **Generate Output:** Using insights from the summaries, the 'Raw Consolidated Entities' list (if applicable based on instructions), and the specific instructions you followed, generate the final analysis. Adhere strictly to the provided JSON Schema. Ensure the 'structure' list reflects the instructions for the determined document type. Ensure 'preliminary_key_entities' reflects the requested consolidation and deduplication.
 
 JSON Schema:
 {json.dumps(DOCUMENT_ANALYSIS_SCHEMA, indent=2)}
 
 Summaries from Blocks:
 --- START BLOCK DATA ---
-{synthesis_input[:120000]} 
+{synthesis_input} # Use full synthesis_input
 --- END BLOCK DATA ---
-(Note: Block data may be truncated if excessively long)
+
+Raw Consolidated Entities (Potential Duplicates Exist):
+--- START ENTITY DATA ---
+{formatted_entities_str} # Use full formatted_entities_str
+--- END ENTITY DATA ---
+
+(Note: Summaries and entity lists may be truncated if excessively long. Prioritize analysis based on available data.) # Keep this note for now
 
 Provide the complete synthesized analysis ONLY in the specified JSON format, including the determined 'document_type'.
 """
@@ -378,7 +397,7 @@ Provide the complete synthesized analysis ONLY in the specified JSON format, inc
     # Call LLM for reduction
     try:
         final_analysis = _call_openai_json_mode(reduce_prompt, DOCUMENT_ANALYSIS_SCHEMA)
-        logging.info("Reduce phase complete. Synthesized document analysis using type-specific instructions.")
+        logging.info("Reduce phase complete. Synthesized document analysis using type-specific instructions and entity list.")
         # Optional: Add validation here to check if final_analysis['document_type'] is in DocumentTypeList
     except Exception as e:
         logging.error(f"Reduce phase failed: {e}")
