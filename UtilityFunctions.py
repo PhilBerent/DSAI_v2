@@ -16,6 +16,7 @@ import json
 import globals as g
 from globals import *
 import gc
+import json
 
 clr.AddReference('Python.Runtime')
 clr.AddReference(r"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.dll")
@@ -1624,3 +1625,78 @@ def deep_getsizeof(obj, seen=None):
         size += sum(deep_getsizeof(i, seen) for i in obj)
     return size
 
+def WriteJSONToMindMap(jsonObj, filename=g.tempOutputFile):
+    def recurse(obj, level=0, key_name=None, lines=None):
+        if lines is None:
+            lines = []
+
+        indent = '\t' * level
+
+        # Handle dictionary
+        if isinstance(obj, dict):
+            if key_name is not None:
+                lines.append(f"{indent}{key_name}")
+                indent += '\t'
+            for k, v in obj.items():
+                recurse(v, level + 1, k, lines)
+
+        # Handle list
+        elif isinstance(obj, list):
+            if key_name is not None:
+                lines.append(f"{indent}{key_name}")
+            for i, item in enumerate(obj, 1):
+                node_label = f"{key_name}_{i}" if key_name else f"item_{i}"
+                recurse(item, level + 1, node_label, lines)
+
+        # Handle scalar
+        else:
+            if key_name is not None:
+                lines.append(f"{indent}{key_name}: {obj}")
+            else:
+                lines.append(f"{indent}{obj}")
+
+        return lines
+
+    lines = recurse(jsonObj)
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines))
+
+# function to convert dictionary object to a mindmap
+def WriteDictToMindMap(dictObj, filename=g.tempOutputFile):
+    def recurse(obj, level=0, key_name=None, lines=None):
+        if lines is None:
+            lines = []
+
+        indent = '\t' * level
+
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                lines.append(f"{indent}{k}")
+                recurse(v, level + 1, None, lines)
+
+        elif isinstance(obj, list):
+            for i, item in enumerate(obj, 1):
+                label = f"item_{i}"
+                lines.append(f"{indent}{label}")
+                recurse(item, level + 1, None, lines)
+
+        else:
+            lines.append(f"{indent}{obj}")
+
+        return lines
+
+    lines = recurse(dictObj)
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines))
+
+def WriteDictOrJsonToMM(Obj, filename=g.tempOutputFile):
+    if isinstance(Obj, dict):
+        WriteDictToMindMap(Obj, filename)
+    elif isinstance(Obj, str):
+        try:
+            parsed = json.loads(Obj)
+            WriteJSONToMindMap(parsed, filename)
+        except json.JSONDecodeError:
+            raise ValueError("Input string is not valid JSON.")
+    else:
+        raise TypeError("Input must be a dict or JSON string.")

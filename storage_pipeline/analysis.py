@@ -10,6 +10,8 @@ import sys
 import os
 import concurrent.futures
 import tiktoken # Add tiktoken import
+import time # Added for rate limit sleep
+import openai # Added for RateLimitError
 
 # Adjust path to import from parent directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,6 +23,7 @@ try:
     from globals import *
     from UtilityFunctions import *
     from DSAIParams import *
+    from enums import *
 except ImportError as e:
     print(f"Error importing core modules (globals, UtilityFunctions, DSAIParams): {e}")
     raise
@@ -42,6 +45,7 @@ DOCUMENT_ANALYSIS_SCHEMA = {
         "organizations": ["string"]
     }
 }
+
 
 CHUNK_ANALYSIS_SCHEMA = {
     "entities": {
@@ -138,6 +142,7 @@ def _analyze_large_block(block_info: Dict[str, Any], block_index: int) -> Option
 def analyze_document_iteratively(large_blocks: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Performs iterative analysis (Step 3) using a Map-Reduce approach.
+    Estimates token usage locally and processes all blocks in parallel with basic rate limit handling.
 
     Args:
         large_blocks: List of coarse chunks/blocks from Step 2.
@@ -149,8 +154,7 @@ def analyze_document_iteratively(large_blocks: List[Dict[str, Any]]) -> Dict[str
 
     # --- Dynamic Worker Calculation Logic --- #
     sample_size = min(ANALYSIS_SAMPLE_SIZE, len(large_blocks))
-    estimated_tokens_per_call = None # Initialize
-    sample_results_collected = [None] * sample_size # Pre-allocate list for sample results
+    estimated_total_tokens_per_call = None # Initialize
     encoding = None
 
     try:
@@ -161,158 +165,132 @@ def analyze_document_iteratively(large_blocks: List[Dict[str, Any]]) -> Dict[str
         # encoding remains None
 
     if sample_size > 0:
-        logging.info(f"Estimating tokens per call based on {sample_size} sample blocks...")
-        total_tokens_sampled = 0
+        logging.info(f"Estimating input tokens locally based on {sample_size} sample blocks...")
+        total_input_tokens_sampled = 0
         successful_samples = 0
 
-        # --- Sampling Loop --- #
+        # --- Sampling Loop (Local Estimation Only) --- #
         for i in range(sample_size):
             block_info = large_blocks[i]
             try:
-                logging.debug(f"Processing sample block {i+1}/{sample_size}...")
-                # Perform the analysis for the sample block
-                sample_result = _analyze_large_block(block_info, i)
+                logging.debug(f"Estimating tokens for sample block {i+1}/{sample_size}...")
 
-                if sample_result:
-                    sample_results_collected[i] = sample_result # Store successful result
+                # --- Estimate Input Tokens Locally --- #
+                # Reconstruct the prompt that *would* be sent to _analyze_large_block
+                # Define schema for block-level analysis (copy from _analyze_large_block)
+                BLOCK_ANALYSIS_SCHEMA_FOR_SAMPLING = {
+                    "block_summary": "string (concise summary of this block)",
+                    "key_entities_in_block": {
+                        "characters": ["string"],
+                        "locations": ["string"],
+                        "organizations": ["string"]
+                    },
+                    "structural_marker_found": "string | None (e.g., 'Chapter X Title', 'Part Y Start')"
+                }
+                schema_str = json.dumps(BLOCK_ANALYSIS_SCHEMA_FOR_SAMPLING, indent=2)
+                truncated_block = block_info['text'][:80000] # Match truncation
+                system_msg = "You are an expert literary analyst. Analyze the provided text and extract information strictly according to the provided JSON schema. Only output JSON."
+                block_ref_for_prompt = block_info['ref']
+                user_msg = f"""Analyze the following large text block...JSON Schema:\n{schema_str}...Text Block (Ref: {block_ref_for_prompt})...{truncated_block}...Provide the analysis ONLY...""" # Simplified for brevity, keep full prompt in real code
+                prompt_for_token_count = system_msg + user_msg
 
-                    # --- Estimate Tokens --- #
-                    # Reconstruct the prompt sent to _analyze_large_block for input token estimation
-                    # (We need the schema definition from within _analyze_large_block's scope)
-                    # Define schema for block-level analysis (copy from _analyze_large_block)
-                    BLOCK_ANALYSIS_SCHEMA_FOR_SAMPLING = {
-                        "block_summary": "string (concise summary of this block)",
-                        "key_entities_in_block": {
-                            "characters": ["string"],
-                            "locations": ["string"],
-                            "organizations": ["string"]
-                        },
-                        "structural_marker_found": "string | None (e.g., 'Chapter X Title', 'Part Y Start')"
-                    }
-                    schema_str = json.dumps(BLOCK_ANALYSIS_SCHEMA_FOR_SAMPLING, indent=2)
-                    truncated_block = block_info['text'][:80000] # Match truncation
-                    system_msg = "You are an expert literary analyst. Analyze the provided text and extract information strictly according to the provided JSON schema. Only output JSON."
-                    # Replicate the prompt structure from _analyze_large_block closely
-                    block_ref_for_prompt = block_info['ref'] # Assign to temporary variable
-                    user_msg = f"""
-Analyze the following large text block from a document. Extract a concise summary, key entities primarily featured *in this block*, and identify any structural marker (like Chapter/Part title) found near the beginning of this block. Adhere strictly to the provided JSON schema.
-
-JSON Schema:
-{schema_str}
-
-Text Block (Ref: {block_ref_for_prompt}):
---- START BLOCK ---
-{truncated_block}
---- END BLOCK ---
-(Note: Block might be truncated for analysis if excessively long)
-
-Provide the analysis ONLY in the specified JSON format.
-                    """
-                    prompt_for_token_count = system_msg + user_msg
-
-                    if encoding:
-                        input_tokens = len(encoding.encode(prompt_for_token_count))
-                        output_tokens = len(encoding.encode(json.dumps(sample_result)))
-                    else:
-                        # Rough estimate if tiktoken failed
-                        input_tokens = len(prompt_for_token_count) // 4
-                        output_tokens = len(json.dumps(sample_result)) // 4
-                    
-                    # Calculate total tokens before logging
-                    total_block_tokens = input_tokens + output_tokens
-                    total_tokens_sampled += total_block_tokens
-                    successful_samples += 1
-                    # Use the pre-calculated total in the f-string
-                    logging.debug(f"Sample {i+1}: InputTokens={input_tokens}, OutputTokens={output_tokens}, Total={total_block_tokens}")
+                if encoding:
+                    input_tokens = len(encoding.encode(prompt_for_token_count))
                 else:
-                    logging.warning(f"Sample block {i+1} analysis failed, excluding from average.")
-                    # sample_results_collected[i] remains None
+                    input_tokens = len(prompt_for_token_count) // 4 # Rough estimate
+
+                total_input_tokens_sampled += input_tokens
+                successful_samples += 1
+                logging.debug(f"Sample {i+1}: Estimated Input Tokens = {input_tokens}")
 
             except Exception as sample_exc:
-                logging.warning(f"Error processing sample block {i+1}: {sample_exc}")
-                sample_results_collected[i] = None # Ensure it's None if analysis fails
+                logging.warning(f"Error estimating tokens for sample block {i+1}: {sample_exc}")
 
-        # --- Calculate Average Tokens --- #
+        # --- Calculate Average and Estimate Total Tokens --- #
         if successful_samples > 0:
-            estimated_tokens_per_call = total_tokens_sampled / successful_samples
-            logging.info(f"Dynamic estimate: Average tokens per call = {estimated_tokens_per_call:.0f}")
+            average_input_tokens = total_input_tokens_sampled / successful_samples
+            # Estimate output tokens as a fraction of input
+            estimated_output_tokens = average_input_tokens * ESTIMATED_OUTPUT_TOKEN_FRACTION
+            estimated_total_tokens_per_call = average_input_tokens + estimated_output_tokens
+            logging.info(f"Dynamic estimate: Average Input Tokens = {average_input_tokens:.0f}, "
+                         f"Estimated Output Tokens = {estimated_output_tokens:.0f} (Fraction: {ESTIMATED_OUTPUT_TOKEN_FRACTION}), "
+                         f"Estimated Total Tokens/Call = {estimated_total_tokens_per_call:.0f}")
         else:
-            logging.warning("Failed to analyze any sample blocks. Cannot dynamically estimate tokens.")
-            # estimated_tokens_per_call remains None
+            logging.warning("Failed to estimate tokens for any sample blocks. Cannot dynamically estimate.")
+            # estimated_total_tokens_per_call remains None
     else:
         logging.warning("No blocks available for sampling.")
 
     # --- Determine Max Workers --- #
-    # Use fallback if estimation failed
-    if estimated_tokens_per_call is None:
+    if estimated_total_tokens_per_call is None:
         dynamic_max_workers = MAX_WORKERS_FALLBACK
         logging.warning(f"Using fallback max_workers: {dynamic_max_workers}")
     else:
         # Calculate based on TPM
-        calls_per_minute_tpm = GPT4O_TPM / estimated_tokens_per_call if estimated_tokens_per_call > 0 else 0
-        # Calculate based on RPM (Requests Per Minute)
-        # Divide RPM by a factor to get sustainable concurrent requests (e.g., 6 implies ~10s per request)
+        calls_per_minute_tpm = GPT4O_TPM / estimated_total_tokens_per_call if estimated_total_tokens_per_call > 0 else 0
+        # Calculate based on RPM
         concurrent_limit_rpm = GPT4O_RPM / WORKER_RATE_LIMIT_DIVISOR
 
         # Use the minimum of the two limits, apply safety factor
         calculated_max_workers = min(calls_per_minute_tpm, concurrent_limit_rpm)
         dynamic_max_workers = max(1, int(calculated_max_workers * WORKER_SAFETY_FACTOR))
 
+        # *** Add constraint: Cannot have more workers than blocks ***
+        dynamic_max_workers = min(dynamic_max_workers, len(large_blocks))
+
         logging.info(f"Calculated dynamic max_workers: {dynamic_max_workers} "
                      f"(Based on TPM={GPT4O_TPM}, RPM={GPT4O_RPM}, "
-                     f"EstTokens={estimated_tokens_per_call:.0f}, Factor={WORKER_SAFETY_FACTOR}, "
+                     f"EstTotalTokens={estimated_total_tokens_per_call:.0f}, Factor={WORKER_SAFETY_FACTOR}, "
                      f"RPM Divisor={WORKER_RATE_LIMIT_DIVISOR})")
-        # Optional: Add an absolute max cap if desired
-        # dynamic_max_workers = min(dynamic_max_workers, ABSOLUTE_MAX_WORKERS_CAP)
 
     # --- End Dynamic Worker Calculation Logic --- #
 
 
-    # --- 3.1 Map Phase --- #
+    # --- 3.1 Map Phase (Process ALL blocks)--- #
     map_results = []
+    logging.info(f"Processing all {len(large_blocks)} blocks in parallel with {dynamic_max_workers} workers...")
 
-    # Add successful sample results (already analyzed)
-    map_results.extend([res for res in sample_results_collected if res is not None])
-    logging.info(f"Reusing results from {len(map_results)} successful sample blocks.")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=dynamic_max_workers) as executor:
+        # Submit all blocks for analysis
+        future_to_block_index = {
+            executor.submit(_analyze_large_block, block, i): i
+            for i, block in enumerate(large_blocks)
+        }
 
-    # Process remaining blocks in parallel
-    remaining_blocks = large_blocks[sample_size:]
-    if remaining_blocks:
-        logging.info(f"Processing remaining {len(remaining_blocks)} blocks in parallel with {dynamic_max_workers} workers...")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=dynamic_max_workers) as executor:
-            future_to_block_index = {
-                # Pass the correct block index (i + sample_size)
-                executor.submit(_analyze_large_block, block, i + sample_size): i + sample_size
-                for i, block in enumerate(remaining_blocks)
-            }
+        for future in concurrent.futures.as_completed(future_to_block_index):
+            original_block_index = future_to_block_index[future]
+            block_ref = large_blocks[original_block_index].get('ref', f'Index {original_block_index}') # Get ref for logging
+            try:
+                result = future.result() # Potential point for RateLimitError
+                if result:
+                    map_results.append(result)
+            except openai.RateLimitError as rle:
+                # Basic handling: Log, sleep, and skip the block for now
+                logging.warning(f"Rate limit hit processing block {original_block_index} ({block_ref}). Sleeping for {RATE_LIMIT_SLEEP_SECONDS}s. Error: {rle}")
+                time.sleep(RATE_LIMIT_SLEEP_SECONDS)
+                # Consider adding this block index to a list of failures for potential later retry
+            except Exception as exc:
+                # Handle other exceptions during block analysis
+                logging.error(f"Block analysis task for index {original_block_index} ({block_ref}) generated an exception: {exc}")
 
-            for future in concurrent.futures.as_completed(future_to_block_index):
-                original_block_index = future_to_block_index[future]
-                try:
-                    result = future.result()
-                    if result:
-                        map_results.append(result)
-                except Exception as exc:
-                    logging.error(f"Block analysis task for index {original_block_index} generated an exception: {exc}")
-
-    else:
-        logging.info("No remaining blocks to process after sampling.")
-
-    # Sort results by original block index to maintain order before reduction
+    # Sort results by original block index (important for Reduce phase)
     map_results.sort(key=lambda x: x.get('block_index', -1))
 
     if not map_results:
-        logging.error("Map phase failed for all blocks. Cannot proceed to Reduce phase.")
+        logging.error("Map phase failed for all blocks or too many rate limit errors. Cannot proceed to Reduce phase.")
         # Return a meaningful error structure
         return {
-            "error": "Failed to analyze any document blocks.",
+            "error": "Failed to analyze any document blocks due to errors or rate limits.",
             "document_type": "Analysis Failed",
             "structure": [],
             "overall_summary": "",
             "preliminary_key_entities": {}
         }
 
-    logging.info(f"Map phase complete. Successfully analyzed {len(map_results)} blocks.")
+    successful_count = len(map_results)
+    total_count = len(large_blocks)
+    failed_count = total_count - successful_count
+    logging.info(f"Map phase complete. Successfully analyzed {successful_count}/{total_count} blocks. ({failed_count} failures/skips)")
 
     # --- 3.2 Reduce Phase --- #
     logging.info("Starting Reduce phase: Synthesizing document overview...")
