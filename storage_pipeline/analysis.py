@@ -25,7 +25,7 @@ try:
     from UtilityFunctions import *
     from DSAIParams import *
     # Import from the new constants file
-    from enums_and_constants import DocumentType, DocumentTypeList, additions_to_reduce_prompt
+    from enums_and_constants import DocumentType, DocumentTypeList, additions_to_reduce_prompt, initialPromptText
 except ImportError as e:
     print(f"Error importing core modules or enums_and_constants: {e}")
     raise
@@ -71,6 +71,9 @@ CHUNK_ANALYSIS_SCHEMA = {
 def _call_openai_json_mode(prompt: str, schema: Dict[str, Any]) -> Dict[str, Any]:
     """Helper function to call OpenAI API in JSON mode with a specific schema."""
     try:
+        # Prepend the initial instruction text
+        final_prompt = initialPromptText + prompt
+
         response = client.chat.completions.create(
             model=CHAT_MODEL_NAME,
             # The 'schema' key is not a valid parameter for response_format
@@ -79,7 +82,7 @@ def _call_openai_json_mode(prompt: str, schema: Dict[str, Any]) -> Dict[str, Any
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": "You are an expert literary analyst. Analyze the provided text and extract information strictly according to the provided JSON schema. Only output JSON."},
-                {"role": "user", "content": prompt} # The prompt still contains the schema description
+                {"role": "user", "content": final_prompt} # Use the modified prompt
             ]
         )
         # Ensure response content is not None
