@@ -7,6 +7,21 @@ class DocumentType(Enum):
     NOVEL = "Novel"
     BIOGRAPHY = "Biography"
     JOURNAL_ARTICLE = "JournalArticle"
+    
+class DocumentType(Enum):
+    NOVEL = "Novel"
+    BIOGRAPHY = "Biography"
+    JOURNAL_ARTICLE = "JournalArticle"
+
+class RunFromType(Enum):
+    Start = "Start"
+    LargeBlockAnalysisCompleted = "LargeBlockAnalysisCompleted"
+    IterativeAnalysisCompleted = "IterativeAnalysisCompleted"
+
+class StateStoragePoints(Enum):
+    LargeBlockAnalysisCompleted = "LargeBlockAnalysisCompleted"
+    IterativeAnalysisCompleted = "IterativeAnalysisCompleted"
+
 
 DocumentTypeList = ["Novel", "Biography", "Journal Article"]
     
@@ -17,10 +32,3 @@ additions_to_reduce_prompt = {
     DocumentType.JOURNAL_ARTICLE: "Please provide a detailed analysis of the journal article, including its main arguments and contributions to the field."
 }
 
-initialPromptText = ""
-if AllowUseOfTrainingKnowledge:
-    # Initial prompt for the LLM
-    initialPromptText = "In answering this prompt do not use any knowledge or understanding from your training but only what you learn from the inputs which are supplied.\n\n"
-if UseDebugMode:
-    # Debugging prompt for additional information
-    initialPromptText = "In answering this prompt do not use any knowledge or understanding from your training but only what you learn from the inputs which are supplied. Specifically do not use any thing you might know about the novel 'Pride and Prejudice' in your answer.\n\n"

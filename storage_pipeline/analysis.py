@@ -25,7 +25,7 @@ try:
     from UtilityFunctions import *
     from DSAIParams import *
     # Import from the new constants file
-    from enums_and_constants import DocumentType, DocumentTypeList, additions_to_reduce_prompt, initialPromptText
+    from enums_and_constants import *
 except ImportError as e:
     print(f"Error importing core modules or enums_and_constants: {e}")
     raise
@@ -143,23 +143,25 @@ def _analyze_large_block(block_info: Dict[str, Any], block_index: int) -> Option
         return None # Return None on failure for this block
 
 
-# --- REVISED: Step 3 - Iterative Document Analysis ---
-def analyze_document_iteratively(large_blocks: List[Dict[str, Any]]) -> Dict[str, Any]:
+# --- REVISED: Step 3 - Map Phase: Analyze Blocks in Parallel ---
+def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, List[str]]]:
     """
-    Performs iterative analysis (Step 3) using a Map-Reduce approach.
-    Estimates token usage locally and processes all blocks in parallel with basic rate limit handling.
+    Performs the Map phase of Step 3: Analyzes large blocks in parallel.
+    Estimates token usage locally and processes all blocks with basic rate limit handling.
 
     Args:
         large_blocks: List of coarse chunks/blocks from Step 2.
 
     Returns:
-        The synthesized document analysis result matching DOCUMENT_ANALYSIS_SCHEMA.
+        A tuple containing:
+        - map_results: A list of analysis results from each successfully processed block.
+        - final_entities: A dictionary of consolidated entities found across all blocks.
     """
-    logging.info(f"Starting Step 3: Iterative document analysis on {len(large_blocks)} large blocks...")
+    logging.info(f"Starting Map Phase: Analyzing {len(large_blocks)} large blocks...")
 
-    # --- Dynamic Worker Calculation Logic --- #
+    # --- Dynamic Worker Calculation Logic (Copied from original function) --- #
     sample_size = min(ANALYSIS_SAMPLE_SIZE, len(large_blocks))
-    estimated_total_tokens_per_call = None # Initialize
+    estimated_total_tokens_per_call = None
     encoding = None
 
     try:
@@ -167,22 +169,16 @@ def analyze_document_iteratively(large_blocks: List[Dict[str, Any]]) -> Dict[str
         logging.info(f"Using tiktoken encoding for {CHAT_MODEL_NAME}.")
     except Exception:
         logging.warning(f"tiktoken encoding for {CHAT_MODEL_NAME} not found. Using rough character count for token estimation.")
-        # encoding remains None
 
     if sample_size > 0:
         logging.info(f"Estimating input tokens locally based on {sample_size} sample blocks...")
         total_input_tokens_sampled = 0
         successful_samples = 0
 
-        # --- Sampling Loop (Local Estimation Only) --- #
         for i in range(sample_size):
             block_info = large_blocks[i]
             try:
                 logging.debug(f"Estimating tokens for sample block {i+1}/{sample_size}...")
-
-                # --- Estimate Input Tokens Locally --- #
-                # Reconstruct the prompt that *would* be sent to _analyze_large_block
-                # Define schema for block-level analysis (copy from _analyze_large_block)
                 BLOCK_ANALYSIS_SCHEMA_FOR_SAMPLING = {
                     "block_summary": "string (concise summary of this block)",
                     "key_entities_in_block": {
@@ -193,16 +189,17 @@ def analyze_document_iteratively(large_blocks: List[Dict[str, Any]]) -> Dict[str
                     "structural_marker_found": "string | None (e.g., 'Chapter X Title', 'Part Y Start')"
                 }
                 schema_str = json.dumps(BLOCK_ANALYSIS_SCHEMA_FOR_SAMPLING, indent=2)
-                truncated_block = block_info['text'][:80000] # Match truncation
+                truncated_block = block_info['text'][:80000]
                 system_msg = "You are an expert literary analyst. Analyze the provided text and extract information strictly according to the provided JSON schema. Only output JSON."
                 block_ref_for_prompt = block_info['ref']
-                user_msg = f"""Analyze the following large text block...JSON Schema:\n{schema_str}...Text Block (Ref: {block_ref_for_prompt})...{truncated_block}...Provide the analysis ONLY...""" # Simplified for brevity, keep full prompt in real code
+                user_msg = f""""Analyze the following large text block...JSON Schema:
+{schema_str}...Text Block (Ref: {block_ref_for_prompt})...{truncated_block}...Provide the analysis ONLY..."""
                 prompt_for_token_count = system_msg + user_msg
 
                 if encoding:
                     input_tokens = len(encoding.encode(prompt_for_token_count))
                 else:
-                    input_tokens = len(prompt_for_token_count) // 4 # Rough estimate
+                    input_tokens = len(prompt_for_token_count) // 4
 
                 total_input_tokens_sampled += input_tokens
                 successful_samples += 1
@@ -211,10 +208,8 @@ def analyze_document_iteratively(large_blocks: List[Dict[str, Any]]) -> Dict[str
             except Exception as sample_exc:
                 logging.warning(f"Error estimating tokens for sample block {i+1}: {sample_exc}")
 
-        # --- Calculate Average and Estimate Total Tokens --- #
         if successful_samples > 0:
             average_input_tokens = total_input_tokens_sampled / successful_samples
-            # Estimate output tokens as a fraction of input
             estimated_output_tokens = average_input_tokens * ESTIMATED_OUTPUT_TOKEN_FRACTION
             estimated_total_tokens_per_call = average_input_tokens + estimated_output_tokens
             logging.info(f"Dynamic estimate: Average Input Tokens = {average_input_tokens:.0f}, "
@@ -222,41 +217,29 @@ def analyze_document_iteratively(large_blocks: List[Dict[str, Any]]) -> Dict[str
                          f"Estimated Total Tokens/Call = {estimated_total_tokens_per_call:.0f}")
         else:
             logging.warning("Failed to estimate tokens for any sample blocks. Cannot dynamically estimate.")
-            # estimated_total_tokens_per_call remains None
+
     else:
         logging.warning("No blocks available for sampling.")
 
-    # --- Determine Max Workers --- #
     if estimated_total_tokens_per_call is None:
         dynamic_max_workers = MAX_WORKERS_FALLBACK
         logging.warning(f"Using fallback max_workers: {dynamic_max_workers}")
     else:
-        # Calculate based on TPM
         calls_per_minute_tpm = GPT4O_TPM / estimated_total_tokens_per_call if estimated_total_tokens_per_call > 0 else 0
-        # Calculate based on RPM
         concurrent_limit_rpm = GPT4O_RPM / WORKER_RATE_LIMIT_DIVISOR
-
-        # Use the minimum of the two limits, apply safety factor
         calculated_max_workers = min(calls_per_minute_tpm, concurrent_limit_rpm)
         dynamic_max_workers = max(1, int(calculated_max_workers * WORKER_SAFETY_FACTOR))
-
-        # *** Add constraint: Cannot have more workers than blocks ***
-        dynamic_max_workers = min(dynamic_max_workers, len(large_blocks))
-
+        dynamic_max_workers = min(dynamic_max_workers, len(large_blocks)) # Cannot have more workers than blocks
         logging.info(f"Calculated dynamic max_workers: {dynamic_max_workers} "
                      f"(Based on TPM={GPT4O_TPM}, RPM={GPT4O_RPM}, "
                      f"EstTotalTokens={estimated_total_tokens_per_call:.0f}, Factor={WORKER_SAFETY_FACTOR}, "
                      f"RPM Divisor={WORKER_RATE_LIMIT_DIVISOR})")
-
     # --- End Dynamic Worker Calculation Logic --- #
 
-
-    # --- 3.1 Map Phase (Process ALL blocks)--- #
     map_results = []
     logging.info(f"Processing all {len(large_blocks)} blocks in parallel with {dynamic_max_workers} workers...")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=dynamic_max_workers) as executor:
-        # Submit all blocks for analysis
         future_to_block_index = {
             executor.submit(_analyze_large_block, block, i): i
             for i, block in enumerate(large_blocks)
@@ -264,18 +247,15 @@ def analyze_document_iteratively(large_blocks: List[Dict[str, Any]]) -> Dict[str
 
         for future in concurrent.futures.as_completed(future_to_block_index):
             original_block_index = future_to_block_index[future]
-            block_ref = large_blocks[original_block_index].get('ref', f'Index {original_block_index}') # Get ref for logging
+            block_ref = large_blocks[original_block_index].get('ref', f'Index {original_block_index}')
             try:
-                result = future.result() # Potential point for RateLimitError
+                result = future.result()
                 if result:
                     map_results.append(result)
             except openai.RateLimitError as rle:
-                # Basic handling: Log, sleep, and skip the block for now
                 logging.warning(f"Rate limit hit processing block {original_block_index} ({block_ref}). Sleeping for {RATE_LIMIT_SLEEP_SECONDS}s. Error: {rle}")
                 time.sleep(RATE_LIMIT_SLEEP_SECONDS)
-                # Consider adding this block index to a list of failures for potential later retry
             except Exception as exc:
-                # Handle other exceptions during block analysis
                 logging.error(f"Block analysis task for index {original_block_index} ({block_ref}) generated an exception: {exc}")
 
     # Sort results by original block index (important for Reduce phase)
@@ -283,32 +263,68 @@ def analyze_document_iteratively(large_blocks: List[Dict[str, Any]]) -> Dict[str
 
     if not map_results:
         logging.error("Map phase failed for all blocks or too many rate limit errors. Cannot proceed to Reduce phase.")
-        # Return a meaningful error structure
-        return {
-            "error": "Failed to analyze any document blocks due to errors or rate limits.",
-            "document_type": "Analysis Failed",
-            "structure": [],
-            "overall_summary": "",
-            "preliminary_key_entities": {}
-        }
+        # Return empty results, let caller handle this case
+        return [], {}
 
     successful_count = len(map_results)
     total_count = len(large_blocks)
     failed_count = total_count - successful_count
     logging.info(f"Map phase complete. Successfully analyzed {successful_count}/{total_count} blocks. ({failed_count} failures/skips)")
 
-    # --- 3.2 Reduce Phase --- #
-    logging.info("Starting Reduce phase: Synthesizing document overview with type-specific instructions...")
-
-    # Prepare input for the reduction prompt
-    synthesis_input = ""
-    structure_list_from_map = []
+    # --- Consolidate Entities from Map Results --- #
     consolidated_entities = {"characters": set(), "locations": set(), "organizations": set()}
-
     for i, result in enumerate(map_results):
         if not isinstance(result, dict):
              logging.warning(f"Skipping invalid map result at index {i}: {result}")
              continue
+        block_ref_val = result.get('block_ref', f'Index {result.get("block_index", "Unknown")}')
+        entities = result.get('key_entities_in_block', {})
+        if isinstance(entities, dict):
+            consolidated_entities["characters"].update(entities.get("characters", []))
+            consolidated_entities["locations"].update(entities.get("locations", []))
+            consolidated_entities["organizations"].update(entities.get("organizations", []))
+        else:
+             logging.warning(f"Unexpected entity format in block {block_ref_val}: {entities}")
+
+    # Convert sets back to lists for the final structure
+    final_entities = {k: sorted(list(v)) for k, v in consolidated_entities.items()} # Sort for consistency
+
+    return map_results, final_entities
+
+
+# --- REVISED: Step 3 - Reduce Phase: Synthesize Document Overview ---
+def perform_reduce_document_analysis(
+    map_results: List[Dict[str, Any]],
+    final_entities: Dict[str, List[str]]
+) -> Dict[str, Any]:
+    """
+    Performs the Reduce phase of Step 3: Synthesizes the overall document analysis.
+
+    Args:
+        map_results: The list of analysis results from the Map phase.
+        final_entities: The dictionary of consolidated entities from the Map phase.
+
+    Returns:
+        The synthesized document analysis result matching DOCUMENT_ANALYSIS_SCHEMA,
+        or an error dictionary if reduction fails.
+    """
+    logging.info("Starting Reduce phase: Synthesizing document overview with type-specific instructions...")
+
+    if not map_results:
+        logging.error("Cannot perform Reduce phase: No valid results from Map phase.")
+        return {
+            "error": "No valid results from Map phase to synthesize.",
+            "document_type": "Analysis Failed",
+            "structure": [],
+            "overall_summary": "",
+            "preliminary_key_entities": {}
+        }
+
+    # Prepare input for the reduction prompt
+    synthesis_input = ""
+    structure_list_from_map = [] # Keep this if needed, though not used in current prompt logic?
+
+    for i, result in enumerate(map_results):
         # Extract values safely using .get()
         block_ref_val = result.get('block_ref', f'Index {result.get("block_index", "Unknown")}')
         block_summary_val = result.get('block_summary', 'Summary Unavailable')
@@ -321,42 +337,22 @@ def analyze_document_iteratively(large_blocks: List[Dict[str, Any]]) -> Dict[str
                  "title": structural_marker,
                  "number": result.get('block_index', i + 1) # Use block index if available
              })
-
-        # Consolidate entities
-        entities = result.get('key_entities_in_block', {})
-        if isinstance(entities, dict):
-            consolidated_entities["characters"].update(entities.get("characters", []))
-            consolidated_entities["locations"].update(entities.get("locations", []))
-            consolidated_entities["organizations"].update(entities.get("organizations", []))
-        else:
-             logging.warning(f"Unexpected entity format in block {block_ref_val}: {entities}")
-
-
-    # Convert sets back to lists for the final structure
-    final_entities = {k: sorted(list(v)) for k, v in consolidated_entities.items()} # Sort for consistency
+        # NOTE: structure_list_from_map is constructed but not explicitly used in the reduce_prompt below.
+        # It might be useful for future prompt refinements.
 
     # --- Format final_entities for the prompt --- #
     try:
-        # Convert the lists into a readable string format
         formatted_entities_str = json.dumps(final_entities, indent=2)
     except Exception as json_err:
         logging.warning(f"Could not format final_entities for prompt: {json_err}")
         formatted_entities_str = "Error formatting entities." # Fallback
 
-    # --- Build the new Reduce Prompt --- #
-    # Format the type list and specific instructions for the prompt
-    allowed_types_str = ", ".join([f"'{t}'" for t in DocumentTypeList]) # e.g., "'Novel', 'Biography', ..."
-    # Safely get instructions, providing a default if a type is missing in the dictionary
-    # Assuming keys are Enum members based on user correction (use .value if keys are strings)
+    # --- Build the Reduce Prompt (Copied and adapted from original function) --- #
+    allowed_types_str = ", ".join([f"'{t}'" for t in DocumentTypeList]) # Treat t as string
     novel_instructions = additions_to_reduce_prompt.get(DocumentType.NOVEL, "Default novel instructions... list all characters/locations/orgs.")
     biography_instructions = additions_to_reduce_prompt.get(DocumentType.BIOGRAPHY, "Default instructions: Provide a comprehensive analysis including type, structure, summary, and key entities.")
     journal_instructions = additions_to_reduce_prompt.get(DocumentType.JOURNAL_ARTICLE, "Default instructions: Provide a comprehensive analysis including type, structure, summary, and key entities.")
     # Add others here if your enum expands, using .get() for safety
-
-    # Increase truncation limit slightly, but WARN about token limits
-    # We should ideally calculate total prompt tokens and truncate dynamically.
-    # synthesis_input_truncated = synthesis_input[:130000] # Example adjustment - REMOVED
-    # entities_input_truncated = formatted_entities_str[:20000] # Also truncate entities if needed - REMOVED
 
     reduce_prompt = f"""
 You will analyze summaries extracted from consecutive blocks of a large document. Follow these steps carefully:
@@ -384,15 +380,15 @@ JSON Schema:
 
 Summaries from Blocks:
 --- START BLOCK DATA ---
-{synthesis_input} # Use full synthesis_input
+{synthesis_input}
 --- END BLOCK DATA ---
 
 Raw Consolidated Entities (Potential Duplicates Exist):
 --- START ENTITY DATA ---
-{formatted_entities_str} # Use full formatted_entities_str
+{formatted_entities_str}
 --- END ENTITY DATA ---
 
-(Note: Summaries and entity lists may be truncated if excessively long. Prioritize analysis based on available data.) # Keep this note for now
+(Note: Summaries and entity lists may be truncated if excessively long. Prioritize analysis based on available data.)
 
 Provide the complete synthesized analysis ONLY in the specified JSON format, including the determined 'document_type'.
 """
@@ -400,20 +396,18 @@ Provide the complete synthesized analysis ONLY in the specified JSON format, inc
     # Call LLM for reduction
     try:
         final_analysis = _call_openai_json_mode(reduce_prompt, DOCUMENT_ANALYSIS_SCHEMA)
-        logging.info("Reduce phase complete. Synthesized document analysis using type-specific instructions and entity list.")
-        # Optional: Add validation here to check if final_analysis['document_type'] is in DocumentTypeList
+        logging.info("Reduce phase complete. Document overview synthesized.")
+        return final_analysis
     except Exception as e:
-        logging.error(f"Reduce phase failed: {e}")
-        # Fallback: return partial data or error
-        final_analysis = {
-            "document_type": "Unknown (Synthesis Failed)",
-            "structure": [], # Cannot rely on structure_list_from_map as it wasn't requested in prompt
-            "overall_summary": "Synthesis failed, see block summaries for details.",
-            "preliminary_key_entities": final_entities, # From local consolidation
-            "error": f"Reduce phase failed: {str(e)}"
+        logging.error(f"Failed to synthesize document overview (Reduce phase): {e}")
+        # Return an error structure if the final call fails
+        return {
+            "error": f"Failed during final synthesis: {e}",
+            "document_type": "Analysis Failed",
+            "structure": [],
+            "overall_summary": "",
+            "preliminary_key_entities": {}
         }
-
-    return final_analysis
 
 def analyze_chunk_details(chunk_text: str, chunk_id: str, doc_context: Dict[str, Any] = None) -> Dict[str, Any]:
     """Performs detailed chunk-level analysis (Step 4)."""
