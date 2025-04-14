@@ -131,7 +131,7 @@ async def embed_batch(batch_id, emb_model_name, batch_chunks):
     """Asynchronously sends a batch of text chunks to OpenAI's embedding API with retry logic."""
     
     headers = {
-        "Authorization": f"Bearer {OAI_API_KEY}",
+        "Authorization": f"Bearer {LLMAPI_KEY}",
         "Content-Type": "application/json"
     }
 
@@ -330,7 +330,7 @@ def query_library(embeddings, doc_dbName, chunk_dbName, db_file, index, max_quer
 
     conversation_history = []
     history_text = ""
-    client = OpenAI(api_key=OAI_API_KEY)
+    client = OpenAI(api_key=LLMAPI_KEY)
 
     # region Logging setup
     if OverWriteLog:

@@ -43,7 +43,7 @@ except NameError as e:
     raise
 
 # Optional: Validate parameters (e.g., check if keys are set)
-if not OAI_API_KEY:
+if not LLMAPI_KEY:
     raise ValueError("OAI_API_KEY is not set in DSAIParams.py or environment variables.")
 if not PINECONE_API_KEY:
     raise ValueError("PINECONE_API_KEY is not set in DSAIParams.py or environment variables.")

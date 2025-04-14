@@ -51,10 +51,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # --- OpenAI Connection --- (Implicit through API key)
 # Ensure OAI_API_KEY is available from DSAIParams import
 try:
-    openai.api_key = OAI_API_KEY
+    openai.api_key = LLMAPI_KEY
     logging.info("OpenAI API key configured.")
     # Initialize client using the key from DSAIParams
-    client = openai.OpenAI(api_key=OAI_API_KEY)
+    client = openai.OpenAI(api_key=LLMAPI_KEY)
 except NameError:
     logging.error("OAI_API_KEY not found. Ensure it's defined in DSAIParams.py and imported.")
     raise
