@@ -98,11 +98,12 @@ if not AllowUseOfTrainingKnowledge:
     initialPromptText = "In answering this prompt do not use any knowledge or understanding from your training but only what you learn from the inputs which are supplied.\n\n"
 if UseDebugMode:
     # Debugging prompt for additional information
-    initialPromptText = "In answering this prompt do not use any knowledge or understanding from your training but only what you learn from the inputs which are supplied. Specifically do not use any thing you might know about the novel 'Pride and Prejudice' in your answer.\n\n"
+    initialPromptText = "In answering this prompt do not use any knowledge or understanding from your training but only what you learn from the inputs which are supplied. Specifically YOU ARE ABSOLUTELY FORBIDDEN to use any thing you might know about the novel 'Pride and Prejudice' or any of its characters in your answer.\n\n"
 
 StateStorageList = [
     StateStoragePoints.LargeBlockAnalysisCompleted,
     StateStoragePoints.IterativeAnalysisCompleted
 ]
 # StateStorageList = []
-RunCodeFrom = RunFromType.Start
+RunCodeFrom = RunFromType.LargeBlockAnalysisCompleted
+# RunCodeFrom = RunFromType.Start

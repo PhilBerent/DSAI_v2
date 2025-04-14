@@ -76,24 +76,40 @@ def _call_openai_json_mode(prompt: str, schema: Dict[str, Any]) -> Dict[str, Any
 
         response = client.chat.completions.create(
             model=CHAT_MODEL_NAME,
-            # The 'schema' key is not a valid parameter for response_format
-            # response_format={"type": "json_object", "schema": schema},
-            # Only specify the type
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": "You are an expert literary analyst. Analyze the provided text and extract information strictly according to the provided JSON schema. Only output JSON."},
-                {"role": "user", "content": final_prompt} # Use the modified prompt
+                {"role": "user", "content": final_prompt}
             ]
         )
+
+        raw_content = response.choices[0].message.content
+
         # Ensure response content is not None
-        if response.choices[0].message.content is None:
+        if raw_content is None:
              raise ValueError("OpenAI response content is None")
-        
-        result = json.loads(response.choices[0].message.content)
+
+        # --- Text Cleaning Step --- #
+        # Replace common encoding artifacts before JSON parsing
+        # This handles cases where UTF-8 characters were potentially misinterpreted
+        cleaned_content = raw_content.replace('â€™', "'") \
+                                   .replace('â€œ', '"') \
+                                   .replace('â€', '"') \
+                                   .replace('â€¦', '...')
+        # Add more replacements here if other artifacts are observed
+        # For more robust cleaning, a library like 'ftfy' could be used, but this handles common cases.
+
+        # Parse the cleaned JSON string
+        result = json.loads(cleaned_content)
+
         # TODO: Add validation against the schema here if needed
         return result
+    except json.JSONDecodeError as json_e:
+        logging.error(f"JSON decoding failed after cleaning: {json_e}")
+        logging.error(f"Original content that failed: {raw_content[:500]}...") # Log snippet of original failing content
+        raise # Re-raise the JSON error
     except Exception as e:
-        logging.error(f"OpenAI API call failed: {e}")
+        logging.error(f"OpenAI API call or processing failed: {e}")
         # Consider adding retry logic here
         raise
 
@@ -373,20 +389,20 @@ You will analyze summaries extracted from consecutive blocks of a large document
     {journal_instructions}
     --- End Instructions for '{DocumentType.JOURNAL_ARTICLE.value}' ---
 
-3.  **Generate Output:** Using insights from the summaries, the 'Raw Consolidated Entities' list (if applicable based on instructions), and the specific instructions you followed, generate the final analysis. Adhere strictly to the provided JSON Schema. Ensure the 'structure' list reflects the instructions for the determined document type. Ensure 'preliminary_key_entities' reflects the requested consolidation and deduplication.
+3.  **Generate Output:** Using insights from the summaries, the 'Raw Consolidated Entities' and your analysis (if applicable based on instructions), and the specific instructions you followed, generate the final analysis. Adhere strictly to the provided JSON Schema. Ensure the 'structure' list reflects the instructions for the determined document type. Ensure 'preliminary_key_entities' reflects the requested consolidation and deduplication.
 
 JSON Schema:
 {json.dumps(DOCUMENT_ANALYSIS_SCHEMA, indent=2)}
 
-Summaries from Blocks:
---- START BLOCK DATA ---
-{synthesis_input}
---- END BLOCK DATA ---
-
 Raw Consolidated Entities (Potential Duplicates Exist):
---- START ENTITY DATA ---
+ENTITY DATA:
 {formatted_entities_str}
---- END ENTITY DATA ---
+
+
+Summaries from Blocks:
+BLOCK DATA:
+{synthesis_input}
+
 
 (Note: Summaries and entity lists may be truncated if excessively long. Prioritize analysis based on available data.)
 
@@ -396,6 +412,12 @@ Provide the complete synthesized analysis ONLY in the specified JSON format, inc
     # Call LLM for reduction
     try:
         final_analysis = _call_openai_json_mode(reduce_prompt, DOCUMENT_ANALYSIS_SCHEMA)
+        # # check if final_analysis_prelim contains the string "~end of analysis~"
+        # if isinstance(final_analysis_prelim, str) and "~end of analysis~" in final_analysis_prelim:
+        #     # If it does, split the string and take the last part
+        #     final_analysis = final_analysis_prelim.split("~end of analysis~")[1]
+        # else:
+        #     final_analysis = final_analysis_prelim
         logging.info("Reduce phase complete. Document overview synthesized.")
         return final_analysis
     except Exception as e:
