@@ -6,6 +6,7 @@ from openai import OpenAI
 import tiktoken
 from langchain.text_splitter import TokenTextSplitter
 from langchain_openai import OpenAIEmbeddings
+from enums_and_constants import *
 
 # Load tokenizer for OpenAI embeddings
 encoding = tiktoken.get_encoding("cl100k_base")  # Correct for text-embedding-3 models
@@ -86,6 +87,22 @@ ESTIMATED_OUTPUT_TOKEN_FRACTION = 0.2 # Estimated output tokens as a fraction of
 RATE_LIMIT_SLEEP_SECONDS = 5 # Seconds to sleep after hitting a rate limit error
 UseDebugMode = True
 AllowUseOfTrainingKnowledge = True
+
 if UseDebugMode:
     # Debugging prompt for additional information
     AllowUseOfTrainingKnowledge = False
+initialPromptText = ""
+
+if not AllowUseOfTrainingKnowledge:
+    # Initial prompt for the LLM
+    initialPromptText = "In answering this prompt do not use any knowledge or understanding from your training but only what you learn from the inputs which are supplied.\n\n"
+if UseDebugMode:
+    # Debugging prompt for additional information
+    initialPromptText = "In answering this prompt do not use any knowledge or understanding from your training but only what you learn from the inputs which are supplied. Specifically do not use any thing you might know about the novel 'Pride and Prejudice' in your answer.\n\n"
+
+StateStorageList = [
+    StateStoragePoints.LargeBlockAnalysisCompleted,
+    StateStoragePoints.IterativeAnalysisCompleted
+]
+# StateStorageList = []
+RunCodeFrom = RunFromType.Start

@@ -15,4 +15,6 @@ filepathRawDataLive = f'C:\\Users\Phil\Documents\StockPredictor Project\DataFile
 dongo=3
 EndMarker = "===================================================================================================="
 FakeDocumentBasePath = r"C:/Users/Phil/Documents/DataSphere AI/DataSphere AI Not Code/Inputs And Outputs/Outputs/FakeDocuments/"
-
+StateStorageDirectory = r"C:\Users\Phil\Documents\DataSphere AI\DataSphere AI Code v2\StateStorage"
+LargeBlockAnalysisCompletedFile = os.path.join(StateStorageDirectory, "LargeBlockAnalysisCompleted.json")
+IterativeAnalysisCompletedFile = os.path.join(StateStorageDirectory, "IterativeAnalysisCompleted.json")
