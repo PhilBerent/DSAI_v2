@@ -24,10 +24,11 @@ class StateStoragePoints(Enum):
 
 
 DocumentTypeList = ["Novel", "Biography", "Journal Article"]
-    
+
+WordsForFinalAnalysisSummary = 200
 # create a dictionary of different prompts to add in the final analysis section of the code for each document type
 additions_to_reduce_prompt = {
-    DocumentType.NOVEL: """Provide a detailed analysis of the novel of about 200 words, including its themes, characters, and plot structure. For the structure, create one entry for each chapter and for each entry create a brief title. When listing characters, locations, and organizations, draw from both the BLOCK DATA and the ENTITY DATA provided below. You must include ALL characters, ALL locations, and ALL organizations mentioned in either the BLOCK DATA or the ENTITY_DATA. However it is very important to be aware that many entities may be referred to by multiple names — for example, a character like "Philip Jones" might also appear as "Mr. Jones", "Philip", or a nickname. Similarly, locations and organizations may be referenced in varied ways throughout the text. Your output MUST include all characters, locations, and organizations but each one should be listed only once, using the name by which it is most commonly referred to in the text. Avoid duplicating entries due to name variations. 
+    DocumentType.NOVEL: f"""Provide a detailed analysis of the novel of about {WordsForFinalAnalysisSummary} words for the "overall_summary" par of the output, including its themes, characters, and plot structure. For the structure, create one entry for each chapter and for each entry create a brief title. When listing characters, locations, and organizations, draw from both the BLOCK DATA and the ENTITY DATA provided below. You must include ALL characters, ALL locations, and ALL organizations mentioned in either the BLOCK DATA or the ENTITY_DATA. However it is very important to be aware that many entities may be referred to by multiple names — for example, a character like "Philip Jones" might also appear as "Mr. Jones", "Philip", or a nickname. Similarly, locations and organizations may be referenced in varied ways throughout the text. Your output MUST include all characters, locations, and organizations but each one should be listed only once, using the name by which it is most commonly referred to in the text. Avoid duplicating entries due to name variations. 
     Your process should be as follows:
     1. start by looking at all of the characters, locations, and organizations in the ENTITY DATA. 
     2. Next, look at the BLOCK DATA. As you go through this data you will come to know which of the characters, locations and organizations in the "ENTITY DATA" are duplicates refering to the same characters locations or organizations.
