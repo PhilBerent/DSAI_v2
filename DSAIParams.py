@@ -14,14 +14,17 @@ encoding = tiktoken.get_encoding("cl100k_base")  # Correct for text-embedding-3 
 # # Use TokenTextSplitter with OpenAI tokenizer
 
 globalDebugCount = 0
-# AICompany = "OpenAI"
-AICompany = "Gemini"
+AICompany = "OpenAI"
+# AICompany = "Gemini"
+LLM_model = "gpt-4o"
+
 if AICompany == "OpenAI":
     LLMAPI_KEY = os.getenv("OPENAI_API_KEY")
     LLM_model = "gpt-4o"
 elif AICompany == "Gemini":
     LLMAPI_KEY = os.getenv("GEMINI_API_KEY")
-    
+
+DefaultLLMTemperature = 0.7    
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")  # Ensure this is set
 PINECONE_ENVIRONMENT = "us-east-1"  # Adjust based on Pinecone setup
 UPSERT_BATCH_SIZE = 250

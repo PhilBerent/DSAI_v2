@@ -5,6 +5,7 @@ import aiohttp
 from openai import AsyncOpenAI
 from UtilityFunctions import *
 from globals import *
+from DSAIParams import *
 
 # Define the file path
 file_path = r"C:\Users\Phil\Documents\DataSphere AI\DataSphere AI Not Code\Inputs And Outputs\Texts For Testing\Pride and PrejudiceDingo2.txt"
@@ -17,7 +18,6 @@ with open(file_path, "r", encoding="utf-8") as file:
 chapters = re.split(r'(?=Chapter)', document_content)
 
 # Initialize OpenAI client (Asynchronous)
-glt_model = "gpt-4-turbo-preview"
 client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
@@ -28,7 +28,7 @@ async def summarize_chapter(chapter_text, chapter_number):
     
     try:
         response = await client.chat.completions.create(
-            model=glt_model,
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are an expert in literature analysis and summarization."},
                 {"role": "user", "content": prompt}

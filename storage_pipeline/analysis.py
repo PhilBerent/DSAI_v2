@@ -13,6 +13,7 @@ import tiktoken # Add tiktoken import
 import time # Added for rate limit sleep
 import openai # Added for RateLimitError
 from enum import Enum
+from prompts import *
 
 # Adjust path to import from parent directory AND sibling directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -26,11 +27,14 @@ try:
     from DSAIParams import *
     # Import from the new constants file
     from enums_and_constants import *
+    # Import the new centralized LLM call function
+    from llm_calls import call_llm_json_mode
 except ImportError as e:
-    print(f"Error importing core modules or enums_and_constants: {e}")
+    print(f"Error importing core modules or enums_and_constants or llm_calls: {e}")
     raise
 
-from .db_connections import client # OpenAI client
+# Remove OpenAI client import from here, it's handled in llm_calls
+# from .db_connections import client
 from .config_loader import CHAT_MODEL_NAME
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -68,51 +72,6 @@ CHUNK_ANALYSIS_SCHEMA = {
     "keywords_topics": ["string"]
 }
 
-def _call_openai_json_mode(prompt: str, schema: Dict[str, Any]) -> Dict[str, Any]:
-    """Helper function to call OpenAI API in JSON mode with a specific schema."""
-    try:
-        # Prepend the initial instruction text
-        final_prompt = initialPromptText + prompt
-
-        response = client.chat.completions.create(
-            model=CHAT_MODEL_NAME,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": "You are an expert literary analyst. Analyze the provided text and extract information strictly according to the provided JSON schema. Only output JSON."},
-                {"role": "user", "content": final_prompt}
-            ]
-        )
-
-        raw_content = response.choices[0].message.content
-
-        # Ensure response content is not None
-        if raw_content is None:
-             raise ValueError("OpenAI response content is None")
-
-        # --- Text Cleaning Step --- #
-        # Replace common encoding artifacts before JSON parsing
-        # This handles cases where UTF-8 characters were potentially misinterpreted
-        cleaned_content = raw_content.replace('â€™', "'") \
-                                   .replace('â€œ', '"') \
-                                   .replace('â€', '"') \
-                                   .replace('â€¦', '...')
-        # Add more replacements here if other artifacts are observed
-        # For more robust cleaning, a library like 'ftfy' could be used, but this handles common cases.
-
-        # Parse the cleaned JSON string
-        result = json.loads(cleaned_content)
-
-        # TODO: Add validation against the schema here if needed
-        return result
-    except json.JSONDecodeError as json_e:
-        logging.error(f"JSON decoding failed after cleaning: {json_e}")
-        logging.error(f"Original content that failed: {raw_content[:500]}...") # Log snippet of original failing content
-        raise # Re-raise the JSON error
-    except Exception as e:
-        logging.error(f"OpenAI API call or processing failed: {e}")
-        # Consider adding retry logic here
-        raise
-
 # --- NEW: Step 3.1 - Map Phase Helper ---
 def _analyze_large_block(block_info: Dict[str, Any], block_index: int) -> Optional[Dict[str, Any]]:
     """Analyzes a single large text block using LLM."""
@@ -131,6 +90,9 @@ def _analyze_large_block(block_info: Dict[str, Any], block_index: int) -> Option
         "structural_marker_found": "string | None (e.g., 'Chapter X Title', 'Part Y Start')"
     }
 
+    # Define system message for this specific task
+    system_msg = "You are an expert literary analyst. Analyze the provided text block and extract information strictly according to the provided JSON schema. Only output JSON."
+
     prompt = f"""
     Analyze the following large text block from a document. Extract a concise summary, key entities primarily featured *in this block*, and identify any structural marker (like Chapter/Part title) found near the beginning of this block. Adhere strictly to the provided JSON schema.
 
@@ -145,11 +107,12 @@ def _analyze_large_block(block_info: Dict[str, Any], block_index: int) -> Option
 
     Provide the analysis ONLY in the specified JSON format.
     """
-    # Note: Added truncation [:80000] as a safety measure for the prompt itself. Adjust if needed.
 
     try:
-        # Use the same helper function for the API call
-        block_analysis_result = _call_openai_json_mode(prompt, BLOCK_ANALYSIS_SCHEMA)
+        # Use the new centralized function for the API call in JSON mode
+        # Pass the specific system message and the constructed prompt
+        block_analysis_result = call_llm_json_mode(system_message=system_msg, prompt=prompt)
+
         # Add block reference back for context in reduce step
         block_analysis_result['block_ref'] = block_ref
         block_analysis_result['block_index'] = block_index
@@ -339,7 +302,7 @@ def perform_reduce_document_analysis(
     # Prepare input for the reduction prompt
     synthesis_input = ""
     structure_list_from_map = [] # Keep this if needed, though not used in current prompt logic?
-
+    num_blocks = len(map_results)
     for i, result in enumerate(map_results):
         # Extract values safely using .get()
         block_ref_val = result.get('block_ref', f'Index {result.get("block_index", "Unknown")}')
@@ -365,59 +328,58 @@ def perform_reduce_document_analysis(
 
     # --- Build the Reduce Prompt (Copied and adapted from original function) --- #
     allowed_types_str = ", ".join([f"'{t}'" for t in DocumentTypeList]) # Treat t as string
-    novel_instructions = additions_to_reduce_prompt.get(DocumentType.NOVEL, "Default novel instructions... list all characters/locations/orgs.")
-    biography_instructions = additions_to_reduce_prompt.get(DocumentType.BIOGRAPHY, "Default instructions: Provide a comprehensive analysis including type, structure, summary, and key entities.")
-    journal_instructions = additions_to_reduce_prompt.get(DocumentType.JOURNAL_ARTICLE, "Default instructions: Provide a comprehensive analysis including type, structure, summary, and key entities.")
-    # Add others here if your enum expands, using .get() for safety
+    novel_instructions = getNovelReducePrompt(num_blocks)
+    biography_instructions = getBiographyReducePrompt(num_blocks)
+    journal_instructions = getJournalArticleReducePrompt(num_blocks)
+    # Define system message for the reduction task
+    reduce_system_message = "You are an expert synthesizer of document analysis. Based on block summaries and entity lists, perform the requested analysis and output ONLY valid JSON according to the schema."
 
     reduce_prompt = f"""
-You will analyze summaries extracted from consecutive blocks of a large document. Follow these steps carefully:
+    You will analyze summaries extracted from consecutive blocks of a large document. Follow these steps carefully:
 
-1.  **Determine Document Type:** Based on the content of the summaries, determine the overall document type. Choose ONLY ONE type from the following list: [{allowed_types_str}].
+    1.  **Determine Document Type:** Based on the content of the summaries, determine the overall document type. Choose ONLY ONE type from the following list: [{allowed_types_str}].
 
-2.  **Apply Specific Instructions:** Based *only* on the Document Type you determined in Step 1, follow the corresponding specific instructions below to guide your analysis:
+    2.  **Apply Specific Instructions:** Based *only* on the Document Type you determined in Step 1, follow the corresponding specific instructions below to guide your analysis:
 
-    --- Instructions for '{DocumentType.NOVEL.value}' ---
-    {novel_instructions}
-    --- End Instructions for '{DocumentType.NOVEL.value}' ---
+        --- Instructions for '{DocumentType.NOVEL.value}' ---
+        {novel_instructions}
+        --- End Instructions for '{DocumentType.NOVEL.value}' ---
 
-    --- Instructions for '{DocumentType.BIOGRAPHY.value}' ---
-    {biography_instructions}
-    --- End Instructions for '{DocumentType.BIOGRAPHY.value}' ---
+        --- Instructions for '{DocumentType.BIOGRAPHY.value}' ---
+        {biography_instructions}
+        --- End Instructions for '{DocumentType.BIOGRAPHY.value}' ---
 
-    --- Instructions for '{DocumentType.JOURNAL_ARTICLE.value}' ---
-    {journal_instructions}
-    --- End Instructions for '{DocumentType.JOURNAL_ARTICLE.value}' ---
+        --- Instructions for '{DocumentType.JOURNAL_ARTICLE.value}' ---
+        {journal_instructions}
+        --- End Instructions for '{DocumentType.JOURNAL_ARTICLE.value}' ---
 
-3.  **Generate Output:** Using insights from the summaries, the 'Raw Consolidated Entities' and your analysis (if applicable based on instructions), and the specific instructions you followed, generate the final analysis. Adhere strictly to the provided JSON Schema. Ensure the 'structure' list reflects the instructions for the determined document type. Ensure 'preliminary_key_entities' reflects the requested consolidation and deduplication.
+    3.  **Generate Output:** Using insights from the summaries, the 'Raw Consolidated Entities' list (if applicable based on instructions), and the specific instructions you followed, generate the final analysis. Adhere strictly to the provided JSON Schema. Ensure the 'structure' list reflects the instructions for the determined document type. Ensure 'preliminary_key_entities' reflects the requested consolidation and deduplication.
 
-JSON Schema:
-{json.dumps(DOCUMENT_ANALYSIS_SCHEMA, indent=2)}
+    JSON Schema:
+    {json.dumps(DOCUMENT_ANALYSIS_SCHEMA, indent=2)}
 
-Raw Consolidated Entities (Potential Duplicates Exist):
-ENTITY DATA:
-{formatted_entities_str}
+    Raw Consolidated Entities (Potential Duplicates Exist):
+    --- START ENTITY DATA ---
+    {formatted_entities_str}
+    --- END ENTITY DATA ---
 
+    Summaries from Blocks:
+    --- START BLOCK DATA ---
+    {synthesis_input}
+    --- END BLOCK DATA ---
 
-Summaries from Blocks:
-BLOCK DATA:
-{synthesis_input}
+    (Note: Summaries and entity lists may be truncated if excessively long. Prioritize analysis based on available data.)
 
+    Provide the complete synthesized analysis ONLY in the specified JSON format, including the determined 'document_type'.
+    """
 
-(Note: Summaries and entity lists may be truncated if excessively long. Prioritize analysis based on available data.)
-
-Provide the complete synthesized analysis ONLY in the specified JSON format, including the determined 'document_type'.
-"""
-
-    # Call LLM for reduction
+    # Call LLM for reduction using the centralized function
     try:
-        final_analysis = _call_openai_json_mode(reduce_prompt, DOCUMENT_ANALYSIS_SCHEMA)
-        # # check if final_analysis_prelim contains the string "~end of analysis~"
-        # if isinstance(final_analysis_prelim, str) and "~end of analysis~" in final_analysis_prelim:
-        #     # If it does, split the string and take the last part
-        #     final_analysis = final_analysis_prelim.split("~end of analysis~")[1]
-        # else:
-        #     final_analysis = final_analysis_prelim
+        final_analysis = call_llm_json_mode(
+            system_message=reduce_system_message,
+            prompt=reduce_prompt
+            # Temperature uses default from llm_calls/DSAIParams
+        )
         logging.info("Reduce phase complete. Document overview synthesized.")
         return final_analysis
     except Exception as e:
@@ -425,26 +387,29 @@ Provide the complete synthesized analysis ONLY in the specified JSON format, inc
         # Return an error structure if the final call fails
         return {
             "error": f"Failed during final synthesis: {e}",
-            "document_type": "Analysis Failed",
-            "structure": [],
-            "overall_summary": "",
-            "preliminary_key_entities": {}
+            "document_type": "Analysis Failed", "structure": [], "overall_summary": "", "preliminary_key_entities": {}
         }
 
-def analyze_chunk_details(chunk_text: str, chunk_id: str, doc_context: Dict[str, Any] = None) -> Dict[str, Any]:
-    """Performs detailed chunk-level analysis (Step 4)."""
-    logging.info(f"Starting detailed analysis for chunk: {chunk_id}...")
+def analyze_chunk_details(chunk_text: str, chunk_id: str, doc_context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Analyzes a single fine-grained chunk for entities, relationships, etc."""
+    logging.info(f"Analyzing details for chunk {chunk_id}...")
 
-    # Provide some document context if available (e.g., main characters, setting)
-    context_str = ""
-    if doc_context and doc_context.get('preliminary_key_entities'):
-        context_str = f"Document Context: Key characters might include {doc_context['preliminary_key_entities'].get('characters', [])}. "
-        context_str += f"Primary locations might include {doc_context['preliminary_key_entities'].get('locations', [])}."
+    # Provide document context in the prompt if available
+    context_summary = "No broader document context provided."
+    if doc_context:
+        doc_type = doc_context.get("document_type", "Unknown Type")
+        doc_summary = doc_context.get("overall_summary", "Summary Unavailable")
+        context_summary = f"Document Context: Type={doc_type}. Overall Summary: {doc_summary[:500]}..."
+
+    # Define system message for chunk analysis
+    chunk_system_message = "You are a detailed text analyst specializing in extracting entities, relationships, and events from text chunks within a larger document context. Output only valid JSON matching the schema."
 
     prompt = f"""
-    Analyze the following text chunk from a larger document. Extract detailed entities, relationships/interactions, events, and keywords/topics. Use the provided JSON schema. {context_str}
+    Analyze the following text chunk meticulously. Extract entities (characters, locations, organizations), relationships/interactions between characters, key events, and relevant keywords/topics. Consider the provided document context.
 
-    JSON Schema:
+    {context_summary}
+
+    Output Format: Adhere strictly to this JSON schema:
     {json.dumps(CHUNK_ANALYSIS_SCHEMA, indent=2)}
 
     Text Chunk (ID: {chunk_id}):
@@ -452,12 +417,27 @@ def analyze_chunk_details(chunk_text: str, chunk_id: str, doc_context: Dict[str,
     {chunk_text}
     --- END CHUNK ---
 
-    Provide the analysis ONLY in the specified JSON format. Ensure character names are consistent. Specify if characters are directly present or just mentioned.
+    Provide the analysis ONLY in the specified JSON format.
     """
 
-    chunk_analysis_result = _call_openai_json_mode(prompt, CHUNK_ANALYSIS_SCHEMA)
-    logging.info(f"Detailed analysis complete for chunk: {chunk_id}")
-    return chunk_analysis_result
+    try:
+        # Use the centralized JSON mode caller
+        chunk_analysis_result = call_llm_json_mode(
+            system_message=chunk_system_message,
+            prompt=prompt
+            # Temperature uses default
+        )
+        return chunk_analysis_result
+    except Exception as e:
+        logging.error(f"Failed to analyze chunk details for {chunk_id}: {e}")
+        # Return error structure or raise? For now, return error dict
+        return {
+            "error": f"Analysis failed for chunk {chunk_id}: {e}",
+            "entities": {},
+            "relationships_interactions": [],
+            "events": [],
+            "keywords_topics": []
+        }
 
 # Note: Batch processing chunks might be more efficient for API calls
 # This would involve grouping chunks and modifying the prompt structure. 
