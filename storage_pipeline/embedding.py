@@ -24,7 +24,7 @@ except ImportError as e:
     raise
 
 from .db_connections import client # OpenAI client
-from .config_loader import Embeddings_model_name
+from config_loader import Embeddings_model_name
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 

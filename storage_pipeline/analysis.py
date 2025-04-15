@@ -29,13 +29,15 @@ try:
     from enums_and_constants import *
     # Import the new centralized LLM call function
     from llm_calls import call_llm_json_mode
+    # Import prompts from the new prompts module
+    from prompts import getNovelReducePrompt, getBiographyReducePrompt, getJournalArticleReducePrompt # Example imports
 except ImportError as e:
-    print(f"Error importing core modules or enums_and_constants or llm_calls: {e}")
+    print(f"Error importing core modules, llm_calls, or prompts: {e}")
     raise
 
 # Remove OpenAI client import from here, it's handled in llm_calls
 # from .db_connections import client
-from .config_loader import CHAT_MODEL_NAME
+# from .config_loader import CHAT_MODEL_NAME
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 

@@ -14,15 +14,16 @@ encoding = tiktoken.get_encoding("cl100k_base")  # Correct for text-embedding-3 
 # # Use TokenTextSplitter with OpenAI tokenizer
 
 globalDebugCount = 0
-AICompany = "OpenAI"
-# AICompany = "Gemini"
-LLM_model = "gpt-4o"
+# AIPlatform = "OpenAI"
+AIPlatform = "Gemini"
+# LLM_model = "gpt-4o"
 
-if AICompany == "OpenAI":
+if AIPlatform == "OpenAI":
     LLMAPI_KEY = os.getenv("OPENAI_API_KEY")
     LLM_model = "gpt-4o"
-elif AICompany == "Gemini":
+elif AIPlatform == "Gemini":
     LLMAPI_KEY = os.getenv("GEMINI_API_KEY")
+    LLM_model = "gemini-2.5-pro-exp-03-25"
 
 DefaultLLMTemperature = 0.7    
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")  # Ensure this is set
@@ -78,7 +79,7 @@ MaxQuerySize = 100000
 Doc_db_name =  dbAndIndexRootName + "_text_db"
 Chunk_db_name = dbAndIndexRootName + "_chunk_db"
 AllowedTables = [Doc_db_name, Chunk_db_name]
-Index_name = dbAndIndexRootName.lower() + "-index"
+Pinecone_Index_name = dbAndIndexRootName.lower() + "-index"
 Embeddings_model_name = "text-embedding-3-small"
 Embeddings_model = OpenAIEmbeddings(model=Embeddings_model_name)
 # LLMInstructions = "You are a helpful assistant. Answer the question using only the information from the text in the database. Do not use any knowledge or understanding that you have from your training. Specifically do not use any knowledge that you have of the somewhat similar novel 'Pride and Prejudice' in to answer the question."

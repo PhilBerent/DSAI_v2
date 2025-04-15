@@ -28,7 +28,8 @@ except ImportError as e:
 
 # Pipeline components (using absolute imports from DSAI_v2_Scripts level)
 try:
-    from storage_pipeline.config_loader import DocToAddPath, Chunk_size, Chunk_overlap
+    # Import config from new location
+    from config_loader import DocToAddPath, Chunk_size, Chunk_overlap # No longer need CHAT_MODEL_NAME from here
     from storage_pipeline.db_connections import get_pinecone_index, get_neo4j_driver_local, test_connections
     from storage_pipeline.ingestion import ingest_document
     # Import the refactored analysis functions

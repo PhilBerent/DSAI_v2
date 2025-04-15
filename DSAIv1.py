@@ -693,7 +693,7 @@ def initializeLog():
 
 setup_database(Doc_db_name, Chunk_db_name, Db_file, OverWriteDatabaseAndIndex)
 Pc = Pinecone(api_key=PINECONE_API_KEY)
-Index = getOrCreateIndex(Pc, Index_name, overwriteExisting=OverWriteDatabaseAndIndex)
+Index = getOrCreateIndex(Pc, Pinecone_Index_name, overwriteExisting=OverWriteDatabaseAndIndex)
 Max_Embed_batch_size = getMaxEmbedBatchSize()
 Max_Query_batch_size = getMaxQueryBatchSize()
 
@@ -707,6 +707,6 @@ elif OperationType == "askQuestions":
 elif OperationType == "printDictionary":
     print_dictionary(print_to_screen=True, print_to_file=True, dictPrintOutputPath=DictionaryPrintOutputPath)
 elif OperationType == "rebuildDatabase":
-    Index = rebuild_database_and_index(Pc, Embeddings_model, Db_file, Doc_db_name, Chunk_db_name, Index_name, Max_Embed_batch_size)
+    Index = rebuild_database_and_index(Pc, Embeddings_model, Db_file, Doc_db_name, Chunk_db_name, Pinecone_Index_name, Max_Embed_batch_size)
 elif OperationType == "printChunks":
     print_chunks_from_document(Doc_db_name, Chunk_db_name,  DocToPrint, ChunkPrintOutputPath, chunkStart=0, chunkEnd=0)

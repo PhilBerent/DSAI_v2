@@ -36,7 +36,7 @@ except ImportError as e:
 
 # Use absolute import
 try:
-    from storage_pipeline.config_loader import (
+    from config_loader import (
         PINECONE_INDEX_NAME_LOADED as PINECONE_INDEX_NAME,
         NEO4J_URI,
         NEO4J_USERNAME,
