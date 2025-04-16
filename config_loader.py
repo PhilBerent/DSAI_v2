@@ -23,7 +23,7 @@ import google.generativeai as genai # For Gemini configuration
 DocToAddPath = r"C:\Users\Phil\Documents\DataSphere AI\DataSphere AI Not Code\Inputs And Outputs\Texts For Testing\Pride and PrejudiceDingo.txt"
 Chunk_size = 1000  # Target chunk size in tokens (example)
 Chunk_overlap = 100 # Overlap in tokens (example)
-CHAT_MODEL_NAME = LLM_model # Use the model name from DSAIParams
+LLM_model = LLM_model # Use the model name from DSAIParams
 
 # Expose Pinecone index name for other modules
 # Assuming PINECONE_INDEX_NAME is defined in DSAIParams.py

@@ -21,10 +21,15 @@ AIPlatform = "Gemini"
 if AIPlatform == "OpenAI":
     LLMAPI_KEY = os.getenv("OPENAI_API_KEY")
     LLM_model = "gpt-4o"
+    MAX_TPM = 450000  # Tokens Per Minute
+    MAX_RPM = 5000   # Requests Per Minute
 elif AIPlatform == "Gemini":
     LLMAPI_KEY = os.getenv("GEMINI_API_KEY")
-    LLM_model = "gemini-2.5-pro-exp-03-25"
-
+    # LLM_model = "gemini-2.5-pro-exp-03-25"
+    LLM_model = "gemini-2.0-flash"
+    MAX_TPM = 4000000  # Tokens Per Minute
+    MAX_RPM = 2000   # Requests Per Minute
+    
 DefaultLLMTemperature = 0.7    
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")  # Ensure this is set
 PINECONE_ENVIRONMENT = "us-east-1"  # Adjust based on Pinecone setup
@@ -88,8 +93,6 @@ MAX_BATCH_EMBED_RETRIES = 3
 INITIAL_BATCH_EMBED_BACKOFF = 1
 
 # OpenAI GPT-4o Rate Limits (ensure these reflect your actual account limits)
-GPT4O_TPM = 450000  # Tokens Per Minute
-GPT4O_RPM = 5000   # Requests Per Minute
 WORKER_SAFETY_FACTOR = 0.85 # Safety margin for API calls (e.g., 85%)
 ANALYSIS_SAMPLE_SIZE = 7 # Number of blocks to sample for token estimation (Increased)
 MAX_WORKERS_FALLBACK = 10 # Fallback worker count if sampling fails (Increased)
@@ -116,7 +119,7 @@ StateStorageList = [
     StateStoragePoints.IterativeAnalysisCompleted
 ]
 # StateStorageList = []
-RunCodeFrom = RunFromType.LargeBlockAnalysisCompleted
-# RunCodeFrom = RunFromType.Start
+# RunCodeFrom = RunFromType.LargeBlockAnalysisCompleted
+RunCodeFrom = RunFromType.Start
 
 MaxWordOutputPerCall = 3000

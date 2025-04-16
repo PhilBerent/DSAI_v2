@@ -146,10 +146,10 @@ def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List
     encoding = None
 
     try:
-        encoding = tiktoken.encoding_for_model(CHAT_MODEL_NAME)
-        logging.info(f"Using tiktoken encoding for {CHAT_MODEL_NAME}.")
+        encoding = tiktoken.encoding_for_model(LLM_model)
+        logging.info(f"Using tiktoken encoding for {LLM_model}.")
     except Exception:
-        logging.warning(f"tiktoken encoding for {CHAT_MODEL_NAME} not found. Using rough character count for token estimation.")
+        logging.warning(f"tiktoken encoding for {LLM_model} not found. Using rough character count for token estimation.")
 
     if sample_size > 0:
         logging.info(f"Estimating input tokens locally based on {sample_size} sample blocks...")
@@ -206,13 +206,13 @@ def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List
         dynamic_max_workers = MAX_WORKERS_FALLBACK
         logging.warning(f"Using fallback max_workers: {dynamic_max_workers}")
     else:
-        calls_per_minute_tpm = GPT4O_TPM / estimated_total_tokens_per_call if estimated_total_tokens_per_call > 0 else 0
-        concurrent_limit_rpm = GPT4O_RPM / WORKER_RATE_LIMIT_DIVISOR
+        calls_per_minute_tpm = MAX_TPM / estimated_total_tokens_per_call if estimated_total_tokens_per_call > 0 else 0
+        concurrent_limit_rpm = MAX_RPM / WORKER_RATE_LIMIT_DIVISOR
         calculated_max_workers = min(calls_per_minute_tpm, concurrent_limit_rpm)
         dynamic_max_workers = max(1, int(calculated_max_workers * WORKER_SAFETY_FACTOR))
         dynamic_max_workers = min(dynamic_max_workers, len(large_blocks)) # Cannot have more workers than blocks
         logging.info(f"Calculated dynamic max_workers: {dynamic_max_workers} "
-                     f"(Based on TPM={GPT4O_TPM}, RPM={GPT4O_RPM}, "
+                     f"(Based on TPM={MAX_TPM}, RPM={MAX_RPM}, "
                      f"EstTotalTokens={estimated_total_tokens_per_call:.0f}, Factor={WORKER_SAFETY_FACTOR}, "
                      f"RPM Divisor={WORKER_RATE_LIMIT_DIVISOR})")
     # --- End Dynamic Worker Calculation Logic --- #
