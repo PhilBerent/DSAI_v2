@@ -82,12 +82,12 @@ def run_pipeline(document_path: str):
             logging.info("Running pipeline from the beginning.")
             # Execute all steps from ingestion onwards
 
-            # --- 1. Ingestion ---
+            # --- 1. Ingestion (ONLY for Start) ---
             logging.info("Step 1: Ingesting document...")
             raw_text = ingest_document(document_path)
             logging.info(f"Ingestion complete. Text length: {len(raw_text)} chars.")
 
-            # --- 2. Initial Structural Scan & Coarse Chunking ---
+            # --- 2. Initial Structural Scan & Coarse Chunking (ONLY for Start) ---
             logging.info("Step 2: Performing initial structural scan and coarse chunking...")
             large_blocks = coarse_chunk_by_structure(raw_text)
             if not large_blocks:
@@ -135,10 +135,10 @@ def run_pipeline(document_path: str):
             logging.info("Attempting to load state from LargeBlockAnalysisCompleted...")
             try:
                 loaded_state = load_state(RunFromType.LargeBlockAnalysisCompleted)
-                large_blocks = loaded_state["large_blocks"]
+                large_blocks = loaded_state["large_blocks"] # Still load if needed for context/future use
                 map_results = loaded_state["map_results"]
                 final_entities = loaded_state["final_entities"]
-                raw_text = loaded_state["raw_text"]
+                raw_text = loaded_state["raw_text"] # CRITICAL: Load raw_text for fine chunking
                 logging.info("State loaded. Proceeding from Reduce phase.")
 
                 # --- 3.2 Reduce Phase --- #
@@ -172,7 +172,7 @@ def run_pipeline(document_path: str):
                 large_blocks = loaded_state["large_blocks"] # Load if needed by subsequent steps
                 map_results = loaded_state["map_results"]   # Load if needed
                 final_entities = loaded_state["final_entities"] # Load if needed
-                raw_text = loaded_state["raw_text"]     # Load for fine chunking
+                raw_text = loaded_state["raw_text"]     # CRITICAL: Load raw_text for fine chunking
                 logging.info("State loaded. Proceeding from Fine-grained Chunking.")
             except (FileNotFoundError, KeyError, Exception) as e:
                 logging.error(f"Failed to load or use state from {RunCodeFrom}: {e}. Aborting.")
@@ -182,12 +182,16 @@ def run_pipeline(document_path: str):
 
         # --- 4. Adaptive Fine-Grained Chunking ---
         # Check if raw_text is available (should be loaded or generated)
-        if not raw_text:
+        if 'raw_text' not in locals() or not raw_text:
+             # This check ensures raw_text was either generated in Start or loaded from state
              raise ValueError("Raw text is unavailable for fine-grained chunking. Check state loading or initial run.")
         logging.info("Step 4: Performing adaptive fine-grained chunking...")
+        # *** Check if adaptive_chunking implementation uses large_blocks or raw_text ***
+        # Assuming adaptive_chunking primarily needs raw_text now:
         final_chunks = adaptive_chunking(
-            raw_text,
-            document_structure=doc_analysis_result, # Use loaded/generated analysis
+            raw_text, # Pass raw_text loaded from state or generated initially
+            structural_units=large_blocks, # Pass large_blocks if needed by adaptive_chunking
+            validated_structure=doc_analysis_result, # Use loaded/generated analysis
             target_chunk_size=Chunk_size,
             chunk_overlap=Chunk_overlap
         )
