@@ -639,13 +639,13 @@ def rebuild_database_and_index(pc, embeddings, db_file, doc_dbName, chunk_db_nam
 def getMaxEmbedBatchSize():
     APIRequestSize = ModelDimension*8
     maxBatchSizeFromAPILimit = MaxAPIRequestSize//APIRequestSize 
-    maxBatchSizeFromChunkLimit = MaxBytesInChunkBatch // Chunk_size
+    maxBatchSizeFromChunkLimit = MaxBytesInChunkBatch // Chunk_Size
     maxBatchSize = min(maxBatchSizeFromAPILimit, maxBatchSizeFromChunkLimit)
     return maxBatchSize
 
 def getMaxQueryBatchSize():
     chunkIDSize = 40
-    sizePerChunk = chunkIDSize + Chunk_size
+    sizePerChunk = chunkIDSize + Chunk_Size
     maxQueryBatchSize = MaxQuerySize // sizePerChunk
     return maxQueryBatchSize
 
@@ -700,7 +700,7 @@ Max_Query_batch_size = getMaxQueryBatchSize()
 if OperationType == "addToLibrary":
     # Run the async function
     asyncio.run(process_document(Embeddings_model_name, Db_file, Doc_db_name, Chunk_db_name, 
-        Index, DocToAddPath, Doc_to_add_meta, Chunk_size, Chunk_overlap, use_current_datetime=UseCurrentDateTime, use_filename_for_name=UseFilenameForName, read_from_file=True))
+        Index, DocToAddPath, Doc_to_add_meta, Chunk_Size, Chunk_overlap, use_current_datetime=UseCurrentDateTime, use_filename_for_name=UseFilenameForName, read_from_file=True))
 elif OperationType == "askQuestions":
     query_library(Embeddings_model, Doc_db_name, Chunk_db_name, Db_file, Index, max_query_batch_size=Max_Query_batch_size, 
         num_chunks_to_retrieve=Num_chunks_to_retrieve, response_temperature=Temperature)

@@ -22,9 +22,8 @@ import google.generativeai as genai # For Gemini configuration
 # --- Load Basic Parameters --- #
 # Example: Keep existing config loading if any
 DocToAddPath = r"C:\Users\Phil\Documents\DataSphere AI\DataSphere AI Not Code\Inputs And Outputs\Texts For Testing\Pride and PrejudiceDingo.txt"
-Chunk_size = 1000  # Target chunk size in tokens (example)
-Chunk_overlap = 100 # Overlap in tokens (example)
-LLM_model = LLM_model # Use the model name from DSAIParams
+# Chunk_Size and Chunk_Overlap set in DSAIParams.py
+# LLM_model set in DSAIParams.py
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")  # Ensure this is set
 PINECONE_ENVIRONMENT = "us-east-1"  # Adjust based on Pinecone setup
 UPSERT_BATCH_SIZE = 250

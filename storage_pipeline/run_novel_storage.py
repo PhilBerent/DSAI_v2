@@ -28,7 +28,7 @@ except ImportError as e:
 
 # Pipeline components (using absolute imports from DSAI_v2_Scripts level)
 try:
-    from config_loader import DocToAddPath, Chunk_size, Chunk_overlap
+    from config_loader import DocToAddPath, Chunk_Size, Chunk_overlap
     from storage_pipeline.db_connections import get_pinecone_index, get_neo4j_driver_local, test_connections
     from storage_pipeline.ingestion import ingest_document
     # Import the refactored analysis functions
@@ -112,26 +112,7 @@ def run_pipeline(document_path: str):
                 }
                 save_state(state_to_save, StateStoragePoints.LargeBlockAnalysisCompleted)
 
-            # --- 3.2 Reduce Phase --- #
-            logging.info("Step 3.2: Performing Reduce phase document synthesis...")
-            doc_analysis_result = perform_reduce_document_analysis(map_results, final_entities)
-            if "error" in doc_analysis_result:
-                raise ValueError(f"Reduce phase document analysis failed: {doc_analysis_result['error']}")
-            logging.info("Reduce phase analysis complete.")
-
-            # --- Save State: IterativeAnalysisCompleted ---
-            if StateStoragePoints.IterativeAnalysisCompleted in StateStorageList:
-                logging.info("Saving state after Reduce phase (IterativeAnalysisCompleted)...")
-                state_to_save = {
-                    "doc_analysis_result": doc_analysis_result,
-                    "large_blocks": large_blocks, # Needed if fine chunking depends on large blocks
-                    "map_results": map_results,   # Might be useful context
-                    "final_entities": final_entities, # Might be useful context
-                    "raw_text": raw_text # Include raw_text for fine chunking
-                }
-                save_state(state_to_save, StateStoragePoints.IterativeAnalysisCompleted)
-
-        elif RunCodeFrom == RunFromType.LargeBlockAnalysisCompleted:
+        if RunCodeFrom == RunFromType.LargeBlockAnalysisCompleted:
             logging.info("Attempting to load state from LargeBlockAnalysisCompleted...")
             try:
                 loaded_state = load_state(RunFromType.LargeBlockAnalysisCompleted)
@@ -141,6 +122,11 @@ def run_pipeline(document_path: str):
                 raw_text = loaded_state["raw_text"] # CRITICAL: Load raw_text for fine chunking
                 logging.info("State loaded. Proceeding from Reduce phase.")
 
+            except (FileNotFoundError, KeyError, Exception) as e:
+                logging.error(f"Failed to load or use state from {RunCodeFrom}: {e}. Aborting.")
+                raise
+
+        if RunCodeFrom == RunFromType.LargeBlockAnalysisCompleted or RunCodeFrom == RunFromType.Start:
                 # --- 3.2 Reduce Phase --- #
                 logging.info("Step 3.2: Performing Reduce phase document synthesis...")
                 doc_analysis_result = perform_reduce_document_analysis(map_results, final_entities)
@@ -160,11 +146,8 @@ def run_pipeline(document_path: str):
                     }
                     save_state(state_to_save, StateStoragePoints.IterativeAnalysisCompleted)
 
-            except (FileNotFoundError, KeyError, Exception) as e:
-                logging.error(f"Failed to load or use state from {RunCodeFrom}: {e}. Aborting.")
-                raise
 
-        elif RunCodeFrom == RunFromType.IterativeAnalysisCompleted:
+        if RunCodeFrom == RunFromType.IterativeAnalysisCompleted:
             logging.info("Attempting to load state from IterativeAnalysisCompleted...")
             try:
                 loaded_state = load_state(RunFromType.IterativeAnalysisCompleted)
@@ -187,12 +170,12 @@ def run_pipeline(document_path: str):
              raise ValueError("Raw text is unavailable for fine-grained chunking. Check state loading or initial run.")
         logging.info("Step 4: Performing adaptive fine-grained chunking...")
         # *** Check if adaptive_chunking implementation uses large_blocks or raw_text ***
-        # Assuming adaptive_chunking primarily needs raw_text now:
+        # Assuming adaptive_chunking primarily needs raw_text now: --> This assumption was wrong, it uses structural_units (large_blocks)
         final_chunks = adaptive_chunking(
-            raw_text, # Pass raw_text loaded from state or generated initially
-            structural_units=large_blocks, # Pass large_blocks if needed by adaptive_chunking
+            # raw_text, # Pass raw_text loaded from state or generated initially --> REMOVE THIS
+            structural_units=large_blocks, # Pass large_blocks as the first expected argument
             validated_structure=doc_analysis_result, # Use loaded/generated analysis
-            target_chunk_size=Chunk_size,
+            target_chunk_size=Chunk_Size,
             chunk_overlap=Chunk_overlap
         )
         if not final_chunks:

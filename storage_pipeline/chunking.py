@@ -45,7 +45,7 @@ IGNORE_PREFIXES = ("to ", "heading to ", "contents:", "illustrations:")
 
 SCENE_BREAK_PATTERN = re.compile(r"\n\s*\n\s*\n+") # Example: 3+ newlines
 MIN_CHUNK_SIZE_CHARS = 100 # Avoid overly small chunks
-DEFAULT_TARGET_CHUNK_SIZE_TOKENS = Chunk_size # Use from DSAIParams
+DEFAULT_TARGET_CHUNK_SIZE_TOKENS = Chunk_Size # Use from DSAIParams
 DEFAULT_CHUNK_OVERLAP_TOKENS = Chunk_overlap # Use from DSAIParams
 # Fallback coarse chunk size (if no structure found) - make this configurable?
 FALLBACK_COARSE_CHUNK_TARGET_TOKENS = 50000

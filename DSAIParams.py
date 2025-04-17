@@ -69,8 +69,8 @@ OverWriteLog = True # Set to True to overwrite the log file
 # OverWriteLog = False
 
 # data storage paramaters
-Chunk_size = 400  # in tokens Suggested range: 256-1024
-Chunk_overlap = 60  # Suggested range: 50-200
+Chunk_Size = 1000  # in tokens Suggested range: 256-1024
+Chunk_overlap = 100  # Suggested range: 50-200
 ModelDimension = 1536
 MaxBytesInChunkBatch = 1000000
 MaxAPIRequestSize = 4500000 #4.5MB
