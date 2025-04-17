@@ -24,6 +24,7 @@ BLOCK_ANALYSIS_SCHEMA = {
         "locations": ["string"],
         "organizations": ["string"]
     },
+    "unit_type": "The type of unit of this block", 
     "structural_marker_found": "string | None (e.g., 'Chapter X Title', 'Part Y Start')"
 }
 
@@ -130,7 +131,7 @@ def get_anal_large_block_prompt(block_info: Dict[str, Any]) -> str:
     truncation_note = "(Note: Block might be truncated for analysis if excessively long)" if len(block_text) > max_chars else ""
 
     prompt = f"""
-Analyze the following large text block from a document. Extract a concise summary, key entities primarily featured *in this block*, and identify any structural marker (like Chapter/Part title) found near the beginning of this block. The 'title', field should include the structural marker and a brief, descriptive and reflecting the main event or topic (e.g., "Chapter 10: Johnson returns to London", "Chapter VII: An Alternative Perspective", "Preface: Discussion of main themes"). Use the block number for the number field.
+Analyze the following large text block from a document. Extract a concise summary, key entities primarily featured *in this block*, and identify any structural marker (like Chapter/Part title) found near the beginning of this block. The 'title', field should include the structural marker and a brief, descriptive and reflecting the main event or topic (e.g., "Chapter 10: Johnson returns to London", "Chapter VII: An Alternative Perspective", "Preface: Discussion of main themes"). The 'unit_type' is the type of text represented by the block(e.g., 'Chapter', 'Section', 'Part', 'Introduction', 'Appendix', 'Conclusion')". Use the block number for the number field.
 Adhere strictly to the provided JSON schema.
 
 JSON Schema:

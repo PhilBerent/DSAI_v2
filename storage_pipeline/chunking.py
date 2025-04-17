@@ -63,14 +63,14 @@ def coarse_chunk_by_structure(full_text: str) -> List[Dict[str, Any]]:
     """
     Splits the document into large structural units (e.g., chapters)
     based on reliable regex patterns. Falls back to large token-based chunks
-    if no structure is found.
+    if no structure is found. Cleans common non-standard characters from text.
 
     Args:
         full_text: The entire document text.
 
     Returns:
         A list of dictionaries, each representing a large structural unit/block:
-            {'text': str, 'type': 'Chapter/Part/Book/FallbackBlock', 'ref': 'Chapter X / Block Y'}
+            {'text': str, 'type': str, 'ref': str, 'structural_marker': str}
     """
     logging.info("Starting Step 2: Initial structural scan and coarse chunking...")
     coarse_chunks = []
@@ -138,39 +138,62 @@ def coarse_chunk_by_structure(full_text: str) -> List[Dict[str, Any]]:
         for i in range(len(split_points)):
             start_pos = split_points[i]
             end_pos = split_points[i+1] if (i+1) < len(split_points) else len(full_text)
-            text = full_text[start_pos:end_pos].strip()
-            if not text: continue
+            text_slice = full_text[start_pos:end_pos].strip()
+            if not text_slice: continue
+
+            # --- ADD CLEANING HERE --- #
+            cleaned_text = text_slice.replace('â€œ', '"') \
+                                     .replace('â€', '"') \
+                                     .replace('â€™', "'") \
+                                     .replace('_', '') # Remove emphasis underscores
+            # --- END CLEANING --- #
 
             # Determine type and reference using stored info
             unit_type = marker_types.get(start_pos, "DetectedStructure") # Use stored type
             ref = marker_refs.get(start_pos, f"Unit {i+1}")
+            structural_marker = f"{unit_type} {ref}"
 
-            coarse_chunks.append({'text': text, 'type': unit_type, 'ref': ref})
+            coarse_chunks.append({
+                'text': cleaned_text, # Use cleaned text
+                'type': unit_type,
+                'ref': ref,
+                'structural_marker': structural_marker
+            })
         logging.info(f"Coarse chunking resulted in {len(coarse_chunks)} structure-based blocks.")
 
     else: # No reliable structure found, use fallback
         logging.warning("No reliable structural markers found after filtering (using revised regex). Using fallback token-based coarse chunking.")
-        # Simple token-based splitting (can use LangChain's splitter for more robustness)
         current_pos = 0
         block_index = 1
         while current_pos < len(full_text):
             # Estimate end position based on tokens
-            estimated_end_pos = current_pos + FALLBACK_COARSE_CHUNK_TARGET_TOKENS * 4 # Rough char estimate
-            # Find a better split point (e.g., end of sentence/paragraph near estimate)
+            estimated_end_pos = current_pos + FALLBACK_COARSE_CHUNK_TARGET_TOKENS * 4
             split_pos = full_text.find('. ', estimated_end_pos)
             if split_pos == -1: split_pos = full_text.find('\n', estimated_end_pos)
             if split_pos == -1 or split_pos < current_pos + MIN_COARSE_CHUNK_TOKENS * 4:
-                split_pos = min(len(full_text), current_pos + FALLBACK_COARSE_CHUNK_TARGET_TOKENS * 5) # Fallback further out
+                split_pos = min(len(full_text), current_pos + FALLBACK_COARSE_CHUNK_TARGET_TOKENS * 5)
 
-            text = full_text[current_pos:split_pos].strip()
-            if text:
+            text_slice = full_text[current_pos:split_pos].strip()
+            if text_slice:
+                 # --- ADD CLEANING HERE --- #
+                 cleaned_text = text_slice.replace('â€œ', '"') \
+                                          .replace('â€', '"') \
+                                          .replace('â€™', "'") \
+                                          .replace('_', '') # Remove emphasis underscores
+                 # --- END CLEANING --- #
+
+                 unit_type = 'FallbackBlock'
+                 ref = f"Block {block_index}"
+                 structural_marker = f"{unit_type} {block_index}"
+
                  coarse_chunks.append({
-                     'text': text,
-                     'type': 'FallbackBlock',
-                     'ref': f"Block {block_index}"
+                     'text': cleaned_text, # Use cleaned text
+                     'type': unit_type,
+                     'ref': ref,
+                     'structural_marker': structural_marker
                  })
                  block_index += 1
-            current_pos = split_pos + 1 # Move past the split point
+            current_pos = split_pos + 1
 
         logging.info(f"Coarse chunking resulted in {len(coarse_chunks)} fallback blocks.")
 
@@ -179,50 +202,51 @@ def coarse_chunk_by_structure(full_text: str) -> List[Dict[str, Any]]:
 
 # --- REVISED: Step 4 - Adaptive Text Chunking (Fine-Grained) ---
 def adaptive_chunking(
-    structural_units: List[Dict[str, Any]], # Now takes coarse chunks/units
-    validated_structure: Optional[Dict[str, Any]] = None, # Takes structure from iterative analysis
+    structural_units: List[Dict[str, Any]], # Coarse chunks/units
+    map_results: List[Dict[str, Any]],      # Corresponding analysis results from map phase
     target_chunk_size: int = DEFAULT_TARGET_CHUNK_SIZE_TOKENS,
     chunk_overlap: int = DEFAULT_CHUNK_OVERLAP_TOKENS
 ) -> List[Dict[str, Any]]:
-    """Performs adaptive chunking based on validated structure, paragraphs, and size
-       within the provided structural units (coarse chunks).
+    """Performs adaptive chunking based on paragraphs and size,
+       using metadata from the map phase analysis.
 
     Args:
         structural_units: List of coarse chunks/blocks from Step 2.
-        validated_structure: Structure list validated/generated in Step 3.
+        map_results: List of analysis results from Step 3 Map phase,
+                     corresponding 1:1 with structural_units.
         target_chunk_size: Aimed token size for final chunks.
         chunk_overlap: Token overlap between consecutive final chunks.
 
     Returns:
-        A list of final chunk dictionaries (same format as before).
+        A list of final chunk dictionaries.
     """
-    logging.info("Starting Step 4: Adaptive fine-grained chunking...")
+    logging.info("Starting Step 4: Adaptive fine-grained chunking using map results...")
     final_chunks = []
     chunk_index = 0
 
-    # Map validated structure titles/numbers to their sequence for reference
-    structure_map = {}
-    val_struct_list = validated_structure.get('structure', []) if validated_structure else []
-
-    for i, struct in enumerate(val_struct_list):
-        key = struct.get('title') or struct.get('number') or f"Struct_{i}"
-        structure_map[key] = {'order': i, 'type': struct.get('type', 'Structure')}
+    # Ensure map_results align with structural_units
+    if len(structural_units) != len(map_results):
+        logging.error(f"Mismatch between structural_units ({len(structural_units)}) and map_results ({len(map_results)}) count. Cannot reliably link metadata.")
+        # Decide how to handle: fallback or raise error? Raising for now.
+        raise ValueError("Structural units and map results count mismatch in adaptive_chunking.")
 
     # Process each structural unit (coarse chunk)
     for unit_idx, unit in enumerate(structural_units):
-        unit_text = unit['text']
-        unit_type = unit['type'] # Type from coarse chunking
-        unit_ref = unit['ref']   # Ref from coarse chunking (e.g., "Chapter X", "Block Y")
+        unit_text = unit.get('text', '')
+        unit_type = unit.get('type', 'UnknownType') # Type from coarse chunking
+        original_unit_ref = unit.get('ref', f'Unit_{unit_idx+1}')   # Ref from coarse chunking (e.g., "Unit 1")
 
-        # Attempt to link this unit to the validated structure for better metadata
-        validated_struct_info = structure_map.get(unit_ref) # Try matching ref
-        if validated_struct_info:
-             struct_meta_type = validated_struct_info['type']
-             struct_meta_ref = unit_ref # Use the matched ref
-        else:
-             # Could try fuzzy matching or use coarse chunk info as fallback
-             struct_meta_type = unit_type
-             struct_meta_ref = unit_ref
+        # Get the corresponding analysis from the map phase
+        map_analysis = map_results[unit_idx]
+
+        # Use the structural marker found during map phase for better reference
+        # Fallback to original ref if marker wasn't found or is empty
+        struct_meta_ref = map_analysis.get('structural_marker_found')
+        if not struct_meta_ref: # Handle None or empty string
+            struct_meta_ref = original_unit_ref
+
+        # Use the type determined by the coarse chunker (could be refined later)
+        struct_meta_type = unit_type
 
         # Split unit by scene breaks (e.g., multiple newlines)
         scene_texts = SCENE_BREAK_PATTERN.split(unit_text)
@@ -252,16 +276,15 @@ def adaptive_chunking(
                         'metadata': {
                             'document_id': None, # Add later in run_pipeline
                             'source_location': {
-                                # Use validated structure type/ref if available
-                                'structure_type': struct_meta_type,
-                                'structure_ref': f"{scene_ref_combined} / Paras {para_start_index+1}-{para_index}",
-                                'sequence': chunk_index # Overall sequence across doc
+                                'structure_type': struct_meta_type, # Use derived type
+                                'structure_ref': f"{scene_ref_combined} / Paras {para_start_index+1}-{para_index}", # Use derived ref
+                                'sequence': chunk_index
                             }
                         }
                     })
                     chunk_index += 1
-                    # Start new chunk with overlap (simple overlap for now)
-                    overlap_text = " ".join(current_chunk_text.split()[-chunk_overlap:]) # Rough word overlap
+                    # Start new chunk with overlap
+                    overlap_text = " ".join(current_chunk_text.split()[-chunk_overlap:])
                     current_chunk_text = overlap_text + " " + paragraph
                     current_chunk_token_count = _get_token_count(current_chunk_text)
                     para_start_index = para_index
@@ -280,18 +303,18 @@ def adaptive_chunking(
                             'metadata': {
                                 'document_id': None,
                                 'source_location': {
-                                    'structure_type': struct_meta_type,
-                                    'structure_ref': f"{scene_ref_combined} / Paras {para_start_index+1}-{para_index+1}",
+                                    'structure_type': struct_meta_type, # Use derived type
+                                    'structure_ref': f"{scene_ref_combined} / Paras {para_start_index+1}-{para_index+1}", # Use derived ref
                                     'sequence': chunk_index
                                 }
                             }
                         })
                         chunk_index += 1
                         # Start new chunk with overlap
-                        overlap_text = " ".join(current_chunk_text.split()[-chunk_overlap:]) # Rough word overlap
+                        overlap_text = " ".join(current_chunk_text.split()[-chunk_overlap:])
                         current_chunk_text = overlap_text
                         current_chunk_token_count = _get_token_count(current_chunk_text)
-                        para_start_index = para_index + 1 # Next para starts the potential new chunk
+                        para_start_index = para_index + 1
 
             # Add any remaining text as the last chunk for this scene
             if current_chunk_text.strip() and len(current_chunk_text) > MIN_CHUNK_SIZE_CHARS:
@@ -302,8 +325,8 @@ def adaptive_chunking(
                     'metadata': {
                         'document_id': None,
                         'source_location': {
-                            'structure_type': struct_meta_type,
-                            'structure_ref': f"{scene_ref_combined} / Paras {para_start_index+1}-{len(paragraphs)}",
+                            'structure_type': struct_meta_type, # Use derived type
+                            'structure_ref': f"{scene_ref_combined} / Paras {para_start_index+1}-{len(paragraphs)}", # Use derived ref
                             'sequence': chunk_index
                         }
                     }

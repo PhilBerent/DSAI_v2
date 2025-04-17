@@ -170,13 +170,13 @@ def run_pipeline(document_path: str):
              raise ValueError("Raw text is unavailable for fine-grained chunking. Check state loading or initial run.")
         logging.info("Step 4: Performing adaptive fine-grained chunking...")
         # *** Check if adaptive_chunking implementation uses large_blocks or raw_text ***
-        # Assuming adaptive_chunking primarily needs raw_text now: --> This assumption was wrong, it uses structural_units (large_blocks)
+        # --> It uses structural_units (large_blocks) and now map_results
         final_chunks = adaptive_chunking(
-            # raw_text, # Pass raw_text loaded from state or generated initially --> REMOVE THIS
             structural_units=large_blocks, # Pass large_blocks as the first expected argument
-            validated_structure=doc_analysis_result, # Use loaded/generated analysis
+            map_results=map_results,       # Pass the map_results list
             target_chunk_size=Chunk_Size,
             chunk_overlap=Chunk_overlap
+            # validated_structure=doc_analysis_result, # No longer needed
         )
         if not final_chunks:
              raise ValueError("Chunking resulted in zero chunks. Aborting.")
