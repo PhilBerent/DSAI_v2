@@ -24,6 +24,13 @@ DocToAddPath = r"C:\Users\Phil\Documents\DataSphere AI\DataSphere AI Not Code\In
 Chunk_size = 1000  # Target chunk size in tokens (example)
 Chunk_overlap = 100 # Overlap in tokens (example)
 LLM_model = LLM_model # Use the model name from DSAIParams
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")  # Ensure this is set
+PINECONE_ENVIRONMENT = "us-east-1"  # Adjust based on Pinecone setup
+UPSERT_BATCH_SIZE = 250
+PARALLEL_BATCH_SIZE = 20
+NEO4J_URI = os.getenv("NEO4J_URI") 
+NEO4J_USERNAME = os.getenv("NEO4J_USERNAME") 
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
 # Expose Pinecone index name for other modules
 # Assuming PINECONE_INDEX_NAME is defined in DSAIParams.py
