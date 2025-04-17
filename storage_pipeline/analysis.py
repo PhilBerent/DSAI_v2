@@ -10,6 +10,7 @@ import sys
 import os
 # Removed concurrent.futures, tiktoken, time, openai imports as they are handled elsewhere
 from enum import Enum
+
 # import prompts # Import the whole module
 
 # Adjust path to import from parent directory AND sibling directory
@@ -17,32 +18,14 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(script_dir)
 sys.path.insert(0, parent_dir) # Add parent DSAI_v2_Scripts
 
+from globals import *
+from UtilityFunctions import *
+from DSAIParams import *
+from enums_and_constants import *
+from llm_calls import *
+from prompts import *
+from DSAIUtilities import *
 # Import required global modules
-try:
-    from globals import *
-    from UtilityFunctions import *
-    from DSAIParams import *
-    # Import enums and constants
-    from enums_and_constants import *
-    # Import the new centralized LLM call function and parallel helpers
-    from llm_calls import call_llm_json_mode, calc_num_instances, parallel_llm_calls
-    # Import the new prompt functions and variables
-    from prompts import (
-        system_msg_for_large_block_anal,
-        get_anal_large_block_prompt,
-        getNovelReducePrompt,
-        getBiographyReducePrompt,
-        getJournalArticleReducePrompt,
-        reduce_system_message,
-        DOCUMENT_ANALYSIS_SCHEMA,
-        chunk_system_message,
-        CHUNK_ANALYSIS_SCHEMA # Import schema needed later
-    )
-    # Import the new token estimation utility
-    from DSAIUtilities import calc_est_tokens_per_call
-except ImportError as e:
-    print(f"Error importing required modules: {e}")
-    raise
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -160,7 +143,7 @@ def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List
 
     return map_results, final_entities
 
-# --- REVISED: Step 3 - Reduce Phase: Synthesize Document Overview (Largely Unchanged Internally) ---
+# --- REVISED: Step 3 - Reduce Phase: Synthesize Document Overview (Uses getReducePrompt) ---
 def perform_reduce_document_analysis(
     map_results: List[Dict[str, Any]],
     final_entities: Dict[str, List[str]]
@@ -188,73 +171,40 @@ def perform_reduce_document_analysis(
             "preliminary_key_entities": {}
         }
 
-    # Prepare input for the reduction prompt
+    # Prepare inputs needed for the prompt generator
     synthesis_input = ""
     num_blocks = len(map_results)
     for i, result in enumerate(map_results):
         block_ref_val = result.get('block_ref', f'Index {result.get("block_index", "Unknown")}')
         block_summary_val = result.get('block_summary', 'Summary Unavailable')
-        synthesis_input += f"Block {i+1} Summary (Ref: {block_ref_val}): {block_summary_val}\\n"
-        # Note: logic for structure_list_from_map removed as it wasn't used
+        synthesis_input += f"Block {i+1} Summary (Ref: {block_ref_val}): {block_summary_val}\n"
 
-    # Format final_entities for the prompt
     try:
         formatted_entities_str = json.dumps(final_entities, indent=2)
     except Exception as json_err:
         logging.warning(f"Could not format final_entities for prompt: {json_err}")
         formatted_entities_str = "Error formatting entities." # Fallback
 
-    # Build the Reduce Prompt using imported functions/variables
-    allowed_types_str = ", ".join([f"'{t}'" for t in DocumentTypeList])
-    novel_instructions = getNovelReducePrompt(num_blocks)
-    biography_instructions = getBiographyReducePrompt(num_blocks)
-    journal_instructions = getJournalArticleReducePrompt(num_blocks)
-    # Use imported system message
-    # reduce_system_message defined in prompts.py
-
-    reduce_prompt = f"""
-    You will analyze summaries extracted from consecutive blocks of a large document. Follow these steps carefully:
-
-    1.  **Determine Document Type:** Based on the content of the summaries, determine the overall document type. Choose ONLY ONE type from the following list: [{allowed_types_str}].
-
-    2.  **Apply Specific Instructions:** Based *only* on the Document Type you determined in Step 1, follow the corresponding specific instructions below to guide your analysis:
-
-        --- Instructions for '{DocumentType.NOVEL.value}' ---
-        {novel_instructions}
-        --- End Instructions for '{DocumentType.NOVEL.value}' ---
-
-        --- Instructions for '{DocumentType.BIOGRAPHY.value}' ---
-        {biography_instructions}
-        --- End Instructions for '{DocumentType.BIOGRAPHY.value}' ---
-
-        --- Instructions for '{DocumentType.JOURNAL_ARTICLE.value}' ---
-        {journal_instructions}
-        --- End Instructions for '{DocumentType.JOURNAL_ARTICLE.value}' ---
-
-    3.  **Generate Output:** Using insights from the summaries, the 'Raw Consolidated Entities' list (if applicable based on instructions), and the specific instructions you followed, generate the final analysis. Adhere strictly to the provided JSON Schema. Ensure the 'structure' list reflects the instructions for the determined document type. Ensure 'preliminary_key_entities' reflects the requested consolidation and deduplication.
-
-    JSON Schema:
-    {json.dumps(DOCUMENT_ANALYSIS_SCHEMA, indent=2)}
-
-    Raw Consolidated Entities (Potential Duplicates Exist):
-    --- START ENTITY DATA ---
-    {formatted_entities_str}
-    --- END ENTITY DATA ---
-
-    Summaries from Blocks:
-    --- START BLOCK DATA ---
-    {synthesis_input}
-    --- END BLOCK DATA ---
-
-    (Note: Summaries and entity lists may be truncated if excessively long. Prioritize analysis based on available data.)
-
-    Provide the complete synthesized analysis ONLY in the specified JSON format, including the determined 'document_type'.
-    """
+    # Generate the prompt using the dedicated function
+    try:
+        reduce_prompt = getReducePrompt(
+            num_blocks=num_blocks,
+            formatted_entities_str=formatted_entities_str,
+            synthesis_input=synthesis_input
+        )
+    except Exception as prompt_err:
+         logging.error(f"Failed to generate reduce prompt: {prompt_err}")
+         # Return error dictionary if prompt generation fails
+         return {
+            "error": f"Failed during prompt generation: {prompt_err}",
+            "document_type": "Analysis Failed", "structure": [], "overall_summary": "", "preliminary_key_entities": {}
+         }
 
     # Call LLM for reduction using the centralized function
     try:
+        # Use imported system message (reduce_system_message)
         final_analysis = call_llm_json_mode(
-            system_message=reduce_system_message, # Use imported system message
+            system_message=reduce_system_message,
             prompt=reduce_prompt
         )
         logging.info("Reduce phase complete. Document overview synthesized.")

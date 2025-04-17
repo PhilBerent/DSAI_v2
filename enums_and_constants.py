@@ -2,7 +2,7 @@ from enum import Enum
 from globals import *
 from UtilityFunctions import *
 from DSAIParams import *
-from prompts import *
+
 
 class DocumentType(Enum):
     NOVEL = "Novel"
