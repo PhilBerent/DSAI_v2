@@ -1,3 +1,102 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""Stores prompts, schemas, and prompt generation logic for LLM calls."""
+
+import json
+from typing import Dict, Any
+
+# --- Schemas ---
+
+# Schema for block-level analysis in the map phase
+BLOCK_ANALYSIS_SCHEMA = {
+    "block_summary": "string (concise summary of this block)",
+    "key_entities_in_block": {
+        "characters": ["string"],
+        "locations": ["string"],
+        "organizations": ["string"]
+    },
+    "structural_marker_found": "string | None (e.g., 'Chapter X Title', 'Part Y Start')"
+}
+
+# Schema for detailed chunk analysis
+CHUNK_ANALYSIS_SCHEMA = {
+    "entities": {
+        "characters": [{"name": "string", "mentioned_or_present": "mentioned | present"}],
+        "locations": [{"name": "string"}],
+        "organizations": [{"name": "string"}]
+    },
+    "relationships_interactions": [
+        {
+            "type": "interaction | mention",
+            "participants": ["character_name"],
+            "location": "location_name | None",
+            "summary": "string",
+            "topic": "string | None"
+        }
+    ],
+    "events": ["string"],
+    "keywords_topics": ["string"]
+}
+
+# Schema for overall document analysis in the reduce phase
+DOCUMENT_ANALYSIS_SCHEMA = {
+    "document_type": "Novel | Non-Fiction (Non-Technical) | Other",
+    "structure": [{"type": "Chapter/Section", "title": "string", "number": "int/string"}],
+    "overall_summary": "string",
+    "preliminary_key_entities": {
+        "characters": ["string"],
+        "locations": ["string"],
+        "organizations": ["string"]
+    }
+}
+
+
+# --- System Messages ---
+
+system_msg_for_large_block_anal = "You are an expert literary analyst. Analyze the provided text block and extract information strictly according to the provided JSON schema. Only output JSON."
+
+chunk_system_message = "You are a detailed text analyst specializing in extracting entities, relationships, and events from text chunks within a larger document context. Output only valid JSON matching the schema."
+
+reduce_system_message = "You are an expert synthesizer of document analysis. Based on block summaries and entity lists, perform the requested analysis and output ONLY valid JSON according to the schema."
+
+
+# --- Prompt Generation Functions ---
+
+def get_anal_large_block_prompt(block_info: Dict[str, Any]) -> str:
+    """Generates the user prompt for analyzing a large text block."""
+    block_text = block_info.get('text', '')
+    block_ref = block_info.get('ref', 'Unknown Reference')
+
+    # Use the globally defined schema
+    schema_string = json.dumps(BLOCK_ANALYSIS_SCHEMA, indent=2)
+
+    # Truncate block text if necessary (using a reasonable limit)
+    # TODO: Consider making the truncation limit configurable
+    max_chars = 80000
+    truncated_text = block_text[:max_chars]
+    truncation_note = "(Note: Block might be truncated for analysis if excessively long)" if len(block_text) > max_chars else ""
+
+    prompt = f"""
+Analyze the following large text block from a document. Extract a concise summary, key entities primarily featured *in this block*, and identify any structural marker (like Chapter/Part title) found near the beginning of this block. Adhere strictly to the provided JSON schema.
+
+JSON Schema:
+{schema_string}
+
+Text Block (Ref: {block_ref}):
+--- START BLOCK ---
+{truncated_text}
+--- END BLOCK ---
+{truncation_note}
+
+Provide the analysis ONLY in the specified JSON format.
+"""
+    return prompt
+
+# TODO: Add prompt generation functions for other tasks like reduce phase, chunk analysis if needed.
+
+# --- Specific Instructions for Reduce Phase (Example - Keep adding others) ---
+# These might stay here or move to a more complex prompt management system later
 
 def getNovelReducePrompt(NumBlocks, BlocksPerStructUnit=1, WordsForFinalAnalysisSummary=200):
     if BlocksPerStructUnit > 1:

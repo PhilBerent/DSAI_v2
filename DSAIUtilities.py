@@ -1,7 +1,45 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""Utility functions specific to the DataSphere AI project."""
+
+import logging
+import random
+from typing import List, Dict, Any, Optional, Callable
+import sys
+import os
 import sqlite3
 import pinecone
 import tiktoken
 from DSAIParams import *
+
+# Attempt to import tiktoken, fall back if unavailable
+try:
+    import tiktoken
+except ImportError:
+    logging.warning("tiktoken library not found. Token estimations will use rough character counts.")
+    tiktoken = None
+
+# Adjust path to import from parent directory (DSAI_v2_Scripts)
+# This assumes DSAIUtilities.py is directly inside DSAI_v2_Scripts
+script_dir = os.path.dirname(os.path.abspath(__file__))
+# If DSAIUtilities is in a subdirectory, adjust parent_dir calculation accordingly
+parent_dir = script_dir
+sys.path.insert(0, parent_dir)
+
+# Import required global modules
+try:
+    from globals import *
+    from UtilityFunctions import *
+    from DSAIParams import *
+    from DSAIParams import AIPlatform # Explicitly import AIPlatform
+    # Import prompt details if needed directly, or rely on prompt_generator_func
+    # from prompts import system_msg_for_large_block_anal # Example
+except ImportError as e:
+    print(f"Error importing core modules (globals, UtilityFunctions, DSAIParams) in DSAIUtilities: {e}")
+    raise
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def deleteAll_dbs_and_Indexes(db_file):
     conn = sqlite3.connect(db_file)
@@ -70,5 +108,103 @@ def get_optimal_batch_size(total_tokens, chunk_size, max_batch_size=200):
     batch_size = min(batch_size, max_batch_size)
 
     return batch_size
+
+def calc_est_tokens_per_call(
+    data_list: List[Dict[str, Any]],
+    num_blocks_for_sample: int,
+    estimated_output_token_fraction: float,
+    system_message: str,
+    prompt_generator_func: Callable[[Dict[str, Any]], str],
+) -> Optional[float]:
+    """Estimates the total tokens per LLM call based on random samples.
+
+    Args:
+        data_list: List of data items (e.g., large_blocks) to sample from.
+        num_blocks_for_sample: How many items to randomly sample.
+        estimated_output_token_fraction: Estimated output tokens as a fraction of input tokens.
+        system_message: The system message used in the LLM call.
+        prompt_generator_func: A function that takes one item from data_list
+                               and returns the corresponding user prompt string.
+
+    Returns:
+        The estimated total tokens per call, or None if estimation fails.
+    """
+    if not data_list:
+        logging.warning("Cannot estimate tokens: data_list is empty.")
+        return None
+
+    sample_size = min(num_blocks_for_sample, len(data_list))
+    if sample_size <= 0:
+        logging.warning("Cannot estimate tokens: num_blocks_for_sample is zero or negative.")
+        return None
+
+    logging.info(f"Estimating tokens locally based on {sample_size} random sample blocks...")
+    encoding = None
+    if tiktoken:
+        try:
+            # Explicitly get cl100k_base for OpenAI and Gemini (as a good approximation)
+            if AIPlatform.upper() in ["OPENAI", "GEMINI"]:
+                encoding = tiktoken.get_encoding("cl100k_base")
+                logging.debug(f"Using explicit tiktoken encoding 'cl100k_base' for platform {AIPlatform}.")
+            else:
+                # Fallback for unknown platforms - maybe try encoding_for_model or warn
+                logging.warning(f"Unsupported AIPlatform '{AIPlatform}' for tiktoken estimation. Using rough char count.")
+                encoding = None # Ensure it's None
+        except Exception as e:
+            logging.warning(f"tiktoken get_encoding('cl100k_base') failed: {e}. Using rough char count.")
+            encoding = None # Set back to None on error
+    else:
+         logging.debug("tiktoken not available. Using rough character count.")
+
+    total_input_tokens_sampled = 0
+    successful_samples = 0
+
+    # Randomly select indices without replacement
+    try:
+        sample_indices = random.sample(range(len(data_list)), sample_size)
+    except ValueError:
+        logging.error("Sample size requested is larger than the data list size.")
+        # Should not happen due to min() check above, but defensive coding
+        return None
+
+    for i, index in enumerate(sample_indices):
+        block_info = data_list[index]
+        try:
+            logging.debug(f"Estimating tokens for sample {i+1}/{sample_size} (Index: {index})...")
+
+            # Generate the user prompt for this sample block
+            user_prompt = prompt_generator_func(block_info)
+
+            # Construct the full text that would be tokenized
+            # Note: For Gemini, system message isn't part of the tokenized 'prompt',
+            # but including it gives a more conservative estimate for rate limits.
+            # Adjust this logic based on exact API token counting if needed.
+            # For simplicity and safety, we'll include both for estimation.
+            full_prompt_text = system_message + "\n\n" + user_prompt
+
+            if encoding:
+                input_tokens = len(encoding.encode(full_prompt_text))
+            else:
+                # Rough approximation if tiktoken failed or unavailable
+                input_tokens = len(full_prompt_text) // 4
+
+            total_input_tokens_sampled += input_tokens
+            successful_samples += 1
+            logging.debug(f"Sample {i+1}: Estimated Input Tokens = {input_tokens}")
+
+        except Exception as sample_exc:
+            logging.warning(f"Error estimating tokens for sample block {i+1} (Index: {index}): {sample_exc}")
+
+    if successful_samples > 0:
+        average_input_tokens = total_input_tokens_sampled / successful_samples
+        estimated_output_tokens = average_input_tokens * estimated_output_token_fraction
+        estimated_total_tokens_per_call = average_input_tokens + estimated_output_tokens
+        logging.info(f"Token Estimate: Avg Input={average_input_tokens:.0f}, Est Output={estimated_output_tokens:.0f} (Frac: {estimated_output_token_fraction}), Est Total/Call={estimated_total_tokens_per_call:.0f}")
+        return estimated_total_tokens_per_call
+    else:
+        logging.warning("Failed to estimate tokens for any sample blocks. Cannot proceed with dynamic worker calculation.")
+        return None
+
+# Add other DSAI-specific utilities here as needed
 
 

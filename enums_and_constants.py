@@ -27,5 +27,6 @@ class StateStoragePoints(Enum):
 DocumentTypeList = ["Novel", "Biography", "Journal Article"]
 
 
+
     
 

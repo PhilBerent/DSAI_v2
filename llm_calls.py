@@ -1,10 +1,12 @@
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List, Callable
 import sys
 import os
 import openai # Keep for OpenAI client and specific error handling
 import google.generativeai as genai # Import Gemini library
+import concurrent.futures
+import time
 
 # Adjust path to import from the root DSAI_v2_Scripts directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -223,6 +225,100 @@ def call_llm_json_mode(
     except Exception as e:
         logging.error(f"call_llm_json_mode failed: {e}")
         raise
+
+# --- Parallel Execution & Worker Calculation ---
+
+# Attempt to import Google API core exceptions for Gemini rate limits
+try:
+    from google.api_core import exceptions as google_exceptions
+except ImportError:
+    google_exceptions = None
+    logging.warning("google-api-core library not found. Gemini rate limit handling might be incomplete.")
+
+def calc_num_instances(estimated_total_tokens_per_call: Optional[float]) -> int:
+    """Calculates the optimal number of parallel instances based on token estimates and rate limits."""
+    # Import necessary params (consider passing them if this func moves elsewhere)
+    from DSAIParams import MAX_TPM, MAX_RPM, WORKER_SAFETY_FACTOR, WORKER_RATE_LIMIT_DIVISOR, MAX_WORKERS_FALLBACK
+
+    if estimated_total_tokens_per_call is None or estimated_total_tokens_per_call <= 0:
+        dynamic_max_workers = MAX_WORKERS_FALLBACK
+        logging.warning(f"Invalid token estimate ({estimated_total_tokens_per_call}). Using fallback max_workers: {dynamic_max_workers}")
+    else:
+        # Calculate limits based on tokens per minute (TPM)
+        calls_per_minute_tpm = MAX_TPM / estimated_total_tokens_per_call
+        # Calculate limits based on requests per minute (RPM)
+        # Divide RPM by a factor representing how many sequential requests a worker might make per minute
+        # (e.g., if WORKER_RATE_LIMIT_DIVISOR is 6, assumes roughly 10-second tasks)
+        concurrent_limit_rpm = MAX_RPM / WORKER_RATE_LIMIT_DIVISOR
+        # Take the minimum of the two limits
+        calculated_max_workers = min(calls_per_minute_tpm, concurrent_limit_rpm)
+        # Apply safety factor and ensure at least 1 worker
+        dynamic_max_workers = max(1, int(calculated_max_workers * WORKER_SAFETY_FACTOR))
+        logging.info(f"Calculated dynamic max_workers: {dynamic_max_workers} "
+                     f"(Based on TPM={MAX_TPM}, RPM={MAX_RPM}, "
+                     f"EstTotalTokens={estimated_total_tokens_per_call:.0f}, Factor={WORKER_SAFETY_FACTOR}, "
+                     f"RPM Divisor={WORKER_RATE_LIMIT_DIVISOR})")
+
+    # Ensure workers don't exceed a practical maximum if needed (e.g., MAX_WORKERS_FALLBACK)
+    # dynamic_max_workers = min(dynamic_max_workers, MAX_WORKERS_FALLBACK) # Optional upper cap
+
+    return dynamic_max_workers
+
+def parallel_llm_calls(
+    function_to_run: Callable[[Dict[str, Any], int], Optional[Any]], # Expects func(item, index)
+    num_instances: int,
+    input_data_list: List[Dict[str, Any]],
+    platform: str, # To know which rate limit errors to catch ("OPENAI" or "GEMINI")
+    rate_limit_sleep: int
+) -> List[Optional[Any]]:
+    """Runs a given function in parallel for a list of inputs, handling rate limits."""
+    results = [None] * len(input_data_list) # Initialize results list with None
+    num_workers = min(num_instances, len(input_data_list)) # Cannot have more workers than tasks
+
+    if num_workers <= 0:
+        logging.warning("No instances requested or no data to process in parallel_llm_calls.")
+        return results
+
+    logging.info(f"Processing {len(input_data_list)} items in parallel with {num_workers} workers...")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+        # Map futures to the original index to place results correctly
+        future_to_index = {
+            executor.submit(function_to_run, item, index): index
+            for index, item in enumerate(input_data_list)
+        }
+
+        for future in concurrent.futures.as_completed(future_to_index):
+            original_index = future_to_index[future]
+            item_ref = input_data_list[original_index].get('ref', f'Index {original_index}') # Get ref for logging if available
+            try:
+                result = future.result() # Get result from the future
+                results[original_index] = result # Place result in the correct spot
+            except openai.RateLimitError as rle:
+                if platform.upper() == "OPENAI":
+                    logging.warning(f"OpenAI Rate limit hit processing item {item_ref}. Sleeping for {rate_limit_sleep}s. Error: {rle}")
+                    # TODO: Implement retry logic here instead of just sleeping once
+                    # For now, just log and the result remains None
+                    time.sleep(rate_limit_sleep)
+                else:
+                    logging.error(f"Caught OpenAI RateLimitError but platform is {platform}. Item {item_ref} processing failed. Error: {rle}")
+            except google_exceptions.ResourceExhausted as rle:
+                 if platform.upper() == "GEMINI":
+                     logging.warning(f"Gemini Rate limit (ResourceExhausted) hit processing item {item_ref}. Sleeping for {rate_limit_sleep}s. Error: {rle}")
+                     # TODO: Implement retry logic here
+                     time.sleep(rate_limit_sleep)
+                 else:
+                     logging.error(f"Caught Gemini ResourceExhausted but platform is {platform}. Item {item_ref} processing failed. Error: {rle}")
+            except Exception as exc:
+                logging.error(f"Item processing task for {item_ref} generated an exception: {exc}")
+                # Result for this index remains None
+
+    successful_count = sum(1 for r in results if r is not None)
+    total_count = len(input_data_list)
+    failed_count = total_count - successful_count
+    logging.info(f"Parallel processing complete. Successfully processed {successful_count}/{total_count} items. ({failed_count} failures/skips)")
+
+    return results
 
 # Add other wrapper functions here if needed for specific use cases
 # e.g., a function for summarization that calls llm_call with specific params 

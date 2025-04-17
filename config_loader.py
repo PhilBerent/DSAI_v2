@@ -8,6 +8,7 @@ import logging
 # Assuming running from DSAI_v2_Scripts or parent
 import sys
 from DSAIParams import *  # Import all parameters from DSAIParams
+from globals import *  # Import global variables and constants
 
 # Adjust path if necessary - assuming this file is now in DSAI_v2_Scripts
 script_dir = os.path.dirname(os.path.abspath(__file__))
