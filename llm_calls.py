@@ -41,7 +41,6 @@ def _openai_llm_call(
     response_format: Optional[Dict[str, str]]
 ) -> str:
     """Makes an LLM call using the OpenAI API."""
-    final_prompt = initialPromptText + prompt
     try:
         logging.debug(f"Making OpenAI call to model: {LLM_model}")
         params = {
@@ -49,7 +48,7 @@ def _openai_llm_call(
             "temperature": temperature,
             "messages": [
                 {"role": "system", "content": system_message},
-                {"role": "user", "content": final_prompt}
+                {"role": "user", "content": prompt}
             ]
         }
         if max_tokens is not None:
@@ -75,46 +74,32 @@ def _gemini_llm_call(
     prompt: str,
     temperature: float,
     max_tokens: Optional[int],
-    response_format: Optional[Dict[str, str]] # Note: Gemini uses prompt instructions for JSON
+    response_format: Optional[Dict[str, str]]
 ) -> str:
     """Makes an LLM call using the Google Gemini API."""
-    # Combine system message and user prompt for Gemini
-    # Prepend initialPromptText (handles debug/training knowledge flags)
-    full_prompt = initialPromptText + "\n\n" + system_message + "\n\n" + prompt
-
-    # If JSON output is requested via response_format, ensure prompt reflects this strongly.
-    # The call_llm_json_mode wrapper already adds a basic instruction.
-    # You might want to add more specific JSON instructions here if needed.
-    if response_format and response_format.get("type") == "json_object":
-        # Example: Append a stronger instruction if not already present
-        # Note: This is basic; robust JSON enforcement with Gemini requires careful prompt engineering.
-        if "output a single, valid JSON object" not in full_prompt.lower():
-             full_prompt += "\n\nStrictly adhere to the requested JSON format. Output ONLY the JSON object."
-
     try:
-        logging.debug(f"Making Gemini call to model: {LLM_model}")
-        # Assumes genai is configured by config_loader
-        model = genai.GenerativeModel(LLM_model)
-
-        # Configure generation parameters
-        generation_config_params = {
+        logging.debug(f"Making Gemini call to model: gemini-2.0-flash")
+        
+        # Initialize the Gemini model with system instruction
+        model = genai.GenerativeModel(
+            LLM_model,
+            system_instruction=system_message
+        )
+        
+        # Set up generation config
+        generation_config = {
             "temperature": temperature,
         }
+        
         if max_tokens is not None:
-            # Gemini uses 'max_output_tokens'
-            generation_config_params["max_output_tokens"] = max_tokens
-
-        generation_config = genai.types.GenerationConfig(**generation_config_params)
-
-        # Safety settings - Use imported settings
-        safety_settings = GeminiSafetySettings
-
+            generation_config["max_output_tokens"] = max_tokens
+            
+        # Generate content
         response = model.generate_content(
-            full_prompt,
-            generation_config=generation_config,
-            safety_settings=safety_settings
+            prompt,
+            generation_config=generation_config
         )
-
+        
         # Accessing the response text
         # Need to check response.parts structure and potential blocks/errors
         if response.parts:
@@ -172,7 +157,7 @@ def llm_call(
         Exception: Propagates API errors or other exceptions.
     """
     logging.debug(f"Dispatching LLM call via platform: {AIPlatform}")
-
+    prompt = initialPromptText + prompt  # Prepend initialPromptText to the user prompt
     # Use uppercase comparison for dispatching
     if AIPlatform.upper() == "OPENAI":
         return _openai_llm_call(
