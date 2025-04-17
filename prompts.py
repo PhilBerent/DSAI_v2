@@ -18,6 +18,7 @@ from enums_and_constants import *
 # Schema for block-level analysis in the map phase
 BLOCK_ANALYSIS_SCHEMA = {
     "block_summary": "string (concise summary of this block)",
+    "title": "a short descriptive title for chapter/section",
     "key_entities_in_block": {
         "characters": ["string"],
         "locations": ["string"],
@@ -129,7 +130,8 @@ def get_anal_large_block_prompt(block_info: Dict[str, Any]) -> str:
     truncation_note = "(Note: Block might be truncated for analysis if excessively long)" if len(block_text) > max_chars else ""
 
     prompt = f"""
-Analyze the following large text block from a document. Extract a concise summary, key entities primarily featured *in this block*, and identify any structural marker (like Chapter/Part title) found near the beginning of this block. Adhere strictly to the provided JSON schema.
+Analyze the following large text block from a document. Extract a concise summary, key entities primarily featured *in this block*, and identify any structural marker (like Chapter/Part title) found near the beginning of this block. The 'title', field should include the structural marker and a brief, descriptive and reflecting the main event or topic (e.g., "Chapter 10: Johnson returns to London", "Chapter VII: An Alternative Perspective", "Preface: Discussion of main themes"). Use the block number for the number field.
+Adhere strictly to the provided JSON schema.
 
 JSON Schema:
 {schema_string}

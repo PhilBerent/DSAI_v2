@@ -202,11 +202,11 @@ def adaptive_chunking(
 
     # Map validated structure titles/numbers to their sequence for reference
     structure_map = {}
-    if validated_structure and validated_structure.get('structure'):
-        for i, struct in enumerate(validated_structure['structure']):
-             # Use title or number as key
-             key = struct.get('title') or struct.get('number') or f"Struct_{i}"
-             structure_map[key] = {'order': i, 'type': struct.get('type', 'Structure')}
+    val_struct_list = validated_structure.get('structure', []) if validated_structure else []
+
+    for i, struct in enumerate(val_struct_list):
+        key = struct.get('title') or struct.get('number') or f"Struct_{i}"
+        structure_map[key] = {'order': i, 'type': struct.get('type', 'Structure')}
 
     # Process each structural unit (coarse chunk)
     for unit_idx, unit in enumerate(structural_units):

@@ -115,7 +115,7 @@ StateStorageList = [
 ]
 # StateStorageList = []
 # RunCodeFrom = RunFromType.LargeBlockAnalysisCompleted
-RunCodeFrom = RunFromType.IterativeAnalysisCompleted
-# RunCodeFrom = RunFromType.Start
+# RunCodeFrom = RunFromType.IterativeAnalysisCompleted
+RunCodeFrom = RunFromType.Start
 
 MaxWordOutputPerCall = 3000
