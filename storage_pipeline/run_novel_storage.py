@@ -8,7 +8,7 @@ import time
 import os
 import uuid
 import sys
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 # Adjust path to import from parent directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -19,26 +19,22 @@ sys.path.insert(0, parent_dir)
 try:
     from globals import *
     from UtilityFunctions import *
-    from DSAIParams import * # Imports RunCodeFrom, StateStorageList
-    # Import enums for state management
-    from enums_and_constants import CodeStages, StateStoragePoints
+    from DSAIParams import * # Imports RunCodeFrom, StateStorageList, DocToAddPath etc.
+    # Import enums for state management and the list of stages
+    from enums_and_constants import CodeStages, StateStoragePoints, Code_Stages_List
 except ImportError as e:
     print(f"Error importing core modules (globals, UtilityFunctions, DSAIParams, enums): {e}")
     raise
 
-# Pipeline components (using absolute imports from DSAI_v2_Scripts level)
+# Pipeline components
 try:
-    from config_loader import DocToAddPath, Chunk_Size, Chunk_overlap
-    from storage_pipeline.db_connections import get_pinecone_index, get_neo4j_driver_local, test_connections
-    from storage_pipeline.ingestion import ingest_document
-    # Import the refactored analysis functions
-    from DSAI_v2_Scripts.storage_pipeline.analysis_functions import perform_map_block_analysis, perform_reduce_document_analysis, analyze_chunk_details
-    from storage_pipeline.chunking import coarse_chunk_by_structure, adaptive_chunking
-    from storage_pipeline.embedding import generate_embeddings
-    from storage_pipeline.graph_builder import build_graph_data
-    from storage_pipeline.storage import store_embeddings_pinecone, store_graph_data_neo4j, store_chunk_metadata_docstore
-    # Import state storage functions
-    from state_storage import save_state, load_state
+    # config_loader is likely not needed directly here anymore if DocToAddPath is from DSAIParams
+    # from config_loader import DocToAddPath, Chunk_Size, Chunk_overlap # Chunk parameters are now in DSAIParams
+    from storage_pipeline.db_connections import get_pinecone_index, get_neo4j_driver_local # Removed test_connections, not used
+    # Import the new stage functions
+    from storage_pipeline.primary_analysis_stages import perform_initial_processing, perform_iterative_analysis, perform_downstream_processing
+    # State storage is used within the stage functions now
+    # from state_storage import save_state, load_state # No longer needed here
 except ImportError as e:
     print(f"Error during absolute import: {e}")
     print("Ensure you are running this script from a context where DSAI_v2_Scripts is accessible,")
@@ -48,193 +44,117 @@ except ImportError as e:
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def run_pipeline(document_path: str):
-    """Executes the full storage pipeline for a given document, with state management."""
+    """Executes the storage pipeline for a given document using a stage-based approach."""
     start_time = time.time()
-    logging.info(f"--- Starting Storage Pipeline for: {document_path} (Run Mode: {RunCodeFrom}) ---")
+    logging.info(f"--- Starting Storage Pipeline for: {document_path} (Run Mode: {RunCodeFrom.value}) ---")
 
     # --- 0. Setup & Connections ---
-    # Connections needed regardless of start point for later steps
+    pinecone_index = None # Initialize to ensure availability in finally block
+    neo4j_driver = None   # Initialize to ensure availability in finally block
     try:
         logging.info("Setting up database connections...")
+        # Connections are needed for the final stage
         pinecone_index = get_pinecone_index()
         neo4j_driver = get_neo4j_driver_local()
-        document_id = os.path.splitext(os.path.basename(document_path))[0]
-        logging.info(f"Using Document ID: {document_id}")
+        file_id = os.path.splitext(os.path.basename(document_path))[0] # Use filename without ext as ID
+        logging.info(f"Using Document ID: {file_id}")
     except Exception as e:
         logging.error(f"Pipeline setup failed: {e}")
-        return
+        # Clean up any potentially partially initialized connections
+        if neo4j_driver:
+            neo4j_driver.close()
+        # Pinecone client doesn't usually require explicit close in this manner
+        return # Exit if setup fails
 
-    # Initialize state variables
-    raw_text: str = ""
-    large_blocks: List[Dict[str, Any]] = []
-    map_results: List[Dict[str, Any]] = []
-    final_entities: Dict[str, List[str]] = {}
-    doc_analysis_result: Dict[str, Any] = {}
-    final_chunks: List[Dict[str, Any]] = []
-    chunks_with_analysis: List[Dict[str, Any]] = []
-    embeddings_dict: Dict[str, List[float]] = {}
-    graph_nodes: List[Dict] = []
-    graph_edges: List[Dict] = []
+    # Initialize variables to hold state between stages
+    current_raw_text: Optional[str] = None
+    current_large_blocks: Optional[List[Dict[str, Any]]] = None
+    current_map_results: Optional[List[Dict[str, Any]]] = None
+    current_final_entities: Optional[Dict[str, List[str]]] = None
+    current_doc_analysis_result: Optional[Dict[str, Any]] = None
 
     try:
-        # --- Load State or Run from Start --- #
-        if RunCodeFrom == CodeStages.Start:
-            logging.info("Running pipeline from the beginning.")
-            # Execute all steps from ingestion onwards
+        # Determine the starting index in the stages list
+        try:
+            start_index = Code_Stages_List.index(RunCodeFrom.value)
+        except ValueError:
+            logging.error(f"Invalid start stage '{RunCodeFrom.value}' specified in DSAIParams.py. Must be one of {Code_Stages_List}. Aborting.")
+            raise ValueError(f"Invalid RunCodeFrom value: {RunCodeFrom.value}")
 
-            # --- 1. Ingestion (ONLY for Start) ---
-            logging.info("Step 1: Ingesting document...")
-            raw_text = ingest_document(document_path)
-            logging.info(f"Ingestion complete. Text length: {len(raw_text)} chars.")
+        logging.info(f"Pipeline will run stages starting from index {start_index}: {Code_Stages_List[start_index:]}")
 
-            # --- 2. Initial Structural Scan & Coarse Chunking (ONLY for Start) ---
-            logging.info("Step 2: Performing initial structural scan and coarse chunking...")
-            large_blocks = coarse_chunk_by_structure(raw_text)
-            if not large_blocks:
-                raise ValueError("Coarse chunking resulted in zero blocks. Aborting.")
-            logging.info(f"Coarse chunking complete. Generated {len(large_blocks)} large blocks.")
+        # --- Execute Pipeline Stages ---
+        for i, stage in enumerate(Code_Stages_List[start_index:]):
+            # Determine if state should be loaded for this stage
+            # Load state only if it's the *first* stage being executed in this run
+            load_state_flag = (i != 0 and stage == RunCodeFrom) # Don't load state if starting from the beginning
 
-            # --- 3.1 Map Phase --- #
-            logging.info("Step 3.1: Performing Map phase block analysis...")
-            map_results, final_entities = perform_map_block_analysis(large_blocks)
-            if not map_results:
-                 raise ValueError("Map phase analysis failed for all blocks. Aborting.")
-            logging.info("Map phase analysis complete.")
+            logging.info(f"--- Executing Stage: {stage} (Load State: {load_state_flag}) ---")
 
-            # --- Save State: LargeBlockAnalysisCompleted ---
-            if StateStoragePoints.LargeBlockAnalysisCompleted in StateStorageList:
-                logging.info("Saving state after Map phase (LargeBlockAnalysisCompleted)...")
-                state_to_save = {
-                    "large_blocks": large_blocks,
-                    "map_results": map_results,
-                    "final_entities": final_entities,
-                    "raw_text": raw_text # Include raw_text if needed for subsequent steps like fine chunking
-                }
-                save_state(state_to_save, StateStoragePoints.LargeBlockAnalysisCompleted)
+            if stage == CodeStages.Start.value:
+                # Stage 1: Initial Processing
+                current_raw_text, current_large_blocks, current_map_results, current_final_entities = \
+                    perform_initial_processing(document_path, file_id)
 
-        if RunCodeFrom == CodeStages.LargeBlockAnalysisCompleted:
-            logging.info("Attempting to load state from LargeBlockAnalysisCompleted...")
-            try:
-                loaded_state = load_state(CodeStages.LargeBlockAnalysisCompleted)
-                large_blocks = loaded_state["large_blocks"] # Still load if needed for context/future use
-                map_results = loaded_state["map_results"]
-                final_entities = loaded_state["final_entities"]
-                raw_text = loaded_state["raw_text"] # CRITICAL: Load raw_text for fine chunking
-                logging.info("State loaded. Proceeding from Reduce phase.")
+            elif stage == CodeStages.LargeBlockAnalysisCompleted.value:
+                # Stage 2: Iterative Analysis (Reduce Phase)
+                current_raw_text, current_large_blocks, current_map_results, current_final_entities, current_doc_analysis_result = \
+                    perform_iterative_analysis(
+                        load_state_flag=load_state_flag,
+                        file_id=file_id,
+                        raw_text_in=current_raw_text,
+                        large_blocks_in=current_large_blocks,
+                        map_results_in=current_map_results,
+                        final_entities_in=current_final_entities
+                    )
 
-            except (FileNotFoundError, KeyError, Exception) as e:
-                logging.error(f"Failed to load or use state from {RunCodeFrom}: {e}. Aborting.")
-                raise
+            elif stage == CodeStages.IterativeAnalysisCompleted.value:
+                 # Stage 3: Downstream Processing (Chunking, Analysis, Storage)
+                 perform_downstream_processing(
+                    load_state_flag=load_state_flag,
+                    file_id=file_id,
+                    pinecone_index=pinecone_index,
+                    neo4j_driver=neo4j_driver,
+                    raw_text_in=current_raw_text,
+                    large_blocks_in=current_large_blocks, # Needed for adaptive chunking? Check impl.
+                    map_results_in=current_map_results,   # Needed for adaptive chunking? Check impl.
+                    doc_analysis_result_in=current_doc_analysis_result
+                 )
+                 # This is the last stage defined in the list, so we break the loop after execution
+                 # If more stages were added, this break might need reconsideration
+                 break
 
-        if RunCodeFrom == CodeStages.LargeBlockAnalysisCompleted or RunCodeFrom == CodeStages.Start:
-                # --- 3.2 Reduce Phase --- #
-                logging.info("Step 3.2: Performing Reduce phase document synthesis...")
-                doc_analysis_result = perform_reduce_document_analysis(map_results, final_entities)
-                if "error" in doc_analysis_result:
-                    raise ValueError(f"Reduce phase document analysis failed after loading state: {doc_analysis_result['error']}")
-                logging.info("Reduce phase analysis complete.")
+            else:
+                 logging.warning(f"Encountered an unrecognized stage: {stage}. Skipping.")
 
-                # --- Save State: IterativeAnalysisCompleted ---
-                if StateStoragePoints.IterativeAnalysisCompleted in StateStorageList:
-                    logging.info("Saving state after Reduce phase (IterativeAnalysisCompleted)...")
-                    state_to_save = {
-                        "doc_analysis_result": doc_analysis_result,
-                        "large_blocks": large_blocks,
-                        "map_results": map_results,
-                        "final_entities": final_entities,
-                        "raw_text": raw_text
-                    }
-                    save_state(state_to_save, StateStoragePoints.IterativeAnalysisCompleted)
+            # Optional: Add a small delay between stages if needed for resource reasons
+            # time.sleep(1)
 
-
-        if RunCodeFrom == CodeStages.IterativeAnalysisCompleted:
-            logging.info("Attempting to load state from IterativeAnalysisCompleted...")
-            try:
-                loaded_state = load_state(CodeStages.IterativeAnalysisCompleted)
-                doc_analysis_result = loaded_state["doc_analysis_result"]
-                large_blocks = loaded_state["large_blocks"] # Load if needed by subsequent steps
-                map_results = loaded_state["map_results"]   # Load if needed
-                final_entities = loaded_state["final_entities"] # Load if needed
-                raw_text = loaded_state["raw_text"]     # CRITICAL: Load raw_text for fine chunking
-                logging.info("State loaded. Proceeding from Fine-grained Chunking.")
-            except (FileNotFoundError, KeyError, Exception) as e:
-                logging.error(f"Failed to load or use state from {RunCodeFrom}: {e}. Aborting.")
-                raise
-
-        # --- Remaining Pipeline Steps (executed if not aborted due to load failure) ---
-
-        # --- 4. Adaptive Fine-Grained Chunking ---
-        # Check if raw_text is available (should be loaded or generated)
-        if 'raw_text' not in locals() or not raw_text:
-             # This check ensures raw_text was either generated in Start or loaded from state
-             raise ValueError("Raw text is unavailable for fine-grained chunking. Check state loading or initial run.")
-        logging.info("Step 4: Performing adaptive fine-grained chunking...")
-        # *** Check if adaptive_chunking implementation uses large_blocks or raw_text ***
-        # --> It uses structural_units (large_blocks) and now map_results
-        final_chunks = adaptive_chunking(
-            structural_units=large_blocks, # Pass large_blocks as the first expected argument
-            map_results=map_results,       # Pass the map_results list
-            target_chunk_size=Chunk_Size,
-            chunk_overlap=Chunk_overlap
-            # validated_structure=doc_analysis_result, # No longer needed
-        )
-        if not final_chunks:
-             raise ValueError("Chunking resulted in zero chunks. Aborting.")
-        logging.info(f"Chunking complete. Generated {len(final_chunks)} chunks.")
-        # Add document_id to chunk metadata
-        for chunk in final_chunks:
-             chunk['metadata']['document_id'] = document_id
-
-        # --- 5. Chunk-Level Analysis ---
-        logging.info("Step 5: Performing detailed chunk analysis...")
-        processed_chunks = 0
-        for i, chunk in enumerate(final_chunks):
-            logging.info(f"Analyzing chunk {i+1}/{len(final_chunks)} (ID: {chunk['chunk_id']})...")
-            try:
-                chunk_analysis_result = analyze_chunk_details(
-                    chunk_text=chunk['text'],
-                    chunk_id=chunk['chunk_id'],
-                    doc_context=doc_analysis_result # Provide doc context
-                )
-                chunk['analysis'] = chunk_analysis_result
-                chunks_with_analysis.append(chunk)
-                processed_chunks += 1
-            except Exception as e:
-                logging.error(f"Failed to analyze chunk {chunk['chunk_id']}: {e}. Skipping chunk.")
-        logging.info(f"Chunk analysis complete. Successfully analyzed {processed_chunks}/{len(final_chunks)} chunks.")
-        if not chunks_with_analysis:
-             raise ValueError("Chunk analysis failed for all chunks. Aborting.")
-
-        # --- 6. Embedding Generation ---
-        logging.info("Step 6: Generating embeddings...")
-        embeddings_dict = generate_embeddings(chunks_with_analysis)
-        if not embeddings_dict:
-            raise ValueError("Embedding generation failed for all processed chunks. Aborting.")
-        logging.info(f"Embedding generation complete. Generated {len(embeddings_dict)} embeddings.")
-
-        # --- 7. Graph Data Construction ---
-        logging.info("Step 7: Constructing graph data...")
-        graph_nodes, graph_edges = build_graph_data(document_id, doc_analysis_result, chunks_with_analysis)
-        logging.info(f"Graph construction complete. Nodes: {len(graph_nodes)}, Edges: {len(graph_edges)}.")
-
-        # --- 8. Data Storage ---
-        logging.info("Step 8: Storing data...")
-        store_embeddings_pinecone(pinecone_index, embeddings_dict, chunks_with_analysis)
-        store_graph_data_neo4j(neo4j_driver, graph_nodes, graph_edges)
-        store_chunk_metadata_docstore(chunks_with_analysis)
-        logging.info("Data storage complete.")
-
+    except FileNotFoundError as e:
+        # Specific handling for state file not found when expected
+        logging.error(f"Pipeline aborted: Required state file not found. {e}")
+    except ValueError as e:
+        # Handling for validation errors (e.g., invalid start stage, zero chunks)
+        logging.error(f"Pipeline aborted due to invalid data or configuration: {e}")
     except Exception as e:
-        logging.exception(f"Pipeline execution failed: {e}")
+        logging.exception(f"Pipeline execution failed due to an unexpected error: {e}") # Logs traceback
     finally:
         # Clean up resources
-        if 'neo4j_driver' in locals() and neo4j_driver:
-            neo4j_driver.close()
-            logging.info("Neo4j driver closed.")
+        if neo4j_driver:
+            try:
+                neo4j_driver.close()
+                logging.info("Neo4j driver closed.")
+            except Exception as e:
+                logging.error(f"Error closing Neo4j driver: {e}")
+        # Pinecone client does not require explicit close in recent versions
 
     end_time = time.time()
-    logging.info(f"--- Storage Pipeline Finished for: {document_path} (Run Mode: {RunCodeFrom}) --- ")
+    logging.info(f"--- Storage Pipeline Finished for: {document_path} (Ran from: {RunCodeFrom.value}) --- ")
     logging.info(f"Total execution time: {end_time - start_time:.2f} seconds.")
 
 if __name__ == "__main__":
-    run_pipeline(DocToAddPath) 
+    # Ensure document path is provided, e.g., from DSAIParams or command line
+    if not DocToAddPath or not os.path.exists(DocToAddPath):
+        print(f"Error: Document path '{DocToAddPath}' not found or not specified in DSAIParams.py.")
+    else:
+        run_pipeline(DocToAddPath) 
