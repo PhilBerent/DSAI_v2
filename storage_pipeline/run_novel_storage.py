@@ -21,7 +21,7 @@ try:
     from UtilityFunctions import *
     from DSAIParams import * # Imports RunCodeFrom, StateStorageList
     # Import enums for state management
-    from enums_and_constants import RunFromType, StateStoragePoints
+    from enums_and_constants import CodeStages, StateStoragePoints
 except ImportError as e:
     print(f"Error importing core modules (globals, UtilityFunctions, DSAIParams, enums): {e}")
     raise
@@ -32,7 +32,7 @@ try:
     from storage_pipeline.db_connections import get_pinecone_index, get_neo4j_driver_local, test_connections
     from storage_pipeline.ingestion import ingest_document
     # Import the refactored analysis functions
-    from storage_pipeline.analysis import perform_map_block_analysis, perform_reduce_document_analysis, analyze_chunk_details
+    from DSAI_v2_Scripts.storage_pipeline.analysis_functions import perform_map_block_analysis, perform_reduce_document_analysis, analyze_chunk_details
     from storage_pipeline.chunking import coarse_chunk_by_structure, adaptive_chunking
     from storage_pipeline.embedding import generate_embeddings
     from storage_pipeline.graph_builder import build_graph_data
@@ -78,7 +78,7 @@ def run_pipeline(document_path: str):
 
     try:
         # --- Load State or Run from Start --- #
-        if RunCodeFrom == RunFromType.Start:
+        if RunCodeFrom == CodeStages.Start:
             logging.info("Running pipeline from the beginning.")
             # Execute all steps from ingestion onwards
 
@@ -112,10 +112,10 @@ def run_pipeline(document_path: str):
                 }
                 save_state(state_to_save, StateStoragePoints.LargeBlockAnalysisCompleted)
 
-        if RunCodeFrom == RunFromType.LargeBlockAnalysisCompleted:
+        if RunCodeFrom == CodeStages.LargeBlockAnalysisCompleted:
             logging.info("Attempting to load state from LargeBlockAnalysisCompleted...")
             try:
-                loaded_state = load_state(RunFromType.LargeBlockAnalysisCompleted)
+                loaded_state = load_state(CodeStages.LargeBlockAnalysisCompleted)
                 large_blocks = loaded_state["large_blocks"] # Still load if needed for context/future use
                 map_results = loaded_state["map_results"]
                 final_entities = loaded_state["final_entities"]
@@ -126,7 +126,7 @@ def run_pipeline(document_path: str):
                 logging.error(f"Failed to load or use state from {RunCodeFrom}: {e}. Aborting.")
                 raise
 
-        if RunCodeFrom == RunFromType.LargeBlockAnalysisCompleted or RunCodeFrom == RunFromType.Start:
+        if RunCodeFrom == CodeStages.LargeBlockAnalysisCompleted or RunCodeFrom == CodeStages.Start:
                 # --- 3.2 Reduce Phase --- #
                 logging.info("Step 3.2: Performing Reduce phase document synthesis...")
                 doc_analysis_result = perform_reduce_document_analysis(map_results, final_entities)
@@ -147,10 +147,10 @@ def run_pipeline(document_path: str):
                     save_state(state_to_save, StateStoragePoints.IterativeAnalysisCompleted)
 
 
-        if RunCodeFrom == RunFromType.IterativeAnalysisCompleted:
+        if RunCodeFrom == CodeStages.IterativeAnalysisCompleted:
             logging.info("Attempting to load state from IterativeAnalysisCompleted...")
             try:
-                loaded_state = load_state(RunFromType.IterativeAnalysisCompleted)
+                loaded_state = load_state(CodeStages.IterativeAnalysisCompleted)
                 doc_analysis_result = loaded_state["doc_analysis_result"]
                 large_blocks = loaded_state["large_blocks"] # Load if needed by subsequent steps
                 map_results = loaded_state["map_results"]   # Load if needed

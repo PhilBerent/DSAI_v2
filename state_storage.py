@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 # Assuming globals.py and enums_and_constants.py are in the same directory or sys.path is configured
 from globals import StateStorageDirectory, LargeBlockAnalysisCompletedFile, IterativeAnalysisCompletedFile
-from enums_and_constants import StateStoragePoints, RunFromType
+from enums_and_constants import StateStoragePoints, CodeStages
 
 def _get_file_path(storage_point: StateStoragePoints) -> str:
     """Maps a StateStoragePoints enum to its corresponding file path."""
@@ -41,7 +41,7 @@ def save_state(data_to_save: Dict[str, Any], storage_point: StateStoragePoints):
     except Exception as e:
         print(f"Error saving compressed state to {file_path}: {e}")
 
-def load_state(run_from: RunFromType) -> Dict[str, Any]:
+def load_state(run_from: CodeStages) -> Dict[str, Any]:
     """
     Loads and decompresses state from a JSON file corresponding to the run_from point.
 
@@ -55,9 +55,9 @@ def load_state(run_from: RunFromType) -> Dict[str, Any]:
         FileNotFoundError: If the required state file does not exist.
         ValueError: If an invalid RunFromType is provided.
     """
-    if run_from == RunFromType.LargeBlockAnalysisCompleted:
+    if run_from == CodeStages.LargeBlockAnalysisCompleted:
         file_path = LargeBlockAnalysisCompletedFile
-    elif run_from == RunFromType.IterativeAnalysisCompleted:
+    elif run_from == CodeStages.IterativeAnalysisCompleted:
         file_path = IterativeAnalysisCompletedFile
     else:
         # Loading state is only valid for specific resume points
@@ -115,11 +115,11 @@ if __name__ == '__main__':
 
     # Test loading (decompressed)
     try:
-        loaded_map_state = load_state(RunFromType.LargeBlockAnalysisCompleted)
+        loaded_map_state = load_state(CodeStages.LargeBlockAnalysisCompleted)
         print("\nLoaded LargeBlockAnalysisCompleted State (Decompressed):")
         # print(json.dumps(loaded_map_state, indent=2))
 
-        loaded_reduce_state = load_state(RunFromType.IterativeAnalysisCompleted)
+        loaded_reduce_state = load_state(CodeStages.IterativeAnalysisCompleted)
         print("\nLoaded IterativeAnalysisCompleted State (Decompressed):")
         # print(json.dumps(loaded_reduce_state, indent=2))
 
