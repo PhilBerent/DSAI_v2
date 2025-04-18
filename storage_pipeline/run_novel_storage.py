@@ -32,7 +32,7 @@ try:
     # from config_loader import DocToAddPath, Chunk_Size, Chunk_overlap # Chunk parameters are now in DSAIParams
     from storage_pipeline.db_connections import get_pinecone_index, get_neo4j_driver_local # Removed test_connections, not used
     # Import the new stage functions
-    from storage_pipeline.primary_analysis_stages import perform_initial_processing, perform_iterative_analysis, perform_downstream_processing
+    from storage_pipeline.primary_analysis_stages import large_block_analysis, perform_iterative_analysis, perform_adaptive_chunking
     # State storage is used within the stage functions now
     # from state_storage import save_state, load_state # No longer needed here
 except ImportError as e:
@@ -94,7 +94,7 @@ def run_pipeline(document_path: str):
             if stage == CodeStages.Start.value:
                 # Stage 1: Initial Processing
                 current_raw_text, current_large_blocks, current_map_results, current_final_entities = \
-                    perform_initial_processing(document_path, file_id)
+                    large_block_analysis(document_path, file_id)
 
             elif stage == CodeStages.LargeBlockAnalysisCompleted.value:
                 # Stage 2: Iterative Analysis (Reduce Phase)
@@ -110,7 +110,7 @@ def run_pipeline(document_path: str):
 
             elif stage == CodeStages.IterativeAnalysisCompleted.value:
                  # Stage 3: Downstream Processing (Chunking, Analysis, Storage)
-                 perform_downstream_processing(
+                 perform_adaptive_chunking(
                     load_state_flag=load_state_flag,
                     file_id=file_id,
                     pinecone_index=pinecone_index,

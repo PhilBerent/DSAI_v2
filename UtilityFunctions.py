@@ -1700,3 +1700,20 @@ def WriteDictOrJsonToMM(Obj, filename=g.tempOutputFile):
             raise ValueError("Input string is not valid JSON.")
     else:
         raise TypeError("Input must be a dict or JSON string.")
+
+def count_chars_in_dict(data) -> int:
+    """Recursively counts characters in all keys and string-convertible values of a nested dictionary."""
+    total = 0
+
+    if isinstance(data, dict):
+        for key, value in data.items():
+            total += len(str(key))+3+len(data)-1  # +1 for colon and +1 for comma
+            # count items in dict
+            total += count_chars_in_dict(value)  # recursive step
+    elif isinstance(data, list):
+        for item in data:
+            total += count_chars_in_dict(item)+2+len(data)-1  # +2 for brackets and +1 for comma
+    else:
+        total += len(str(data))
+
+    return total

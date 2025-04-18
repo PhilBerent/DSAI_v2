@@ -32,7 +32,8 @@ elif AIPlatform == "Gemini":
     
 DefaultLLMTemperature = 0.7    
 NumSampleBlocksForLargeBlockAnalysis = 7
-EstOutputTokenFractionForLBA = 0.2
+EstOutputTokenFractionForLBA = 0.2 # for large block analysis
+EstOutputTokenFractionForAC = 0.7 # for adaptive chunking
 Base_OutputPath = r"C:/Users/Phil/Documents/DataSphere AI/DataSphere AI Not Code/Inputs And Outputs/Outputs/"
 Db_file = r"C:/Users/Phil/Documents/DataSphere AI/DataSphere AI Not Code/Inputs And Outputs/Texts For Testing/docDictionary.sqlite"
 dbAndIndexRootName = "PandPDingo"
@@ -92,7 +93,6 @@ WORKER_SAFETY_FACTOR = 0.85 # Safety margin for API calls (e.g., 85%)
 ANALYSIS_SAMPLE_SIZE = 7 # Number of blocks to sample for token estimation (Increased)
 MAX_WORKERS_FALLBACK = 10 # Fallback worker count if sampling fails (Increased)
 WORKER_RATE_LIMIT_DIVISOR = 6 # Divisor to convert RPM to concurrent workers (e.g., 6 for 10-second intervals)
-ESTIMATED_OUTPUT_TOKEN_FRACTION = 0.2 # Estimated output tokens as a fraction of input tokens
 RATE_LIMIT_SLEEP_SECONDS = 5 # Seconds to sleep after hitting a rate limit error
 UseDebugMode = True
 AllowUseOfTrainingKnowledge = True

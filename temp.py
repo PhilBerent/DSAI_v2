@@ -280,19 +280,22 @@ class DocumentProcessor:
         
         return loc_list
 
+test_dict = {
+    "level1": {
+        "level2": {
+            "level3": {
+                "level4_key1": "value1",
+                "level4_key2": 12345
+            },
+            "level3_key": ["a", "b", "c"]
+        },
+        "another_level2_key": True
+    },
+    "top_level_key": "done"
+}
+
 # Example usage
 if __name__ == "__main__":
-    docProcessor = DocumentProcessor()
-    document = docProcessor.process_novel(DocToAddPath)
-    
-    # Print some statistics
-    print(f"Processed document with:")
-    print(f"- {len(document['books'])} books")
-    print(f"- {len(document['chapters'])} chapters")
-    print(f"- {len(document['scenes'])} scenes")
-    print(f"- {len(document['characters'])} characters")
-    print(f"- {len(document['locations'])} locations")
-
-
-    document = docProcessor.process_novel(DocToAddPath)
-    a=1
+    WriteDictOrJsonToMM(test_dict)
+    count_chars_in_dict(test_dict)
+    aa=4

@@ -46,7 +46,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 
 # --- Stage 1: Start -> LargeBlockAnalysisCompleted ---
-def perform_initial_processing(document_path: str, file_id: str) -> Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, List[str]]]:
+def large_block_analysis(document_path: str, file_id: str) -> Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, List[str]]]:
     """Handles ingestion, coarse chunking, and map-phase analysis.
        Saves state using original_save_state if configured.
     """
@@ -208,7 +208,7 @@ def perform_iterative_analysis(
 
 
 # --- Stage 3: IterativeAnalysisCompleted -> End ---
-def perform_downstream_processing(
+def perform_adaptive_chunking(
     load_state_flag: bool,
     file_id: str, # Keep file_id for logging/context
     pinecone_index: Any,
@@ -312,9 +312,11 @@ def perform_downstream_processing(
     chunks_with_analysis: List[Dict[str, Any]] = []
     processed_chunks = 0
     failed_chunks = 0
+    num_chunks = len(final_chunks)
     try:
         # Doc analysis result checked earlier
-        for i, chunk in enumerate(final_chunks):
+        for i in range (num_chunks):
+            chunk = final_chunks[i] # Get the chunk
             chunk_id = chunk.get('chunk_id', f'generated_{i}') # Ensure some ID exists
             logging.debug(f"Analyzing chunk {i+1}/{len(final_chunks)} (ID: {chunk_id})...")
             try:

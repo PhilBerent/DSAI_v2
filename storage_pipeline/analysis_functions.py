@@ -221,33 +221,9 @@ def analyze_chunk_details(chunk_text: str, chunk_id: str, doc_context: Optional[
     """Analyzes a single fine-grained chunk for entities, relationships, etc."""
     logging.info(f"Analyzing details for chunk {chunk_id}...")
 
-    # Provide document context in the prompt if available
-    context_summary = "No broader document context provided."
-    if doc_context:
-        doc_type = doc_context.get("document_type", "Unknown Type")
-        doc_summary = doc_context.get("overall_summary", "Summary Unavailable")
-        context_summary = f"Document Context: Type={doc_type}. Overall Summary: {doc_summary[:500]}..."
-
-    # Use imported system message
-    # chunk_system_message defined in prompts.py
-
     # Generate the user prompt
-    prompt = f"""
-    Analyze the following text chunk meticulously. Extract entities (characters, locations, organizations), relationships/interactions between characters, key events, and relevant keywords/topics. Consider the provided document context.
-
-    {context_summary}
-
-    Output Format: Adhere strictly to this JSON schema:
-    {json.dumps(CHUNK_ANALYSIS_SCHEMA, indent=2)}
-
-    Text Chunk (ID: {chunk_id}):
-    --- START CHUNK ---
-    {chunk_text}
-    --- END CHUNK ---
-
-    Provide the analysis ONLY in the specified JSON format.
-    """
-
+    prompt = get_anal_chunk_details_prompt(chunk_text, chunk_id, doc_context)
+    
     try:
         # Use the centralized JSON mode caller
         chunk_analysis_result = call_llm_json_mode(
@@ -266,6 +242,3 @@ def analyze_chunk_details(chunk_text: str, chunk_id: str, doc_context: Optional[
             "keywords_topics": []
         }
 
-# Note: Batch processing chunks might be more efficient for API calls
-# This would involve grouping chunks and modifying the prompt structure
-# and potentially creating parallel execution logic similar to the map phase. 

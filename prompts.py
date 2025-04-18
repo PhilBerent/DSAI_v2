@@ -7,6 +7,7 @@ import json
 from typing import Dict, Any
 import sys
 import os
+from typing import List, Dict, Any, Tuple, Optional
 from globals import *
 from UtilityFunctions import *
 from DSAIParams import *
@@ -207,4 +208,33 @@ Provide the complete synthesized analysis ONLY in the specified JSON format, inc
 """
     return reduce_prompt
 
-# Add other prompts as needed...
+def get_anal_chunk_details_prompt(chunk_text: str, chunk_id: str, 
+            doc_context: Optional[Dict[str, Any]] = None) -> str:
+    
+    context_summary = "No broader document context provided."
+    if doc_context:
+        doc_type = doc_context.get("document_type", "Unknown Type")
+        doc_summary = doc_context.get("overall_summary", "Summary Unavailable")
+        context_summary = f"Document Context: Type={doc_type}. Overall Summary: {doc_summary[:500]}..."
+
+    # Use imported system message
+    # chunk_system_message defined in prompts.py
+
+    # Generate the user prompt
+    prompt = f"""
+    Analyze the following text chunk meticulously. Extract entities (characters, locations, organizations), relationships/interactions between characters, key events, and relevant keywords/topics. Consider the provided document context.
+
+    {context_summary}
+
+    Output Format: Adhere strictly to this JSON schema:
+    {json.dumps(CHUNK_ANALYSIS_SCHEMA, indent=2)}
+
+    Text Chunk (ID: {chunk_id}):
+    --- START CHUNK ---
+    {chunk_text}
+    --- END CHUNK ---
+
+    Provide the analysis ONLY in the specified JSON format.
+    """
+
+    return prompt
