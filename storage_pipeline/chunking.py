@@ -233,11 +233,14 @@ def adaptive_chunking(
     # Process each structural unit (coarse chunk)
     for unit_idx, unit in enumerate(structural_units):
         unit_text = unit.get('text', '')
-        unit_type = unit.get('type', 'UnknownType') # Type from coarse chunking
+        # --- Get type from map_results instead of the coarse unit --- #
+        # original_unit_type = unit.get('type', 'UnknownType') # Type from coarse chunking
         original_unit_ref = unit.get('ref', f'Unit_{unit_idx+1}')   # Ref from coarse chunking (e.g., "Unit 1")
 
         # Get the corresponding analysis from the map phase
         map_analysis = map_results[unit_idx]
+        unit_type = map_analysis.get('unit_type', 'UnknownType') # <-- Use type from map_analysis
+        # --- End change ---
 
         # Use the structural marker found during map phase for better reference
         # Fallback to original ref if marker wasn't found or is empty
@@ -245,7 +248,7 @@ def adaptive_chunking(
         if not struct_meta_ref: # Handle None or empty string
             struct_meta_ref = original_unit_ref
 
-        # Use the type determined by the coarse chunker (could be refined later)
+        # Use the type determined by the map phase analysis
         struct_meta_type = unit_type
 
         # Split unit by scene breaks (e.g., multiple newlines)
@@ -256,7 +259,10 @@ def adaptive_chunking(
                 continue
             # Use combined reference for source location
             scene_ref_combined = f"{struct_meta_ref} / Scene {scene_index + 1}"
-
+            # db
+            if (len(scene_text) < 1):
+                a=2
+            # ed
             # Split scene by paragraphs
             paragraphs = [p.strip() for p in scene_text.split('\n') if p.strip()]
 
