@@ -87,7 +87,7 @@ def run_pipeline(document_path: str):
         for i, stage in enumerate(Code_Stages_List[start_index:]):
             # Determine if state should be loaded for this stage
             # Load state only if it's the *first* stage being executed in this run
-            load_state_flag = (i != 0 and stage == RunCodeFrom) # Don't load state if starting from the beginning
+            load_state_flag = (stage != 'Start' and stage == RunCodeFrom.value) # Don't load state if starting from the beginning
 
             logging.info(f"--- Executing Stage: {stage} (Load State: {load_state_flag}) ---")
 
