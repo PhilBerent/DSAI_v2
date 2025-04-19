@@ -31,7 +31,8 @@ elif AIPlatform == "Gemini":
     MAX_RPM = 2000   # Requests Per Minute
     
 DefaultLLMTemperature = 0.7    
-NumSampleBlocksForLargeBlockAnalysis = 7
+NumSampleBlocksForLBA = 7 # for large block analysis
+NumSampleBlocksForAC = 9  # for adaptive chunking
 EstOutputTokenFractionForLBA = 0.2 # for large block analysis
 EstOutputTokenFractionForAC = 0.7 # for adaptive chunking
 Base_OutputPath = r"C:/Users/Phil/Documents/DataSphere AI/DataSphere AI Not Code/Inputs And Outputs/Outputs/"

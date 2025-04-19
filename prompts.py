@@ -117,7 +117,7 @@ def _getJournalArticleReduceInstructions(num_blocks: int) -> str:
 
 # --- Prompt Generation Functions ---
 
-def get_anal_large_block_prompt(block_info: Dict[str, Any]) -> str:
+def get_anal_large_block_prompt(block_info: Dict[str, Any], additional_data: Any = None) -> str:
     """Generates the user prompt for analyzing a large text block."""
     block_text = block_info.get('text', '')
     block_ref = block_info.get('ref', 'Unknown Reference')
@@ -208,8 +208,8 @@ Provide the complete synthesized analysis ONLY in the specified JSON format, inc
 """
     return reduce_prompt
 
-def get_anal_chunk_details_prompt(chunk_text: str, chunk_id: str, 
-            doc_context: Optional[Dict[str, Any]] = None) -> str:
+def get_anal_chunk_details_prompt(block_info: Dict[str, Any], doc_context: Dict[str, Any]) -> str:
+    
     
     context_summary = "No broader document context provided."
     if doc_context:
@@ -217,6 +217,7 @@ def get_anal_chunk_details_prompt(chunk_text: str, chunk_id: str,
         doc_summary = doc_context.get("overall_summary", "Summary Unavailable")
         context_summary = f"Document Context: Type={doc_type}. Overall Summary: {doc_summary[:500]}..."
 
+    chunk_id = block_info.get('chunk_id', 'Unknown ID')
     # Use imported system message
     # chunk_system_message defined in prompts.py
 

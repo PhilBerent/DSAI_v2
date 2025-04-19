@@ -32,7 +32,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Schemas moved to prompts.py
 
 # --- REVISED: Step 3.1 - Map Phase Helper ---
-def _analyze_large_block(block_info: Dict[str, Any], block_index: int) -> Optional[Dict[str, Any]]:
+def _analyze_large_block(block_info: Dict[str, Any], block_index: int, additional_data: Any=None) -> Optional[Dict[str, Any]]:
     """Analyzes a single large text block using LLM. (Now simpler)"""
     block_ref = block_info.get('ref', f'Index {block_index}')
     logging.info(f"Analyzing large block {block_index + 1}: {block_ref} (Length: {len(block_info.get('text',''))} chars)")
@@ -85,7 +85,7 @@ def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List
 
     estimated_tokens = calc_est_tokens_per_call(
         data_list=large_blocks,
-        num_blocks_for_sample=NumSampleBlocksForLargeBlockAnalysis,
+        num_blocks_for_sample=NumSampleBlocksForLBA,
         estimated_output_token_fraction=EstOutputTokenFractionForLBA,
         system_message=system_msg_for_large_block_anal,
         prompt_generator_func=get_anal_large_block_prompt,
@@ -217,12 +217,14 @@ def perform_reduce_document_analysis(
         }
 
 # --- REVISED: Step 4 - Detailed Chunk Analysis (Uses imported prompts) ---
-def analyze_chunk_details(chunk_text: str, chunk_id: str, doc_context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def analyze_chunk_details(block_info: Dict[str, Any], block_index: int) -> Optional[Dict[str, Any]]:
     """Analyzes a single fine-grained chunk for entities, relationships, etc."""
     logging.info(f"Analyzing details for chunk {chunk_id}...")
+    chunk_text = block_info.get('text', '')
+    chunk_id = block_info.get('chunk_id', f'Index {block_index}')
 
     # Generate the user prompt
-    prompt = get_anal_chunk_details_prompt(chunk_text, chunk_id, doc_context)
+    prompt = get_anal_chunk_details_prompt(block_info, )
     
     try:
         # Use the centralized JSON mode caller

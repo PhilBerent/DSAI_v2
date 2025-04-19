@@ -238,8 +238,7 @@ except ImportError:
 def calc_num_instances(estimated_total_tokens_per_call: Optional[float]) -> int:
     """Calculates the optimal number of parallel instances based on token estimates and rate limits."""
     # Import necessary params (consider passing them if this func moves elsewhere)
-    from DSAIParams import MAX_TPM, MAX_RPM, WORKER_SAFETY_FACTOR, WORKER_RATE_LIMIT_DIVISOR, MAX_WORKERS_FALLBACK
-
+    
     if estimated_total_tokens_per_call is None or estimated_total_tokens_per_call <= 0:
         dynamic_max_workers = MAX_WORKERS_FALLBACK
         logging.warning(f"Invalid token estimate ({estimated_total_tokens_per_call}). Using fallback max_workers: {dynamic_max_workers}")
@@ -269,7 +268,8 @@ def parallel_llm_calls(
     num_instances: int,
     input_data_list: List[Dict[str, Any]],
     platform: str, # To know which rate limit errors to catch ("OPENAI" or "GEMINI")
-    rate_limit_sleep: int
+    rate_limit_sleep: int,
+    additional_data: Optional[Any] = None # Placeholder for any additional data needed by the function
 ) -> List[Optional[Any]]:
     """Runs a given function in parallel for a list of inputs, handling rate limits."""
     results = [None] * len(input_data_list) # Initialize results list with None
@@ -284,7 +284,7 @@ def parallel_llm_calls(
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         # Map futures to the original index to place results correctly
         future_to_index = {
-            executor.submit(function_to_run, item, index): index
+            executor.submit(function_to_run, item, index, additional_data): index
             for index, item in enumerate(input_data_list)
         }
 

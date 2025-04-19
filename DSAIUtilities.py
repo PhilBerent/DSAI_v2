@@ -115,6 +115,7 @@ def calc_est_tokens_per_call(
     estimated_output_token_fraction: float,
     system_message: str,
     prompt_generator_func: Callable[[Dict[str, Any]], str],
+    additional_data: Any = None
 ) -> Optional[float]:
     """Estimates the total tokens per LLM call based on random samples.
 
@@ -173,7 +174,7 @@ def calc_est_tokens_per_call(
             logging.debug(f"Estimating tokens for sample {i+1}/{sample_size} (Index: {index})...")
 
             # Generate the user prompt for this sample block
-            user_prompt = prompt_generator_func(block_info)
+            user_prompt = prompt_generator_func(block_info, additional_data)
 
             # Construct the full text that would be tokenized
             # Note: For Gemini, system message isn't part of the tokenized 'prompt',
