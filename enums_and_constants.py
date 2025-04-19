@@ -18,15 +18,12 @@ class CodeStages(Enum):
     Start = "Start"
     LargeBlockAnalysisCompleted = "LargeBlockAnalysisCompleted"
     IterativeAnalysisCompleted = "IterativeAnalysisCompleted"
+    DetailedBlockAnalysisCompleted = "DetailedBlockAnalysisCompleted"
 
 class StateStoragePoints(Enum):
     LargeBlockAnalysisCompleted = "LargeBlockAnalysisCompleted"
     IterativeAnalysisCompleted = "IterativeAnalysisCompleted"
-
-class CodeStagesx(Enum):
-    Start = "Start"
-    LargeBlockAnalysisCompleted = "LargeBlockAnalysisCompleted"
-    IterativeAnalysisCompleted = "IterativeAnalysisCompleted"
+    DetailedBlockAnalysisCompleted = "DetailedBlockAnalysisCompleted"
 
 Code_Stages_List = [
     "Start",                          # Ingest document and perform coarse chunking

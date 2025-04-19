@@ -32,7 +32,7 @@ try:
     # from config_loader import DocToAddPath, Chunk_Size, Chunk_overlap # Chunk parameters are now in DSAIParams
     from storage_pipeline.db_connections import get_pinecone_index, get_neo4j_driver_local # Removed test_connections, not used
     # Import the new stage functions
-    from storage_pipeline.primary_analysis_stages import large_block_analysis, perform_iterative_analysis, perform_adaptive_chunking
+    from storage_pipeline.primary_analysis_stages import large_block_analysis, perform_iterative_analysis, getChunksForDetailAnalysis, getDetailedChunkAnalysis, generateEmbeddings, createGraphs, storeData
     # State storage is used within the stage functions now
     # from state_storage import save_state, load_state # No longer needed here
 except ImportError as e:
@@ -72,6 +72,12 @@ def run_pipeline(document_path: str):
     current_map_results: Optional[List[Dict[str, Any]]] = None
     current_final_entities: Optional[Dict[str, List[str]]] = None
     current_doc_analysis_result: Optional[Dict[str, Any]] = None
+    # Variables for Stage 3 sub-steps
+    current_final_chunks: Optional[List[Dict[str, Any]]] = None
+    current_chunks_with_analysis: Optional[List[Dict[str, Any]]] = None
+    current_embeddings_dict: Optional[Dict[str, List[float]]] = None
+    current_graph_nodes: Optional[List[Dict]] = None
+    current_graph_edges: Optional[List[Dict]] = None
 
     try:
         # Determine the starting index in the stages list
@@ -99,37 +105,59 @@ def run_pipeline(document_path: str):
             elif stage == CodeStages.LargeBlockAnalysisCompleted.value:
                 # Stage 2: Iterative Analysis (Reduce Phase)
                 current_raw_text, current_large_blocks, current_map_results, current_final_entities, current_doc_analysis_result = \
-                    perform_iterative_analysis(
-                        load_state_flag=load_state_flag,
-                        file_id=file_id,
-                        raw_text_in=current_raw_text,
-                        large_blocks_in=current_large_blocks,
-                        map_results_in=current_map_results,
-                        final_entities_in=current_final_entities
-                    )
+                perform_iterative_analysis(load_state_flag, file_id, current_raw_text, 
+                    current_large_blocks, current_map_results, current_final_entities)                 
+                if current_doc_analysis_result is None:
+                     # This indicates an internal error in perform_iterative_analysis not caught earlier
+                     raise ValueError("Stage 2 (perform_iterative_analysis) completed but did not return a document analysis result.")
 
             elif stage == CodeStages.IterativeAnalysisCompleted.value:
-                 # Stage 3: Downstream Processing (Chunking, Analysis, Storage)
-                 perform_adaptive_chunking(
-                    load_state_flag=load_state_flag,
-                    file_id=file_id,
-                    pinecone_index=pinecone_index,
-                    neo4j_driver=neo4j_driver,
-                    raw_text_in=current_raw_text,
-                    large_blocks_in=current_large_blocks, # Needed for adaptive chunking? Check impl.
-                    map_results_in=current_map_results,   # Needed for adaptive chunking? Check impl.
-                    doc_analysis_result_in=current_doc_analysis_result
-                 )
-                 # This is the last stage defined in the list, so we break the loop after execution
-                 # If more stages were added, this break might need reconsideration
-                 break
+                # --- Stage 3: Downstream Processing (Broken into sub-functions) ---
+                logging.info("--- Starting Stage 3 Sub-steps ---")
+
+                # 3a: Adaptive Chunking (Handles state loading internally based on flag)
+                current_final_chunks, doc_analysis_result_used, file_id_used = getChunksForDetailAnalysis(
+                    load_state_flag, file_id, current_raw_text, current_large_blocks, current_map_results,
+                    current_doc_analysis_result)
+
+                # Update current doc analysis result based on what was loaded/passed through
+                current_doc_analysis_result = doc_analysis_result_used
+
+                # Check if chunking produced results before proceeding
+                if current_final_chunks is None:
+                    logging.warning("Skipping remaining Stage 3 steps as getChunksForDetailAnalysis indicated no chunks or an early exit.")
+                    break # Exit the stage loop
+
+                # 3b: Perform detailed analysis on the chunks
+                current_chunks_with_analysis = getDetailedChunkAnalysis(current_final_chunks, 
+                current_doc_analysis_result, file_id_used)
+
+                # Check if analysis produced results
+                if not current_chunks_with_analysis:
+                    logging.warning("Skipping remaining Stage 3 steps as getDetailedChunkAnalysis produced no results.")
+                    break
+
+                # 3c: Generate embeddings
+                current_embeddings_dict = generateEmbeddings(current_chunks_with_analysis)
+
+                if current_embeddings_dict is None: # Check if embedding failed
+                    logging.warning("Skipping remaining Stage 3 steps as generateEmbeddings produced no results.")
+                    break
+
+                # 3d: Create graph data
+                current_graph_nodes, current_graph_edges = createGraphs(file_id_used, 
+                    current_doc_analysis_result, current_chunks_with_analysis)                 
+
+                # 3e: Store all data
+                storeData(pinecone_index, neo4j_driver, current_embeddings_dict, current_chunks_with_analysis,
+                current_graph_nodes, current_graph_edges)
+                logging.info("--- Finished Stage 3 Sub-steps ---")
+                # Break after completing all sub-stages of Stage 3
+                break
 
             else:
                  logging.warning(f"Encountered an unrecognized stage: {stage}. Skipping.")
-
-            # Optional: Add a small delay between stages if needed for resource reasons
-            # time.sleep(1)
-
+    
     except FileNotFoundError as e:
         # Specific handling for state file not found when expected
         logging.error(f"Pipeline aborted: Required state file not found. {e}")
