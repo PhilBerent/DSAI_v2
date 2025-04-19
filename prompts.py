@@ -210,7 +210,6 @@ Provide the complete synthesized analysis ONLY in the specified JSON format, inc
 
 def get_anal_chunk_details_prompt(block_info: Dict[str, Any], doc_context: Dict[str, Any]) -> str:
     
-    
     context_summary = "No broader document context provided."
     if doc_context:
         doc_type = doc_context.get("document_type", "Unknown Type")
@@ -218,8 +217,7 @@ def get_anal_chunk_details_prompt(block_info: Dict[str, Any], doc_context: Dict[
         context_summary = f"Document Context: Type={doc_type}. Overall Summary: {doc_summary[:500]}..."
 
     chunk_id = block_info.get('chunk_id', 'Unknown ID')
-    # Use imported system message
-    # chunk_system_message defined in prompts.py
+    chunk_text = block_info.get('text', '')
 
     # Generate the user prompt
     prompt = f"""

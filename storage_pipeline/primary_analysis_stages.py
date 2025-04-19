@@ -25,7 +25,8 @@ try:
     # Import enums needed
     from enums_and_constants import CodeStages, StateStoragePoints
     # Import prompt components
-    from prompts import get_anal_chunk_details_prompt, chunk_system_message
+    from prompts import *
+    from analysis_functions import *
 except ImportError as e:
     print(f"Error importing core modules/prompts/params in primary_analysis_stages: {e}")
     raise
@@ -212,30 +213,6 @@ def perform_iterative_analysis(
     logging.info(f"Stage 2: Iterative Analysis complete for {file_id}.")
     return raw_text, large_blocks, map_results, final_entities, doc_analysis_result
 
-def _worker_analyze_chunk(chunk_item: Dict[str, Any], doc_analysis_result: Dict[str, Any]) -> Dict[str, Any]:
-    chunk_id = chunk_item.get('chunk_id', 'UNKNOWN_ID')
-    try:
-        # Call the original analysis function
-        analysis_result = analyze_chunk_details(
-            chunk_text=chunk_item['text'],
-            chunk_id=chunk_id,
-            doc_context=doc_analysis_result # Access outer scope variable
-        )
-        # Return the original item updated with the result
-        chunk_item['analysis'] = analysis_result
-        chunk_item['analysis_status'] = 'success' # Mark success
-        return chunk_item
-    except Exception as e:
-        tb_str = traceback.format_exc()
-        logging.error(f"Worker failed for chunk {chunk_id}: {e}\n{tb_str}")
-        # Return the original item marked with an error
-        chunk_item['analysis'] = None
-        chunk_item['analysis_status'] = 'error'
-        chunk_item['analysis_error'] = str(e)
-        chunk_item['traceback'] = tb_str
-        return chunk_item
-
-
 
 # --- Stage 3: IterativeAnalysisCompleted -> End ---
 def perform_adaptive_chunking(
@@ -301,7 +278,7 @@ def perform_adaptive_chunking(
     # --- Ensure critical data is present before proceeding (doc_analysis_result is now guaranteed non-Optional) --- 
     if raw_text is None or large_blocks is None or map_results is None:
          raise ValueError(f"Critical data unavailable for Stage 3 processing (file_id: {file_id}). Check state or pipeline flow.")
-
+    
     # --- 4. Adaptive Fine-Grained Chunking --- #
     # [Code for Adaptive Chunking remains unchanged] ...
     logging.info("Step 3.1: Performing adaptive fine-grained chunking...")
@@ -333,7 +310,7 @@ def perform_adaptive_chunking(
         logging.warning("Skipping subsequent steps as no final chunks were generated.")
         logging.info(f"Stage 3: Downstream Processing complete (skipped storage) for {file_id}.")
         return
-
+    
     # --- 5. Parallel Chunk-Level Analysis --- #
     logging.info("Step 3.2: Performing PARALLEL detailed chunk analysis...")
     chunks_with_analysis: List[Dict[str, Any]] = []
@@ -358,15 +335,17 @@ def perform_adaptive_chunking(
         else:
             num_workers = calc_num_instances(estimated_tokens_per_call)
         logging.info(f"Calculated number of workers for chunk analysis: {num_workers}")
-
+            
         # 5.2 Define the worker function (using closure for doc_analysis_result)
         # 5.3 Execute in parallel
         logging.info(f"Starting parallel analysis for {len(final_chunks)} chunks with {num_workers} workers...")
         parallel_results = parallel_llm_calls(
-            items_list=final_chunks,
-            num_workers=num_workers,
-            worker_function=_worker_analyze_chunk
-            additional_data=doc_analysis_result, # Pass doc_analysis_result to worker function
+            function_to_run=worker_analyze_chunk,
+            num_instances=num_workers,
+            input_data_list=final_chunks,
+            platform=AIPlatform,
+            rate_limit_sleep=RATE_LIMIT_SLEEP_SECONDS,
+            additional_data=doc_analysis_result, # Pass doc_analysis_result to worker function            
         )
 
         # 5.4 Process results

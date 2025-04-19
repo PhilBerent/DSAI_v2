@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 """Handles Steps 3 & 4: LLM-based document and chunk analysis."""
 
 import logging
@@ -10,6 +9,7 @@ import sys
 import os
 # Removed concurrent.futures, tiktoken, time, openai imports as they are handled elsewhere
 from enum import Enum
+import traceback
 
 # import prompts # Import the whole module
 
@@ -217,14 +217,14 @@ def perform_reduce_document_analysis(
         }
 
 # --- REVISED: Step 4 - Detailed Chunk Analysis (Uses imported prompts) ---
-def analyze_chunk_details(block_info: Dict[str, Any], block_index: int) -> Optional[Dict[str, Any]]:
+def analyze_chunk_details(block_info: Dict[str, Any], block_index: int, 
+            doc_context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Analyzes a single fine-grained chunk for entities, relationships, etc."""
-    logging.info(f"Analyzing details for chunk {chunk_id}...")
-    chunk_text = block_info.get('text', '')
     chunk_id = block_info.get('chunk_id', f'Index {block_index}')
-
+    logging.info(f"Analyzing details for chunk {chunk_id}...")
+    
     # Generate the user prompt
-    prompt = get_anal_chunk_details_prompt(block_info, )
+    prompt = get_anal_chunk_details_prompt(block_info, doc_context)
     
     try:
         # Use the centralized JSON mode caller
@@ -243,4 +243,27 @@ def analyze_chunk_details(block_info: Dict[str, Any], block_index: int) -> Optio
             "events": [],
             "keywords_topics": []
         }
+
+def worker_analyze_chunk(chunk_item: Dict[str, Any], block_index: int, doc_analysis_result: Dict[str, Any]) -> Dict[str, Any]:
+    try:
+        # Call the original analysis function
+        analysis_result = analyze_chunk_details(
+            block_info=chunk_item,
+            block_index=block_index,
+            doc_context=doc_analysis_result # Access outer scope variable
+        )
+        # Return the original item updated with the result
+        chunk_item['analysis'] = analysis_result
+        chunk_item['analysis_status'] = 'success' # Mark success
+        return chunk_item
+    except Exception as e:
+        tb_str = traceback.format_exc()
+        chunk_id = chunk_item.get('chunk_id', 'UNKNOWN_ID')
+        logging.error(f"Worker failed for chunk {chunk_id}: {e}\n{tb_str}")
+        # Return the original item marked with an error
+        chunk_item['analysis'] = None
+        chunk_item['analysis_status'] = 'error'
+        chunk_item['analysis_error'] = str(e)
+        chunk_item['traceback'] = tb_str
+        return chunk_item
 
