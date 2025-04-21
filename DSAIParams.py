@@ -114,7 +114,9 @@ if UseDebugMode:
 StateStorageList = [
     StateStoragePoints.LargeBlockAnalysisCompleted,
     StateStoragePoints.IterativeAnalysisCompleted,
-    StateStoragePoints.DetailedBlockAnalysisCompleted
+    StateStoragePoints.DetailedBlockAnalysisCompleted,
+    StateStoragePoints.EmbeddingsCompleted,
+    StateStoragePoints.GraphAnalysisCompleted
 ]
 
 # StateStorageList = []

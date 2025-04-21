@@ -70,3 +70,27 @@ def loadStateIA():
     raw_text = loaded_state.get("raw_text")
     return doc_analysis_result, large_blocks, map_results, raw_text
 
+def loadStateDBA():
+    #   Loads the state from the DetailedBlockAnalysisCompleted file.
+    file_path = DetailedBlockAnalysisCompletedFile
+    with gzip.open(file_path, 'rb') as f_gz:
+        json_bytes = f_gz.read()
+    loaded_state = json.loads(json_bytes.decode('utf-8'))
+    file_id = loaded_state.get("file_id")
+    chunks_with_analysis = loaded_state.get("chunks_with_analysis")
+    map_results = loaded_state.get("map_results") 
+    doc_analysis_result = loaded_state.get("doc_analysis_result")
+    return file_id, chunks_with_analysis, doc_analysis_result, map_results
+
+def loadStateEA():
+    file_path = EmbeddingsCompletedFile
+    with gzip.open(file_path, 'rb') as f_gz:
+        json_bytes = f_gz.read()
+    loaded_state = json.loads(json_bytes.decode('utf-8'))
+    file_id = loaded_state.get("file_id")   
+    embeddings_dict = loaded_state.get("embeddings_dict")
+    chunks_with_analysis = loaded_state.get("chunks_with_analysis")
+    doc_analysis_result = loaded_state.get("doc_analysis_result")
+    map_results = loaded_state.get("map_results")
+    return file_id, embeddings_dict, chunks_with_analysis, doc_analysis_result, map_results
+

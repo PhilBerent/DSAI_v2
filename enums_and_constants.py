@@ -19,16 +19,23 @@ class CodeStages(Enum):
     LargeBlockAnalysisCompleted = "LargeBlockAnalysisCompleted"
     IterativeAnalysisCompleted = "IterativeAnalysisCompleted"
     DetailedBlockAnalysisCompleted = "DetailedBlockAnalysisCompleted"
+    EmbeddingsCompleted = "EmbeddingsCompleted"
+    GraphAnalysisCompleted = "GraphAnalysisCompleted"
+
 
 class StateStoragePoints(Enum):
     LargeBlockAnalysisCompleted = "LargeBlockAnalysisCompleted"
     IterativeAnalysisCompleted = "IterativeAnalysisCompleted"
     DetailedBlockAnalysisCompleted = "DetailedBlockAnalysisCompleted"
+    EmbeddingsCompleted = "EmbeddingsCompleted"
+    GraphAnalysisCompleted = "GraphAnalysisCompleted"
 
 Code_Stages_List = [
     "Start",                          # Ingest document and perform coarse chunking
     "LargeBlockAnalysisCompleted",   # Map phase complete; ready for reduce phase
     "IterativeAnalysisCompleted",    # Reduce phase complete; ready for chunking
+    "EmbeddingsCompleted",            # Embeddings phase complete; ready for graph analysis
+    "GraphAnalysisCompleted",         # Graph analysis complete; ready for storage
 ]
 
 DocumentTypeList = ["Novel", "Biography", "Journal Article"]

@@ -174,20 +174,15 @@ def perform_iterative_analysis(load_state_flag: bool, file_id: str, raw_text: Op
 
 
 # --- Stage 3: IterativeAnalysisCompleted -> End ---
-def perform_adaptive_chunking(load_state_flag: bool, file_id: str, pinecone_index: Any, neo4j_driver: Any,
-    raw_text_in: Optional[str] = None, large_blocks_in: Optional[List[Dict[str, Any]]] = None,
-    map_results_in: Optional[List[Dict[str, Any]]] = None, doc_analysis_result_in: Optional[Dict[str, Any]] = None
-) -> None:
+def perform_detailed_chunk_analysis(load_state_flag: bool, file_id: str,
+    raw_text: Optional[str] = None, large_blocks: Optional[List[Dict[str, Any]]] = None,
+    map_results: Optional[List[Dict[str, Any]]] = None, doc_analysis_result: Optional[Dict[str, Any]] = None
+) -> List[Dict[str, Any]]:
     """Handles fine-grained chunking, PARALLEL chunk analysis, embedding, graph building, and storage.
        Loads state using original_load_state if load_state_flag is True.
        Does not save state.
     """
     logging.info(f"Stage 3: Starting Downstream Processing for {file_id} (Load State: {load_state_flag})...")
-    raw_text: Optional[str] = None
-    large_blocks: Optional[List[Dict[str, Any]]] = None
-    map_results: Optional[List[Dict[str, Any]]] = None
-    # --- Make doc_analysis_result non-optional after loading/validation --- 
-    doc_analysis_result: Dict[str, Any] = {} # Initialize as empty dict
 
     # --- Load State or Use Passed Data --- 
     if load_state_flag:
@@ -198,20 +193,6 @@ def perform_adaptive_chunking(load_state_flag: bool, file_id: str, pinecone_inde
         except (FileNotFoundError, KeyError, ValueError, Exception) as e:
             logging.error(f"Original state_storage.py load failed when attempting to load for stage IterativeAnalysisCompleted: {e}. Aborting: {e} .", exc_info=True)
             raise
-    else:
-        logging.info(f"Using data passed from previous stage for {file_id}.")
-        if raw_text_in is None or large_blocks_in is None or map_results_in is None or doc_analysis_result_in is None:
-             missing_args = [k for k,v in {
-                "raw_text_in": raw_text_in, "large_blocks_in": large_blocks_in,
-                "map_results_in": map_results_in, "doc_analysis_result_in": doc_analysis_result_in
-             }.items() if v is None]
-             logging.error(f"Missing critical data passed from previous stage to Stage 3: {missing_args}")
-             raise ValueError(f"Missing critical data passed to Stage 3: {missing_args}")
-
-        raw_text = raw_text_in
-        large_blocks = large_blocks_in
-        map_results = map_results_in
-        doc_analysis_result = doc_analysis_result_in # Assign validated result
 
     # --- Ensure critical data is present before proceeding (doc_analysis_result is now guaranteed non-Optional) --- 
     if raw_text is None or large_blocks is None or map_results is None:
@@ -292,14 +273,37 @@ def perform_adaptive_chunking(load_state_flag: bool, file_id: str, pinecone_inde
 
         if not chunks_with_analysis:
              raise ValueError("Chunk analysis failed for all chunks in parallel execution. Aborting subsequent steps.")
-
+        if StateStoragePoints.DetailedBlockAnalysisCompleted in StateStorageList:
+            logging.info(f"Saving state for DetailedBlockAnalysisCompleted... ")
+            state_to_save = {
+                "file_id": file_id,                
+                "chunks_with_analysis": chunks_with_analysis,
+                "doc_analysis_result": doc_analysis_result,
+                "map_results": map_results,
+            }
+            try:
+                file_path = DetailedBlockAnalysisCompletedFile
+                save_state(state_to_save, file_path)
+            except Exception as e:
+                logging.error(f"Original state_storage.py save failed for DetailedBlockAnalysisCompleted: {e}", exc_info=True)
+        return chunks_with_analysis
     except Exception as e:
         logging.error(f"Error during parallel chunk analysis setup or execution: {e}", exc_info=True)
         raise ValueError(f"Parallel chunk analysis process failed: {e}") from e
+# end funct perform_detailed_chunk_analysis return chunks_with_analysis
 
+def get_embeddings(load_state_flag, file_id: Optional[str] = None,  
+        chunks_with_analysis: Optional[List[Dict[str, Any]]] = None, 
+        doc_analysis_result: Optional[Dict[str, Any]] = None,
+        map_results: Optional[List[Dict[str, Any]]] = None) -> Dict[str, List[float]]:
 
     # --- 6. Embedding Generation --- #
     # [Code for Embedding Generation remains unchanged] ...
+    if load_state_flag:
+        file_id, chunks_with_analysis, doc_analysis_result, map_results = loadStateDBA()
+        if not chunks_with_analysis:
+            logging.warning("No chunks with analysis found in loaded state. Skipping embedding generation.")
+            return {}
     logging.info("Step 3.3: Generating embeddings...")
     embeddings_dict: Dict[str, List[float]] = {}
     try:
@@ -310,8 +314,27 @@ def perform_adaptive_chunking(load_state_flag: bool, file_id: str, pinecone_inde
     except Exception as e:
         logging.error(f"Embedding generation failed: {e}", exc_info=True)
         raise ValueError(f"Embedding generation failed: {e}") from e
+    if StateStoragePoints.EmbeddingsCompleted in StateStorageList:
+        logging.info(f"Saving state for EmbeddingsCompleted... ")
+        state_to_save = {
+            "file_id": file_id,
+            "embeddings_dict": embeddings_dict,               
+            "chunks_with_analysis": chunks_with_analysis,
+            "doc_analysis_result": doc_analysis_result,
+            "map_results": map_results,
+        }
+        try:
+            file_path = EmbeddingsCompletedFile
+            save_state(state_to_save, file_path)
+        except Exception as e:
+            logging.error(f"Original state_storage.py save failed for EmbeddingsCompleted: {e}", exc_info=True)
 
+    return embeddings_dict, file_id, chunks_with_analysis, doc_analysis_result, map_results
 
+def perform_graph_analyisis(load_state_flag, file_id: str, doc_analysis_result: Dict[str, Any], 
+        chunks_with_analysis: List[Dict[str, Any]]) -> Tuple[List[Dict], List[Dict]]:
+    if load_state_flag:
+        file_id, embeddings_dict, chunks_with_analysis, doc_analysis_result, map_results = loadStateEA()
     # --- 7. Graph Data Construction --- #
     # [Code for Graph Construction remains unchanged] ...
     logging.info("Step 3.4: Constructing graph data...")
@@ -323,8 +346,29 @@ def perform_adaptive_chunking(load_state_flag: bool, file_id: str, pinecone_inde
     except Exception as e:
         logging.error(f"Graph data construction failed: {e}", exc_info=True)
         raise ValueError(f"Graph data construction failed: {e}") from e
-
-
+    if StateStoragePoints.GraphAnalysisCompleted in StateStorageList:
+        logging.info(f"Saving state for EmbeddingsCompleted... ")
+        state_to_save = {
+            "file_id": file_id,
+            "graph_nodes": graph_nodes,
+            "graph_edges": graph_edges,
+            "embeddings_dict": embeddings_dict,               
+            "chunks_with_analysis": chunks_with_analysis,
+            "doc_analysis_result": doc_analysis_result,
+            "map_results": map_results,
+        }
+        try:
+            file_path = GraphAnalysisCompletedFile
+            save_state(state_to_save, file_path)
+        except Exception as e:
+            logging.error(f"Original state_storage.py save failed for EmbeddingsCompleted: {e}", exc_info=True)
+    
+    
+    return graph_nodes, graph_edges, file_id, embeddings_dict, chunks_with_analysis, doc_analysis_result, map_results
+# end graph construction return graph_nodes, graph_edges
+def store_data(pinecone_index, neo4j_driver, file_id: str, 
+        embeddings_dict: Dict[str, List[float]], chunks_with_analysis: List[Dict[str, Any]], 
+        graph_nodes: List[Dict], graph_edges: List[Dict]) -> None:
     # --- 8. Data Storage --- #
     # [Code for Data Storage remains unchanged] ...
     logging.info("Step 3.5: Storing data...")

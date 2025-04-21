@@ -245,30 +245,30 @@ def worker_analyze_chunk(chunk_item: Dict[str, Any], block_index: int,
     errorMessage = ""
     tb_str = ""
     while errorCount <= 3:
-    try:
-        # Call the original analysis function
-        analysis_result = analyze_chunk_details(
-            block_info=chunk_item,
-            block_index=block_index,
-            doc_context=doc_analysis_result # Access outer scope variable
-        )
-        # Return the original item updated with the result
-        chunk_item['analysis'] = analysis_result
-        chunk_item['analysis_status'] = 'success' # Mark success
+        try:
+            # Call the original analysis function
+            analysis_result = analyze_chunk_details(
+                block_info=chunk_item,
+                block_index=block_index,
+                doc_context=doc_analysis_result # Access outer scope variable
+            )
+            # Return the original item updated with the result
+            chunk_item['analysis'] = analysis_result
+            chunk_item['analysis_status'] = 'success' # Mark success
             if executionError:
                 logging.info(f"Worker recovered from error for chunk {chunk_item['chunk_id']} \
                     after {errorCount} retries. {errorMessage}\n{tb_str}")
-        return chunk_item
+            return chunk_item
         except Exception as errorMessage:
             executionError = True
-        tb_str = traceback.format_exc()
-        chunk_id = chunk_item.get('chunk_id', 'UNKNOWN_ID')
+            tb_str = traceback.format_exc()
+            chunk_id = chunk_item.get('chunk_id', 'UNKNOWN_ID')
             logging.error(f"Worker failed for chunk {chunk_id}: {errorMessage}\n{tb_str}")
-        # Return the original item marked with an error
-        chunk_item['analysis'] = None
-        chunk_item['analysis_status'] = 'error'
+            # Return the original item marked with an error
+            chunk_item['analysis'] = None
+            chunk_item['analysis_status'] = 'error'
             chunk_item['analysis_error'] = str(errorMessage)
-        chunk_item['traceback'] = tb_str
+            chunk_item['traceback'] = tb_str
             errorCount += 1
             # sleep for a short duration before retrying
             time.sleep(2)

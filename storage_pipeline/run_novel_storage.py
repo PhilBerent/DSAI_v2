@@ -22,6 +22,7 @@ try:
     from DSAIParams import * # Imports RunCodeFrom, StateStorageList, DocToAddPath etc.
     # Import enums for state management and the list of stages
     from enums_and_constants import CodeStages, StateStoragePoints, Code_Stages_List
+    from primary_analysis_stages import *
 except ImportError as e:
     print(f"Error importing core modules (globals, UtilityFunctions, DSAIParams, enums): {e}")
     raise
@@ -32,7 +33,6 @@ try:
     # from config_loader import DocToAddPath, Chunk_Size, Chunk_overlap # Chunk parameters are now in DSAIParams
     from storage_pipeline.db_connections import get_pinecone_index, get_neo4j_driver_local # Removed test_connections, not used
     # Import the new stage functions
-    from storage_pipeline.primary_analysis_stages import large_block_analysis, perform_iterative_analysis, perform_adaptive_chunking
     # State storage is used within the stage functions now
     # from state_storage import save_state, load_state # No longer needed here
 except ImportError as e:
@@ -104,11 +104,17 @@ def run_pipeline(document_path: str):
                 (current_raw_text, current_large_blocks, current_map_results, current_final_entities, current_doc_analysis_result) = perform_iterative_analysis(load_state_flag, file_id, current_raw_text, current_large_blocks, current_map_results, current_final_entities)
             elif stage == CodeStages.IterativeAnalysisCompleted.value:
                  # Stage 3: Downstream Processing (Chunking, Analysis, Storage)
-                 perform_adaptive_chunking(load_state_flag, file_id, pinecone_index, neo4j_driver, current_raw_text, current_large_blocks, current_map_results, current_doc_analysis_result)
+                 chunks_with_analysis = perform_detailed_chunk_analysis(load_state_flag, file_id, pinecone_index, neo4j_driver, current_raw_text, current_large_blocks, current_map_results, current_doc_analysis_result)
                  # This is the last stage defined in the list, so we break the loop after execution
                  # If more stages were added, this break might need reconsideration
                  break
-
+            elif stage == CodeStages.DetailedBlockAnalysisCompleted.value:
+                (embeddings_dict, file_id, chunks_with_analysis, doc_analysis_result, 
+                    map_results) = get_embeddings(load_state_flag, file_id, chunks_with_analysis, 
+                    doc_analysis_result, current_map_results)
+            elif stage == CodeStages.EmbeddingsCompleted.value:
+                (graph_nodes, graph_edges, file_id, embeddings_dict, chunks_with_analysis, 
+                 doc_analysis_result, map_results) = perform_graph_analyisis(load_state_flag, file_id, doc_analysis_result, chunks_with_analysis)
             else:
                  logging.warning(f"Encountered an unrecognized stage: {stage}. Skipping.")
 
