@@ -54,8 +54,8 @@ def run_pipeline(document_path: str):
     try:
         logging.info("Setting up database connections...")
         # Connections are needed for the final stage
-        # pinecone_index = get_pinecone_index()
-        # neo4j_driver = get_neo4j_driver_local()
+        pinecone_index = get_pinecone_index()
+        neo4j_driver = get_neo4j_driver_local()
         file_id = os.path.splitext(os.path.basename(document_path))[0] # Use filename without ext as ID
         logging.info(f"Using Document ID: {file_id}")
     except Exception as e:
@@ -93,18 +93,33 @@ def run_pipeline(document_path: str):
 
             if stage == CodeStages.Start.value:
                 # Stage 1: Initial Processing
-                (current_raw_text, current_large_blocks, current_map_results, 
-                current_final_entities) = large_block_analysis(document_path, file_id)
-                #db
-                a, b = has_string(current_large_blocks, "zzz")
-                a=3
+                current_raw_text, current_large_blocks, current_map_results, current_final_entities = \
+                    large_block_analysis(document_path, file_id)
 
             elif stage == CodeStages.LargeBlockAnalysisCompleted.value:
                 # Stage 2: Iterative Analysis (Reduce Phase)
-                (current_raw_text, current_large_blocks, current_map_results, current_final_entities, current_doc_analysis_result) = perform_iterative_analysis(load_state_flag, file_id, current_raw_text, current_large_blocks, current_map_results, current_final_entities)
+                current_raw_text, current_large_blocks, current_map_results, current_final_entities, current_doc_analysis_result = \
+                    perform_iterative_analysis(
+                        load_state_flag=load_state_flag,
+                        file_id=file_id,
+                        raw_text_in=current_raw_text,
+                        large_blocks_in=current_large_blocks,
+                        map_results_in=current_map_results,
+                        final_entities_in=current_final_entities
+                    )
+
             elif stage == CodeStages.IterativeAnalysisCompleted.value:
                  # Stage 3: Downstream Processing (Chunking, Analysis, Storage)
-                 perform_adaptive_chunking(load_state_flag, file_id, pinecone_index, neo4j_driver, current_raw_text, current_large_blocks, current_map_results, current_doc_analysis_result)
+                 perform_adaptive_chunking(
+                    load_state_flag=load_state_flag,
+                    file_id=file_id,
+                    pinecone_index=pinecone_index,
+                    neo4j_driver=neo4j_driver,
+                    raw_text_in=current_raw_text,
+                    large_blocks_in=current_large_blocks, # Needed for adaptive chunking? Check impl.
+                    map_results_in=current_map_results,   # Needed for adaptive chunking? Check impl.
+                    doc_analysis_result_in=current_doc_analysis_result
+                 )
                  # This is the last stage defined in the list, so we break the loop after execution
                  # If more stages were added, this break might need reconsideration
                  break
@@ -112,9 +127,14 @@ def run_pipeline(document_path: str):
             else:
                  logging.warning(f"Encountered an unrecognized stage: {stage}. Skipping.")
 
-            # Optional: Add a small delay between stages if needed for resource reasons
+            # Optional: Add a smalzzzl delay between stages if needed for resource reasons
             # time.sleep(1)
-
+            # getChunksForDetailAnalysis()
+            # getDetailedChunkAnalysis()
+            # generateEmbeddings()
+            # createGraphs()
+            # storeData()
+    
     except FileNotFoundError as e:
         # Specific handling for state file not found when expected
         logging.error(f"Pipeline aborted: Required state file not found. {e}")

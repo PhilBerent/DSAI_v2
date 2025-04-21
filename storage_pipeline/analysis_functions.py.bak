@@ -32,7 +32,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Schemas moved to prompts.py
 
 # --- REVISED: Step 3.1 - Map Phase Helper ---
-def analyze_large_block(block_info: Dict[str, Any], block_index: int, additional_data: Any=None) -> Optional[Dict[str, Any]]:
+def _analyze_large_block(block_info: Dict[str, Any], block_index: int, additional_data: Any=None) -> Optional[Dict[str, Any]]:
     """Analyzes a single large text block using LLM. (Now simpler)"""
     block_ref = block_info.get('ref', f'Index {block_index}')
     logging.info(f"Analyzing large block {block_index + 1}: {block_ref} (Length: {len(block_info.get('text',''))} chars)")
@@ -102,7 +102,7 @@ def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List
 
     # --- Step 3.1: Run Parallel Analysis --- # 
     map_results_raw = parallel_llm_calls(
-        function_to_run=analyze_large_block,
+        function_to_run=_analyze_large_block,
         num_instances=num_workers,
         input_data_list=large_blocks,
         platform=AIPlatform,

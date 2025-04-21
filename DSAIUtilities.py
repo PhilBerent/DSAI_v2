@@ -208,4 +208,27 @@ def calc_est_tokens_per_call(
 
 # Add other DSAI-specific utilities here as needed
 
+def cleanLLMOutput(output: str) -> str:
+    replacements = {
+        'â€™': "'",
+        'â€œ': '"',
+        'â€': '"',
+        'â€“': '-',
+        'â€”': '—',
+        'â€¦': '...',
+        'â€˜': "'",
+        'â€': '"',
+        '\u2018': '‘',
+        '\u2019': '’',
+        '\u201c': '“',
+        '\u201d': '”',
+        '\u2013': '–',
+        '\u2014': '—',
+        '\u2026': '...',
+    }
+
+    for bad, good in replacements.items():
+        output = output.replace(bad, good)
+
+    return output.strip()
 

@@ -41,6 +41,7 @@ dbAndIndexRootName = "PandPDingo"
 inputDocsPath = r"C:\Users\Phil\Documents\DataSphere AI\DataSphere AI Not Code\Inputs And Outputs\Texts For Testing\\"
 # docToAddPath = r"C:\Users\Phil\Documents\DataSphere AI\DataSphere AI Not Code\Inputs And Outputs\Texts For Testing\Pride and PrejudiceDingo.txt"
 docFileName = "Pride and PrejudiceDingo.txt"
+# docFileName = "Pride and PrejudiceDingoShort.txt"
 # docFileName = "Pride and PrejudiceDingoTemp.txt"
 DocToAddPath = os.path.join(inputDocsPath, docFileName)
 DocToAddName = "PanPDingo"

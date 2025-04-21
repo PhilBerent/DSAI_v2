@@ -27,6 +27,7 @@ try:
     # Import prompt components
     from prompts import *
     from analysis_functions import *
+    from state_storage import *
 except ImportError as e:
     print(f"Error importing core modules/prompts/params in primary_analysis_stages: {e}")
     raise
@@ -40,8 +41,6 @@ try:
     from storage_pipeline.graph_builder import build_graph_data
     from storage_pipeline.storage import store_embeddings_pinecone, store_graph_data_neo4j, store_chunk_metadata_docstore
     # Import state storage functions using the original module structure
-    from state_storage import save_state as original_save_state, load_state as original_load_state
-    # Import parallel execution utilities
     from DSAIUtilities import calc_est_tokens_per_call # Token estimation
     from llm_calls import calc_num_instances, parallel_llm_calls # Parallel execution
 except ImportError as e:
@@ -104,75 +103,34 @@ def large_block_analysis(document_path: str, file_id: str) -> Tuple[str, List[Di
             "raw_text": raw_text
         }
         try:
-            original_save_state(state_to_save, StateStoragePoints.LargeBlockAnalysisCompleted)
-            # No file_id or stage value needed here as per original signature
+            file_path = LargeBlockAnalysisCompletedFile
+            save_state(state_to_save, file_path)
         except Exception as e:
-            # Log error as per original state_storage.py (it uses print)
             logging.error(f"Original state_storage.py save failed for {StateStoragePoints.LargeBlockAnalysisCompleted.name}: {e}", exc_info=True)
-            # Decide if this should raise an error and stop the pipeline
-            # raise
 
     logging.info(f"Stage 1: Initial Processing complete for {file_id}.")
     return raw_text, large_blocks, map_results, final_entities
 
 
 # --- Stage 2: LargeBlockAnalysisCompleted -> IterativeAnalysisCompleted ---
-def perform_iterative_analysis(
-    load_state_flag: bool,
-    file_id: str, # Keep file_id for logging/context if needed elsewhere
-    # Data passed if not loading state
-    raw_text_in: Optional[str] = None,
-    large_blocks_in: Optional[List[Dict[str, Any]]] = None,
-    map_results_in: Optional[List[Dict[str, Any]]] = None,
-    final_entities_in: Optional[Dict[str, List[str]]] = None
-) -> Tuple[Optional[str], Optional[List[Dict[str, Any]]], Optional[List[Dict[str, Any]]], Optional[Dict[str, List[str]]], Dict[str, Any]]:
+def perform_iterative_analysis(load_state_flag: bool, file_id: str, raw_text: Optional[str] = None,
+    large_blocks: Optional[List[Dict[str, Any]]] = None, map_results: Optional[List[Dict[str, Any]]] = None,
+    final_entities: Optional[Dict[str, List[str]]] = None) -> Tuple[Optional[str], Optional[List[Dict[str, Any]]], Optional[List[Dict[str, Any]]], Optional[Dict[str, List[str]]], Dict[str, Any]]:
     """Handles the reduce phase of the analysis.
        Loads state using original_load_state if load_state_flag is True.
        Saves state using original_save_state if configured.
     """
     logging.info(f"Stage 2: Starting Iterative Analysis for {file_id} (Load State: {load_state_flag})...")
-    raw_text: Optional[str] = None
-    large_blocks: Optional[List[Dict[str, Any]]] = None
-    map_results: Optional[List[Dict[str, Any]]] = None
-    final_entities: Optional[Dict[str, List[str]]] = None
     doc_analysis_result: Dict[str, Any] = {}
 
     if load_state_flag:
-        # Use the original load_state(run_from: CodeStages) signature
-        # We want to load the state saved *before* this stage, which corresponds to LargeBlockAnalysisCompleted
-        stage_to_load_from = CodeStages.LargeBlockAnalysisCompleted
-        logging.info(f"Attempting to load state using original state_storage.load_state(run_from={stage_to_load_from.name})...")
         try:
-            loaded_state = original_load_state(stage_to_load_from)
-
-            # Validate and assign loaded data (assuming keys match what was saved)
-            large_blocks = loaded_state.get("large_blocks")
-            map_results = loaded_state.get("map_results")
-            final_entities = loaded_state.get("final_entities")
-            raw_text = loaded_state.get("raw_text")
-
-            # Check for missing critical data needed for this stage
-            if map_results is None or final_entities is None or raw_text is None:
-                 missing_keys = [k for k,v in {"map_results": map_results, "final_entities": final_entities, "raw_text": raw_text}.items() if v is None]
-                 logging.error(f"Loaded state (using original state_storage) is missing critical keys: {missing_keys} when loading for stage {stage_to_load_from.name}")
-                 raise KeyError(f"Loaded state is missing critical keys: {missing_keys}")
-
+            large_blocks, map_results, final_entities, raw_text = loadStateLBA()
             logging.info(f"State loaded successfully for {file_id} using original state_storage.")
         except (FileNotFoundError, KeyError, ValueError, Exception) as e:
             # Log error (original load_state uses print, we add logging)
-            logging.error(f"Original state_storage.py load failed when attempting to load for stage {stage_to_load_from.name}: {e}. Aborting.", exc_info=True)
+            logging.error(f"Original state_storage.py load failed when attempting to load for stage LargeBlockAnalysisCompleted: {e}. Aborting.", exc_info=True)
             raise # Re-raise to stop the pipeline
-    else:
-        # Use data passed from previous stage, validate it
-        logging.info(f"Using data passed from previous stage for {file_id}.")
-        if map_results_in is None or final_entities_in is None or raw_text_in is None:
-             missing_args = [k for k,v in {"map_results_in": map_results_in, "final_entities_in": final_entities_in, "raw_text_in": raw_text_in}.items() if v is None]
-             logging.error(f"Missing critical data passed from previous stage to Stage 2: {missing_args}")
-             raise ValueError(f"Missing critical data passed from previous stage: {missing_args}")
-        raw_text = raw_text_in
-        large_blocks = large_blocks_in
-        map_results = map_results_in
-        final_entities = final_entities_in
 
     # --- 3.2 Reduce Phase --- #
     # [Code for Reduce Phase analysis remains unchanged]
@@ -205,7 +163,8 @@ def perform_iterative_analysis(
             "raw_text": raw_text
         }
         try:
-            original_save_state(state_to_save, StateStoragePoints.IterativeAnalysisCompleted)
+            file_path = IterativeAnalysisCompletedFile
+            save_state(state_to_save, file_path)
         except Exception as e:
             logging.error(f"Original state_storage.py save failed for {StateStoragePoints.IterativeAnalysisCompleted.name}: {e}", exc_info=True)
             # raise
@@ -214,84 +173,66 @@ def perform_iterative_analysis(
     return raw_text, large_blocks, map_results, final_entities, doc_analysis_result
 
 
-# --- Stage 3: Sub-functions ---
-
-# --- Stage 3a: Adaptive Chunking ---
-def getChunksForDetailAnalysis(
-    load_state_flag: bool,
-    file_id: str,
-    raw_text_in: Optional[str] = None,
-    large_blocks_in: Optional[List[Dict[str, Any]]] = None,
-    map_results_in: Optional[List[Dict[str, Any]]] = None,
-    doc_analysis_result_in: Optional[Dict[str, Any]] = None
-) -> Tuple[Optional[List[Dict[str, Any]]], Dict[str, Any], str]:
-    """Loads state if needed and performs adaptive fine-grained chunking.
-
-    Returns:
-        A tuple containing:
-        - final_chunks: List of chunk dictionaries, or None if chunking yields no results.
-        - doc_analysis_result: The document analysis context (loaded or passed in).
-        - file_id: The document file identifier.
+# --- Stage 3: IterativeAnalysisCompleted -> End ---
+def perform_adaptive_chunking(load_state_flag: bool, file_id: str, pinecone_index: Any, neo4j_driver: Any,
+    raw_text_in: Optional[str] = None, large_blocks_in: Optional[List[Dict[str, Any]]] = None,
+    map_results_in: Optional[List[Dict[str, Any]]] = None, doc_analysis_result_in: Optional[Dict[str, Any]] = None
+) -> None:
+    """Handles fine-grained chunking, PARALLEL chunk analysis, embedding, graph building, and storage.
+       Loads state using original_load_state if load_state_flag is True.
+       Does not save state.
     """
-    logging.info(f"Stage 3a: Starting Adaptive Chunking for {file_id} (Load State: {load_state_flag})...")
+    logging.info(f"Stage 3: Starting Downstream Processing for {file_id} (Load State: {load_state_flag})...")
     raw_text: Optional[str] = None
     large_blocks: Optional[List[Dict[str, Any]]] = None
     map_results: Optional[List[Dict[str, Any]]] = None
-    doc_analysis_result: Dict[str, Any] = {}
+    # --- Make doc_analysis_result non-optional after loading/validation --- 
+    doc_analysis_result: Dict[str, Any] = {} # Initialize as empty dict
 
-    # --- Load State or Use Passed Data ---
+    # --- Load State or Use Passed Data --- 
     if load_state_flag:
-        stage_to_load_from = CodeStages.IterativeAnalysisCompleted
-        logging.info(f"Attempting to load state using original state_storage.load_state(run_from={stage_to_load_from.name})...")
+        logging.info(f"Attempting to load state IterativeAnalysisCompleted...")
         try:
-            loaded_state = original_load_state(stage_to_load_from)
-            doc_analysis_result_loaded = loaded_state.get("doc_analysis_result")
-            large_blocks = loaded_state.get("large_blocks")
-            map_results = loaded_state.get("map_results")
-            raw_text = loaded_state.get("raw_text") # Raw text might not be strictly needed here? Check adaptive_chunking
-
-            # Validate required data for this step (large_blocks, map_results, doc_analysis_result)
-            if large_blocks is None or map_results is None or doc_analysis_result_loaded is None:
-                 missing_keys = [k for k,v in {"large_blocks": large_blocks, "map_results": map_results, "doc_analysis_result": doc_analysis_result_loaded}.items() if v is None]
-                 logging.error(f"Loaded state is missing critical keys for chunking: {missing_keys}")
-                 raise KeyError(f"Loaded state is missing critical keys for Stage 3a: {missing_keys}")
-            doc_analysis_result = doc_analysis_result_loaded
+            doc_analysis_result, large_blocks, map_results, raw_text = loadStateIA()
             logging.info(f"State loaded successfully for {file_id} using original state_storage.")
         except (FileNotFoundError, KeyError, ValueError, Exception) as e:
-            logging.error(f"Original state_storage.py load failed when attempting to load for stage {stage_to_load_from.name}: {e}. Aborting.", exc_info=True)
+            logging.error(f"Original state_storage.py load failed when attempting to load for stage IterativeAnalysisCompleted: {e}. Aborting: {e} .", exc_info=True)
             raise
     else:
         logging.info(f"Using data passed from previous stage for {file_id}.")
-        # Validate required inputs passed from previous stage
-        if large_blocks_in is None or map_results_in is None or doc_analysis_result_in is None:
-             missing_args = [k for k,v in {"large_blocks_in": large_blocks_in, "map_results_in": map_results_in, "doc_analysis_result_in": doc_analysis_result_in}.items() if v is None]
-             logging.error(f"Missing critical data passed to Stage 3a: {missing_args}")
-             raise ValueError(f"Missing critical data passed to Stage 3a: {missing_args}")
-        # raw_text = raw_text_in # Pass through if needed
+        if raw_text_in is None or large_blocks_in is None or map_results_in is None or doc_analysis_result_in is None:
+             missing_args = [k for k,v in {
+                "raw_text_in": raw_text_in, "large_blocks_in": large_blocks_in,
+                "map_results_in": map_results_in, "doc_analysis_result_in": doc_analysis_result_in
+             }.items() if v is None]
+             logging.error(f"Missing critical data passed from previous stage to Stage 3: {missing_args}")
+             raise ValueError(f"Missing critical data passed to Stage 3: {missing_args}")
+
+        raw_text = raw_text_in
         large_blocks = large_blocks_in
         map_results = map_results_in
-        doc_analysis_result = doc_analysis_result_in
+        doc_analysis_result = doc_analysis_result_in # Assign validated result
 
-    # --- Adaptive Fine-Grained Chunking ---
-    logging.info("Performing adaptive fine-grained chunking...")
+    # --- Ensure critical data is present before proceeding (doc_analysis_result is now guaranteed non-Optional) --- 
+    if raw_text is None or large_blocks is None or map_results is None:
+         raise ValueError(f"Critical data unavailable for Stage 3 processing (file_id: {file_id}). Check state or pipeline flow.")
+    
+    # --- 4. Adaptive Fine-Grained Chunking --- #
+    # [Code for Adaptive Chunking remains unchanged] ...
+    logging.info("Step 3.1: Performing adaptive fine-grained chunking...")
     final_chunks: List[Dict[str, Any]] = []
     try:
-        # Ensure required inputs are validated above
-        final_chunks = adaptive_chunking(
-            structural_units=large_blocks,
-            map_results=map_results,
-            target_chunk_size=Chunk_Size,
-            chunk_overlap=Chunk_overlap
-        )
+        final_chunks = adaptive_chunking(large_blocks, map_results, Chunk_Size, Chunk_overlap)
+
         if not final_chunks:
-             logging.warning("Adaptive chunking resulted in zero final chunks. Subsequent steps will be skipped.")
-             # Return None for chunks to signal skipping
-             return None, doc_analysis_result, file_id
+             logging.warning("Adaptive chunking resulted in zero final chunks.")
         else:
              logging.info(f"Adaptive chunking complete. Generated {len(final_chunks)} chunks.")
              for i, chunk in enumerate(final_chunks):
-                 if 'metadata' not in chunk: chunk['metadata'] = {}
+                 if 'metadata' not in chunk:
+                      chunk['metadata'] = {}
                  chunk['metadata']['document_id'] = file_id
+                 # --- Ensure chunk_id exists for parallel processing matching --- 
                  if 'chunk_id' not in chunk or not chunk['chunk_id']:
                      chunk['chunk_id'] = f"{file_id}_chunk_{i}"
                      logging.debug(f"Generated chunk_id: {chunk['chunk_id']}")
@@ -299,93 +240,42 @@ def getChunksForDetailAnalysis(
         logging.error(f"Adaptive fine-grained chunking failed: {e}", exc_info=True)
         raise ValueError(f"Adaptive chunking failed: {e}") from e
 
-    logging.info(f"Stage 3a: Adaptive Chunking complete for {file_id}.")
-    return final_chunks, doc_analysis_result, file_id
-
-
-# --- Stage 3b: Detailed Chunk Analysis (Parallel) ---
-def getDetailedChunkAnalysis(
-    final_chunks: List[Dict[str, Any]],
-    doc_analysis_result: Dict[str, Any],
-    file_id: str
-) -> Optional[List[Dict[str, Any]]]:
-    """Performs parallel detailed analysis on the provided chunks.
-
-    Returns:
-        List of chunk dictionaries with analysis results, or None if all fail.
-    """
-    if not final_chunks: # Should be caught earlier, but double-check
-        logging.warning("getDetailedChunkAnalysis called with no chunks. Skipping.")
-        return None
-
-    logging.info(f"Stage 3b: Starting PARALLEL detailed chunk analysis for {len(final_chunks)} chunks (File ID: {file_id})...")
+    if not final_chunks:
+        logging.warning("Skipping subsequent steps as no final chunks were generated.")
+        logging.info(f"Stage 3: Downstream Processing complete (skipped storage) for {file_id}.")
+        return
+    
+    # --- 5. Parallel Chunk-Level Analysis --- #
+    logging.info("Step 3.2: Performing PARALLEL detailed chunk analysis...")
     chunks_with_analysis: List[Dict[str, Any]] = []
     processed_chunks_count = 0
     failed_chunks_count = 0
 
     try:
-        # 1. Estimate tokens and calculate workers
+        # 5.1 Estimate tokens and calculate workers
         logging.info("Estimating tokens for chunk analysis...")
-        # Assuming get_anal_chunk_details_prompt is imported
-        estimated_tokens_per_call = calc_est_tokens_per_call(
-            data_list=final_chunks,
-            num_blocks_for_sample=NumSampleBlocksForAC,
-            estimated_output_token_fraction=EstOutputTokenFractionForAC,
-            system_message=chunk_system_message, # Assuming imported
-            prompt_generator_func=get_anal_chunk_details_prompt,
-            additional_data=doc_analysis_result # Pass context if prompt func needs it
-        )
+        estimated_tokens_per_call = calc_est_tokens_per_call(final_chunks, 
+            NumSampleBlocksForAC, EstOutputTokenFractionForAC, chunk_system_message, 
+            get_anal_chunk_details_prompt, doc_analysis_result)
 
         if estimated_tokens_per_call is None:
             logging.warning("Could not estimate tokens per call for chunk analysis. Defaulting to 1 worker.")
             num_workers = 1
         else:
-             # Assuming calc_num_instances and necessary params (RPMLimit etc.) are imported
-            num_workers = calc_num_instances(
-                estimated_tokens_per_call=estimated_tokens_per_call,
-                total_items=len(final_chunks),
-                RPMLimit=RPMLimit,
-                TPMLimit=TPMLimit,
-                MaxConcurrentLLMCalls=MaxConcurrentLLMCalls
-            )
+            num_workers = calc_num_instances(estimated_tokens_per_call)
         logging.info(f"Calculated number of workers for chunk analysis: {num_workers}")
-
-        # 2. Define the worker function (using closure for doc_analysis_result)
-        def _worker_analyze_chunk(chunk_item: Dict[str, Any]) -> Dict[str, Any]:
-            chunk_id = chunk_item.get('chunk_id', 'UNKNOWN_ID')
-            try:
-                # Assuming analyze_chunk_details is imported
-                analysis_result = analyze_chunk_details(
-                    chunk_text=chunk_item['text'],
-                    chunk_id=chunk_id,
-                    doc_context=doc_analysis_result # Access outer scope variable
-                )
-                chunk_item['analysis'] = analysis_result
-                chunk_item['analysis_status'] = 'success'
-                return chunk_item
-            except Exception as e:
-                tb_str = traceback.format_exc()
-                logging.error(f"Worker failed for chunk {chunk_id}: {e}\n{tb_str}")
-                chunk_item['analysis'] = None
-                chunk_item['analysis_status'] = 'error'
-                chunk_item['analysis_error'] = str(e)
-                chunk_item['traceback'] = tb_str
-                return chunk_item
-
-        # 3. Execute in parallel
+            
+        # 5.2 Define the worker function (using closure for doc_analysis_result)
+        # 5.3 Execute in parallel
         logging.info(f"Starting parallel analysis for {len(final_chunks)} chunks with {num_workers} workers...")
-        # Assuming parallel_llm_calls is imported
-        parallel_results = parallel_llm_calls(
-            items_list=final_chunks,
-            num_workers=num_workers,
-            worker_function=_worker_analyze_chunk
-            # parallel_llm_calls might need other args like platform, rate_limit_sleep?
-            # Assuming it takes items_list, num_workers, worker_function as primary args
-        )
+        parallel_results = parallel_llm_calls(worker_analyze_chunk, num_workers, final_chunks, 
+            AIPlatform, RATE_LIMIT_SLEEP_SECONDS, doc_analysis_result)     
 
-        # 4. Process results
+        # 5.4 Process results
+        # Ensure parallel_results length matches final_chunks
         if len(parallel_results) != len(final_chunks):
              logging.warning(f"Mismatch in parallel results length ({len(parallel_results)}) and input chunks ({len(final_chunks)}). Processing available results.")
+             # This might indicate an issue with parallel_llm_calls
 
         for result_item in parallel_results:
             if result_item.get('analysis_status') == 'success':
@@ -395,118 +285,66 @@ def getDetailedChunkAnalysis(
                 failed_chunks_count += 1
                 chunk_id = result_item.get('chunk_id', 'UNKNOWN_ID')
                 error_msg = result_item.get('analysis_error', 'Unknown error')
+                # Error already logged in worker, just count failure here
                 logging.warning(f"Chunk {chunk_id} failed analysis in parallel worker: {error_msg}")
 
         logging.info(f"Parallel chunk analysis complete. Success: {processed_chunks_count}, Failed: {failed_chunks_count}")
 
         if not chunks_with_analysis:
-             logging.error("Chunk analysis failed for all chunks in parallel execution.")
-             return None # Indicate failure
+             raise ValueError("Chunk analysis failed for all chunks in parallel execution. Aborting subsequent steps.")
 
     except Exception as e:
         logging.error(f"Error during parallel chunk analysis setup or execution: {e}", exc_info=True)
         raise ValueError(f"Parallel chunk analysis process failed: {e}") from e
 
-    logging.info(f"Stage 3b: Detailed Chunk Analysis complete.")
-    return chunks_with_analysis
 
-
-# --- Stage 3c: Embedding Generation ---
-def generateEmbeddings(
-    chunks_with_analysis: List[Dict[str, Any]]
-) -> Optional[Dict[str, List[float]]]:
-    """Generates embeddings for the analyzed chunks.
-
-    Returns:
-        Dictionary of embeddings {chunk_id: embedding_vector}, or None if generation fails.
-    """
-    if not chunks_with_analysis:
-        logging.warning("generateEmbeddings called with no analyzed chunks. Skipping.")
-        return None
-
-    logging.info(f"Stage 3c: Starting Embedding Generation for {len(chunks_with_analysis)} chunks...")
+    # --- 6. Embedding Generation --- #
+    # [Code for Embedding Generation remains unchanged] ...
+    logging.info("Step 3.3: Generating embeddings...")
     embeddings_dict: Dict[str, List[float]] = {}
     try:
-        # Assuming generate_embeddings is imported
-        embeddings_dict = generate_embeddings(chunks_with_analysis)
+        embeddings_dict = generate_embeddings(chunks_with_analysis) # Pass chunks that have analysis
         if not embeddings_dict:
-            # This implies embedding failed for all successfully analyzed chunks
-            logging.error("Embedding generation failed for all processed chunks.")
-            return None # Indicate failure
+            raise ValueError("Embedding generation failed for all processed chunks.")
         logging.info(f"Embedding generation complete. Generated {len(embeddings_dict)} embeddings.")
     except Exception as e:
         logging.error(f"Embedding generation failed: {e}", exc_info=True)
         raise ValueError(f"Embedding generation failed: {e}") from e
 
-    logging.info(f"Stage 3c: Embedding Generation complete.")
-    return embeddings_dict
 
-
-# --- Stage 3d: Graph Data Construction ---
-def createGraphs(
-    file_id: str,
-    doc_analysis_result: Dict[str, Any],
-    chunks_with_analysis: List[Dict[str, Any]]
-) -> Tuple[List[Dict], List[Dict]]:
-    """Constructs graph nodes and edges from analysis results.
-
-    Returns:
-        A tuple containing (graph_nodes, graph_edges).
-    """
-    if not chunks_with_analysis:
-        logging.warning("createGraphs called with no analyzed chunks. Returning empty lists.")
-        return [], []
-
-    logging.info(f"Stage 3d: Starting Graph Data Construction for {file_id} using {len(chunks_with_analysis)} chunks...")
+    # --- 7. Graph Data Construction --- #
+    # [Code for Graph Construction remains unchanged] ...
+    logging.info("Step 3.4: Constructing graph data...")
     graph_nodes: List[Dict] = []
     graph_edges: List[Dict] = []
     try:
-        # Assuming build_graph_data is imported
         graph_nodes, graph_edges = build_graph_data(file_id, doc_analysis_result, chunks_with_analysis)
         logging.info(f"Graph construction complete. Nodes: {len(graph_nodes)}, Edges: {len(graph_edges)}.")
     except Exception as e:
         logging.error(f"Graph data construction failed: {e}", exc_info=True)
         raise ValueError(f"Graph data construction failed: {e}") from e
 
-    logging.info(f"Stage 3d: Graph Data Construction complete.")
-    return graph_nodes, graph_edges
 
-
-# --- Stage 3e: Data Storage ---
-def storeData(
-    pinecone_index: Any,
-    neo4j_driver: Any,
-    embeddings_dict: Optional[Dict[str, List[float]]],
-    chunks_with_analysis: Optional[List[Dict[str, Any]]],
-    graph_nodes: List[Dict],
-    graph_edges: List[Dict]
-) -> None:
-    """Stores embeddings, graph data, and chunk metadata."""
-    logging.info("Stage 3e: Starting Data Storage...")
+    # --- 8. Data Storage --- #
+    # [Code for Data Storage remains unchanged] ...
+    logging.info("Step 3.5: Storing data...")
     try:
-        # Check connections
         if pinecone_index is None or neo4j_driver is None:
             raise ConnectionError("Database connections are not available for storage.")
 
-        # Store embeddings
-        if not embeddings_dict or not chunks_with_analysis: # Need chunks for metadata
-            logging.warning("No embeddings or analyzed chunks available, skipping Pinecone storage.")
+        if not embeddings_dict:
+            logging.warning("No embeddings generated, skipping Pinecone storage.")
         else:
-            # Assuming store_embeddings_pinecone is imported
             store_embeddings_pinecone(pinecone_index, embeddings_dict, chunks_with_analysis)
 
-        # Store graph data
         if not graph_nodes and not graph_edges:
             logging.warning("No graph data generated, skipping Neo4j storage.")
         else:
-            # Assuming store_graph_data_neo4j is imported
             store_graph_data_neo4j(neo4j_driver, graph_nodes, graph_edges)
 
-        # Store chunk metadata
         if not chunks_with_analysis:
             logging.warning("No analyzed chunks available, skipping Docstore storage.")
         else:
-            # Assuming store_chunk_metadata_docstore is imported
             store_chunk_metadata_docstore(chunks_with_analysis)
 
         logging.info("Data storage calls complete.")
@@ -517,8 +355,8 @@ def storeData(
         logging.error(f"Data storage failed: {e}", exc_info=True)
         raise ValueError(f"Data storage step failed: {e}") from e
 
-    logging.info("Stage 3e: Data Storage complete.")
 
+    logging.info(f"Stage 3: Downstream Processing complete for {file_id}.")
 
 # Note: Calls to state_storage functions now use the imported original functions:
 # original_save_state(data: Dict, storage_point: StateStoragePoints)

@@ -23,6 +23,7 @@ try:
     from enums_and_constants import *
     # Get OpenAI client - still need this assuming it's initialized elsewhere
     from storage_pipeline.db_connections import client as openai_client
+    from DSAIUtilities import *
     # config_loader is no longer needed here for client setup
 except ImportError as e:
     print(f"Error importing modules in llm_calls.py: {e}")
@@ -60,6 +61,7 @@ def _openai_llm_call(
 
         response = openai_client.chat.completions.create(**params)
         raw_content = response.choices[0].message.content
+        raw_content = cleanLLMOutput(raw_content) # Clean the response if needed        
         if raw_content is None:
              raise ValueError(f"OpenAI response content is None for model {LLM_model}")
         logging.debug("OpenAI call successful.")
@@ -101,7 +103,7 @@ def _gemini_llm_call(
             prompt,
             generation_config=generation_config
         )
-        
+
         # Accessing the response text
         # Need to check response.parts structure and potential blocks/errors
         if response.parts:
@@ -124,7 +126,7 @@ def _gemini_llm_call(
         # Optional: Clean Gemini's JSON output if it includes markdown backticks
         if response_format and response_format.get("type") == "json_object":
              raw_content = raw_content.strip().removeprefix("```json").removesuffix("```")
-
+        raw_content = cleanLLMOutput(raw_content) # Clean the response if needed
         return raw_content
 
     except Exception as e:
@@ -182,11 +184,8 @@ def llm_call(
 
 # --- JSON Mode Wrapper (Unchanged conceptually) --- #
 
-def call_llm_json_mode(
-    system_message: str,
-    prompt: str,
-    temperature: float = DefaultLLMTemperature,
-) -> Dict[str, Any]:
+def call_llm_json_mode(system_message: str, prompt: str, 
+        temperature: float = DefaultLLMTemperature) -> Dict[str, Any]:
     """
     Wrapper function to call the LLM in JSON mode and parse the result.
     Relies on the underlying llm_call dispatcher.
@@ -197,21 +196,15 @@ def call_llm_json_mode(
     # For Gemini, the _gemini_llm_call might add further JSON instructions.
 
     try:
-        raw_content = llm_call(
+        result_string = llm_call(
             system_message=json_system_message,
             prompt=prompt,
             temperature=temperature,
             response_format={"type": "json_object"} # Pass hint to llm_call/provider funcs
         )
 
-        # --- Text Cleaning Step --- #
-        cleaned_content = raw_content.replace('â€™', "'") \
-                                   .replace('â€œ', '"') \
-                                   .replace('â€', '"') \
-                                   .replace('â€¦', '...')
-
         # Parse the cleaned JSON string
-        result = json.loads(cleaned_content)
+        result = json.loads(result_string)
         return result
 
     except json.JSONDecodeError as json_e:

@@ -109,7 +109,7 @@ def WriteListToFile(listToWrite, filename=tempOutputFile):
             for item in listToWrite:
                 f.write("%s\n" % item)
             
-def WriteNpArToFile(arToWrite, filename):
+def WriteNpArToFile(arToWrite, filename=g.tempOutputFile):
     with open(filename, "w") as f:
         if arToWrite.ndim == 1:
             np.savetxt(f, arToWrite)
@@ -573,9 +573,9 @@ def Read2DMatFromFileSep(fileName, separator="\t"):
     
     return mat2D
 
-def WriteDictToFile(dictionary, filename):
+def WriteDictToFile(dictionary, filename=g.tempOutputFile, ensureAscii=True):
     with open(filename, 'w') as file:
-        json.dump(dictionary, file)
+        json.dump(dictionary, file, ensure_ascii=ensureAscii)
         
 def ReadDictFromFile(filename):
     with open(filename, 'r') as file:
@@ -1659,7 +1659,8 @@ def WriteJSONToMindMap(jsonObj, filename=g.tempOutputFile):
 
     lines = recurse(jsonObj)
     with open(filename, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(lines))
+        # Convert to ASCII-safe form before writing
+        f.write('\n'.join(lines).encode('ascii', 'backslashreplace').decode('ascii'))
 
 # function to convert dictionary object to a mindmap
 def WriteDictToMindMap(dictObj, filename=g.tempOutputFile):
@@ -1687,7 +1688,8 @@ def WriteDictToMindMap(dictObj, filename=g.tempOutputFile):
 
     lines = recurse(dictObj)
     with open(filename, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(lines))
+        # Convert to ASCII-safe form
+        f.write('\n'.join(lines).encode('ascii', 'backslashreplace').decode('ascii'))
 
 def WriteDictOrJsonToMM(Obj, filename=g.tempOutputFile):
     if isinstance(Obj, dict):
@@ -1717,3 +1719,26 @@ def count_chars_in_dict(data) -> int:
         total += len(str(data))
 
     return total
+
+def has_string(input_to_search, string_to_look_for):
+    def search(obj, target, path):
+        # Convert non-str targets to string when checking
+        if isinstance(obj, str):
+            if target in obj:
+                return True, ", ".join(map(str, path))
+        elif isinstance(obj, dict):
+            for key, value in obj.items():
+                found, loc = search(value, target, path + [key])
+                if found:
+                    return True, loc
+        elif isinstance(obj, list):
+            for idx, item in enumerate(obj):
+                found, loc = search(item, target, path + [idx])
+                if found:
+                    return True, loc
+        elif isinstance(obj, (int, float, bool)):
+            if target in str(obj):
+                return True, ", ".join(map(str, path))
+        return False, ""
+
+    return search(input_to_search, string_to_look_for, [])
