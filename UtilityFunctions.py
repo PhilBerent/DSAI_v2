@@ -1848,9 +1848,53 @@ def WriteDictToMindMap(dictObj, filename=g.tempOutputFile): # Changed default fi
     except Exception as e:
         print(f"Error writing dictionary to mind map {filename}: {e}")
 
+def WriteStructToMindMap(structObj, filename=g.tempOutputFile):
+    def recurse(obj, level=0, key_name=None, lines=None):
+        if lines is None:
+            lines = []
+
+        indent = '\t' * level
+
+        if isinstance(obj, dict):
+            # Iterate through dictionary items
+            for k, v in obj.items():
+                # Clean the key before appending it as a node
+                clean_key = cleanText(k)
+                lines.append(f"{indent}{clean_key}")
+                # Recurse for the value, passing None as key_name, as the value
+                # doesn't inherently carry the key's name in this format.
+                recurse(v, level + 1, None, lines)
+
+        elif isinstance(obj, list):
+            # Iterate through list items
+            for i, item in enumerate(obj, 1):
+                # Create a generic label for the list item
+                label = f"item_{i}" # Label is already ASCII
+                lines.append(f"{indent}{label}")
+                # Recurse for the item, passing None as key_name
+                recurse(item, level + 1, None, lines)
+
+        else:
+            obj_str = str(obj)
+            clean_obj_str = cleanText(obj_str)
+            # Append the cleaned scalar value, indented
+            lines.append(f"{indent}{clean_obj_str}")
+
+        return lines
+
+    try:
+        lines = recurse(structObj, level=0) # Initial level is 0
+        full_output_string = '\n'.join(lines) # Lines are already cleaned
+
+        with open(filename, 'w', encoding='ascii', errors='ignore') as f:
+            f.write(full_output_string)
+
+    except Exception as e:
+        print(f"Error writing structure to mind map {filename}: {e}")
+
 def WriteDictOrJsonToMM(Obj, filename=g.tempOutputFile):
-    if isinstance(Obj, dict):
-        WriteDictToMindMap(Obj, filename)
+    if isinstance(Obj, dict or list):
+        WriteStructToMindMap(Obj, filename)
     elif isinstance(Obj, str):
         try:
             parsed = json.loads(Obj)
