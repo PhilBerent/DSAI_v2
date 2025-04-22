@@ -23,7 +23,7 @@ except ImportError as e:
     print(f"Error importing core modules (globals, UtilityFunctions, DSAIParams): {e}")
     raise
 
-from .db_connections import client # OpenAI client
+from .db_connections import openai_client # OpenAI client
 from config_loader import Embeddings_model_name
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -56,7 +56,7 @@ def generate_embeddings(chunks: List[Dict[str, Any]]) -> Dict[str, List[float]]:
         backoff = INITIAL_BATCH_EMBED_BACKOFF
         while retries < MAX_BATCH_EMBED_RETRIES:
             try:
-                response = client.embeddings.create(
+                response = openai_client.embeddings.create(
                     input=batch_texts,
                     model=Embeddings_model_name
                 )

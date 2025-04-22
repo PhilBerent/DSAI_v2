@@ -22,7 +22,7 @@ try:
     from environment_params import GeminiSafetySettings
     from enums_and_constants import *
     # Get OpenAI client - still need this assuming it's initialized elsewhere
-    from storage_pipeline.db_connections import client as openai_client
+    from storage_pipeline.db_connections import openai_client as openai_client
     from DSAIUtilities import *
     # config_loader is no longer needed here for client setup
 except ImportError as e:

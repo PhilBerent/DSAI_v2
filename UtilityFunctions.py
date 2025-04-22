@@ -1892,7 +1892,7 @@ def WriteStructToMindMap(structObj, filename=g.tempOutputFile):
     except Exception as e:
         print(f"Error writing structure to mind map {filename}: {e}")
 
-def WriteDictOrJsonToMM(Obj, filename=g.tempOutputFile):
+def WritieDictOrJsonToMM(Obj, filename=g.tempOutputFile):
     if isinstance(Obj, dict or list):
         WriteStructToMindMap(Obj, filename)
     elif isinstance(Obj, str):

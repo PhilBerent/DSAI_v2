@@ -51,10 +51,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # --- OpenAI Connection --- (Implicit through API key)
 # Ensure OAI_API_KEY is available from DSAIParams import
 try:
-    openai.api_key = LLMAPI_KEY
+    openai.api_key = OPENAI_API_KEY
     logging.info("OpenAI API key configured.")
     # Initialize client using the key from DSAIParams
-    client = openai.OpenAI(api_key=LLMAPI_KEY)
+    openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
 except NameError:
     logging.error("OAI_API_KEY not found. Ensure it's defined in DSAIParams.py and imported.")
     raise
@@ -139,7 +139,7 @@ def test_connections():
     logging.info("Testing connections...")
     try:
         # Test OpenAI (simple list models call)
-        client.models.list()
+        openai_client.models.list()
         logging.info("OpenAI connection successful (API key valid for listing models).")
     except Exception as e:
         logging.error(f"OpenAI connection test failed: {e}")
