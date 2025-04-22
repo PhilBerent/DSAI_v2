@@ -1,0 +1,1108 @@
+DSAI Code Elements
+    To do
+        Read
+        To work out
+            summarization methodology
+    Other Map Links
+        DSAI Code Elements
+         <freeplane:/%20/C:/Users/Phil/Documents/Freeplane%20Mind%20Maps/DataSphere%20AI/DataSphereAI%20Code%20Elements.mm#ID_207159078>
+        DSAI App Details
+         <freeplane:/%20/C:/Users/Phil/Documents/Freeplane%20Mind%20Maps/DataSphere%20AI/DataSphere%20AI%20-%20App%20Details.mm#ID_207159078>
+        DSAI Contacts
+         <freeplane:/%20/C:/Users/Phil/Documents/Freeplane%20Mind%20Maps/DataSphere%20AI/DataSphereAI%20Contacts.mm#ID_207159078>
+        Doing Lists - Life Plan
+         <freeplane:/%20/C:/Users/Phil/Documents/Freeplane%20Mind%20Maps/Life%20Stuff/Doing%20Lists%20-%20Life%20Plan.mm#ID_1025130403>
+        Return DataSphere AI Main
+         <freeplane:/%20/C:/Users/Phil/Documents/Freeplane%20Mind%20Maps/DataSphere%20AI/DataSphere%20AI.mm#ID_274829190>
+    Code Explanations
+        Data Upload
+            app.py
+                    first contact
+                        Dec 3 24
+                            Initial Linked in message on concept
+                    how met
+                        friend
+                    Contacts
+                        Dec 3 24
+                            via LinkedIn
+                                Initial Linked in message on concept
+                        Dec 16 24
+                            Sent kwC Explainer Doc
+            app.py
+                General
+                    What It Does
+                            first attempt to upload pdf and convert to text fornat
+                    References
+                            app.py code
+                             <file:/C:/Users/Phil/Documents/DataSphere%20AI/DataSphere%20AI%20Code/app.py>
+                Code Explanation
+                    Imports
+                            Flask
+                                Used to create the web application.
+                            request
+                                Handles incoming HTTP requests (e.g., file uploads).
+                            jsonify
+                                Formats Python dictionaries into JSON responses.
+                            flask_cors (CORS)
+                                Enables Cross-Origin Resource Sharing (frontend integration).
+                            PyPDF2
+                                Library for reading and extracting text from PDF files.
+                            os
+                                Provides access to operating system functionalities (e.g., file paths).
+                    App Setup
+                            Flask App Initialization
+                                app = Flask(__name__)
+                                    Creates the Flask application instance.
+                            Enable CORS
+                                CORS(app)
+                                    Allows cross-origin requests.
+                            Define Upload Directory
+                                UPLOAD_FOLDER
+                                    Path for saving uploaded files (modifiable to suit your needs).
+                                Ensure Directory Exists
+                                    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                                        Creates the directory if it doesn’t already exist.
+                    Routes
+                            /upload (POST)
+                                Description
+                                    Handles file uploads.
+                                Workflow
+                                    Check if a file is included in the request
+                                        Returns error if 'file' not found.
+                                    Save uploaded file
+                                        Saves file to the `UPLOAD_FOLDER`.
+                                    Extract PDF content
+                                        Calls `parse_pdf` to extract text from the uploaded file.
+                                    Respond with JSON
+                                        Returns the filename and extracted text.
+                    Helper Functions
+                            parse_pdf(file_path)
+                                Description
+                                    Extracts text from a PDF file.
+                                Steps
+                                    Initialize PyPDF2 PdfReader
+                                        Loads the PDF.
+                                    Iterate through pages
+                                        Extracts text from each page (if text exists).
+                                    Handle Errors
+                                        Returns an error message if something goes wrong.
+                    Running the Application
+                            Entry Point
+                                if __name__ == '__main__':
+                                    Runs the app if this script is executed directly.
+                            Debug Mode
+                                debug=True
+                                    Enables debugging (reloads on changes, shows errors).
+                            Port
+                                Runs on port 5000 (default).
+                Concepts
+                    @app.route
+                        Purpose
+                                Maps a URL endpoint to a specific function in a Flask application.
+                                Defines how the application responds to client requests at specific URLs.
+                        Syntax
+                                @app.route('/path', methods=[...])
+                                    /path'
+                                        The URL endpoint (e.g., `/upload` or `/hello`).
+                                    methods
+                                        Specifies allowed HTTP methods (e.g., `GET`, `POST`).
+                                        Default: `GET`.
+                        Components
+                                URL Path
+                                    The endpoint that the route handles.
+                                    Example: `/upload` handles `http://localhost:5000/upload`.
+                                HTTP Methods
+                                    Supported Methods
+                                        GET
+                                            Retrieves information from the server.
+                                        POST
+                                            Submits data to the server.
+                                        Others
+                                            PUT, DELETE, etc.
+                                Decorated Function
+                                    The function executed when the specified URL is accessed.
+                                    Example
+                                        @app.route('/hello', methods=['GET'])
+                                        def say_hello():
+                                            return "Hello, World!"
+                        Example in Code
+                                Route
+                                    @app.route('/upload', methods=['POST'])
+                                Function
+                                    def upload_file():
+                                        Handles file upload requests.
+                                    Steps
+                                        Checks for a file in the request.
+                                        Saves the file to a directory.
+                                        Processes the file (e.g., extracts text from a PDF).
+                                        Returns a JSON response with the result.
+                        Key Features
+                                Routing
+                                    Connects URLs to specific functions.
+                                HTTP Methods
+                                    Determines the type of requests the route will accept.
+                                Customization
+                                    Can handle multiple routes or dynamic paths (e.g., `/user/<id>`).
+        Packages
+        and Protocols
+            Node.js
+                General
+                    Definition
+                            "JavaScript runtime built on Chrome's V8 engine"
+                            Allows running JavaScript outside the browser
+                    Key Features
+                            Event-driven, non-blocking I/O
+                            Scalable and lightweight
+                            Backend development for web apps
+                    Core Modules
+                            HTTP: Build web servers
+                            File System: Manage files and directories
+                            Events: Implement event-driven architecture
+                            Process: Handle system processes
+                    Functionality
+                            Server-Side Development
+                                API creation
+                                Serve static files
+                            Tooling
+                                Package manager (npm)
+                                Build tools (e.g., Webpack, Parcel)
+                            Real-Time Applications
+                                WebSockets for real-time communication
+                    Use Cases
+                            RESTful APIs
+                            Real-time chat apps
+                            Microservices
+                    Neo4j &
+            Graph Databases
+                Intro To Graph Databases
+                    Introduction
+                            Graph databases model data as interconnected nodes and relationships.
+                            More suited for complex interrelationships than relational databases.
+                            Core concepts: nodes, relationships, properties, and traversals.
+                    Core Concepts
+                            Nodes
+                                Represent entities or objects in the graph.
+                                Categorized by labels (e.g., "Person").
+                                Properties: key-value pairs describing attributes.
+                                Example: Node labeled "Person" with properties name: "Tom Hanks", born: 1956.
+                            Relationships
+                                Describe how nodes are connected.
+                                Always have a direction but can be traversed flexibly.
+                                Must have a type (e.g., ACTED_IN).
+                                Can have properties (e.g., roles: ['Forrest']).
+                                Example: Relationship connecting "Tom Hanks" (Person) to "Forrest Gump" (Movie).
+                            Properties
+                                Key-value pairs for storing data on nodes and relationships.
+                                Example: Node property "born": 1956, Relationship property "roles": ['Forrest'].
+                            Traversals and Paths
+                                Traversal: Navigating the graph by following relationships.
+                                Paths: Sequences of nodes and relationships.
+                                Example: Path of length 1 - "Tom Hanks" -> ACTED_IN -> "Forrest Gump".
+                    Schema, Indexes, and Constraints
+                            Schema
+                                Optional in Neo4j.
+                                Not required to start building a graph.
+                            Indexes
+                                Improve query performance.
+                            Constraints
+                                Ensure data validity (e.g., uniqueness, presence).
+                    Naming Conventions
+                            Node Labels
+                                Camel Case, start with uppercase (e.g., Movie).
+                            Relationship Types
+                                Lower camel case, start with lowercase (e.g., actedIn).
+                            Properties
+                                Lower camel case, start with lowercase (e.g., firstName).
+                    Key Takeaways
+                            Neo4j organizes data using nodes, relationships, and properties.
+                            Nodes: Entities; Relationships: Connections; Properties: Attributes.
+                            Traversal enables efficient querying through relationships and paths.
+                            Schema, indexes, and constraints enhance performance and validity.
+                            Foundation for modeling and interacting with data in Neo4j.
+            BM25
+                What is BM25?
+                    A keyword-based ranking algorithm for retrieving relevant documents
+                    Focuses on **exact word occurrences** rather than meaning
+                How BM25 Works
+                    Term Frequency (TF)
+                        The more often a word appears in a document, the higher its score
+                    Inverse Document Frequency (IDF)
+                        Rare words get **higher scores**, common words get **lower scores**
+                    Document Length Normalization
+                        Longer documents are **penalized** so they don't dominate rankings
+                BM25 Formula
+                    BM25(D, Q) = Σ ( IDF(qᵢ) * (TF(qᵢ, D) * (k+1)) / (TF(qᵢ, D) + k * (1 - b + b * |D|/avgD) ) )
+                    - **TF(qᵢ, D)** = Frequency of query term in document D
+                    - **IDF(qᵢ)** = Boost for rare terms
+                    - **|D|** = Document length
+                    - **avgD** = Average document length in dataset
+                    Formula
+                        Formula
+                Strengths of BM25
+                    ✅ Fast and efficient for **large document sets**
+                    ✅ Works well when **query contains exact words**
+                    ✅ Captures **word importance** through frequency-based ranking
+                Weaknesses of BM25
+                    🚫 Does not capture **semantic meaning** (e.g., "doctor" ≠ "physician")
+                    🚫 Struggles when **query words do not appear in relevant documents**
+                How BM25 Can Be Used in RAG
+                    Step 1: **Use BM25 to retrieve candidate documents**
+                    Step 2: **Use vector search within these documents** to find relevant chunks
+                    Step 3: **Combine both search results and rank chunks**
+            Indexing and Embedding
+            in Pinecone and LangChain
+                Understanding Indexing and Embedding
+                    Embedding
+                        Converts text into numerical vectors
+                        Used for similarity search and machine understanding
+                    Indexing
+                        Stores and organizes vector representations for retrieval
+                        Enables efficient nearest-neighbor searches
+                Choosing an Embedding Model
+                    OpenAI Models
+                        text-embedding-ada-002
+                            Dimension: 1536
+                            Cost: $0.0001 per 1,000 tokens
+                            Performance: Good but now outdated
+                        text-embedding-3-small
+                            Dimension: 1536
+                            Cost: $0.00002 per 1,000 tokens
+                            Performance: Improved from ada-002
+                        text-embedding-3-large
+                            Dimension: 3072 (can be adjusted)
+                            Cost: $0.00013 per 1,000 tokens
+                            Performance: Best in OpenAI lineup
+                    Pinecone-Hosted Models
+                        multilingual-e5-large
+                            Optimized for multilingual search
+                            Dimension: 1024
+                        llama-text-embed-v2
+                            Trained for long-text retrieval
+                            Dimension: 1024
+                        pinecone-sparse-english-v0
+                            Hybrid keyword and semantic search
+                            Uses sparse vector representation
+                    Open-Source Alternatives
+                        bge-m3 (Hugging Face)
+                            Good for multilingual retrieval
+                            Dimension: 1024
+                            Free to use locally
+                        e5-large-v2
+                            Strong in domain-specific tasks
+                            Open-source and fine-tunable
+                Using Pinecone for Indexing
+                    Creating a Pinecone Index
+                        Code
+                            import pinecone
+                            pinecone.init(api_key="YOUR_API_KEY", environment="us-east-1")
+                            index_name = "dense-index"
+                            if index_name not in pinecone.list_indexes():
+                                pinecone.create_index(name=index_name, dimension=1536, metric="cosine")
+                    Storing Embeddings in Pinecone
+                        Code
+                            index = pinecone.Index(index_name)
+                            vector_id = "123"
+                            vector = [0.1, 0.2, 0.3, ..., 0.1536]  # Example vector
+                            index.upsert([(vector_id, vector)])
+                    Querying Pinecone for Similar Vectors
+                        Code
+                            query_vector = [0.1, 0.2, 0.3, ..., 0.1536]  # Example query
+                            results = index.query([query_vector], top_k=5, include_metadata=True)
+                            print(results)
+                Using External Embeddings with Pinecone
+                    Why External Models are Needed
+                        Pinecone does not host OpenAI embeddings like text-embedding-3-small
+                        Embeddings must be generated externally and stored manually
+                    Generating OpenAI Embeddings
+                        Code
+                            import openai
+                            def get_openai_embedding(text):
+                                response = openai.Embedding.create(
+                                    input=text,
+                                    model="text-embedding-3-small",
+                                    api_key="YOUR_OPENAI_API_KEY"
+                                )
+                                return response["data"][0]["embedding"]
+                    Storing OpenAI Embeddings in Pinecone
+                        Code
+                            texts = ["This is a test sentence.", "Another example."]
+                            vectors = [get_openai_embedding(text) for text in texts]
+                            upserts = [(f"vec-{i}", vectors[i]) for i in range(len(texts))]
+                            index.upsert(upserts)
+                LangChain for Embedding and Indexing
+                    What is LangChain?
+                        A framework that provides easy access to embeddings and vector stores
+                        Supports OpenAI, Cohere, Hugging Face, and more
+                    Using LangChain to Generate Embeddings
+                        Code
+                            from langchain.embeddings import OpenAIEmbeddings
+                            embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
+                            vector = embedding_model.embed_query("This is a test sentence.")
+                            print(vector[:5])  # Print first 5 vector elements
+                    Benefits of Using LangChain
+                        Allows seamless switching between models
+                        Provides a high-level API for integrating embeddings into applications
+                    When Not to Use LangChain
+                        If you need complete control over API calls
+                        If you want to use embeddings locally without external dependencies
+                    Full Code to
+                    Upload file
+                    Chunk, vectorize
+                    and Load vectors to Pinecone
+                        code
+                            import os
+                            import pinecone
+                            from langchain.text_splitter import RecursiveCharacterTextSplitter
+                            from langchain.embeddings import OpenAIEmbeddings
+                            from dotenv import load_dotenv
+                            # --- Load API keys from .env ---
+                            load_dotenv()
+                            OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+                            PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+                            # --- Initialize Pinecone ---
+                            pinecone.init(api_key=PINECONE_API_KEY, environment="us-east-1")  # Adjust environment as needed
+                            index_name = "text-embeddings"
+                            # Ensure the index exists
+                            if index_name not in pinecone.list_indexes():
+                            # Connect to the Pinecone index
+                            index = pinecone.Index(index_name)
+                            # --- Load text from file ---
+                            file_path = "input.txt"  # Change to your file location
+                            with open(file_path, "r", encoding="utf-8") as f:
+                            # --- Split text into chunks for embeddings ---
+                            text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)  # Adjust chunk size as needed
+                            chunks = text_splitter.split_text(text)
+                            # --- Generate embeddings using LangChain ---
+                            embedding_model = OpenAIEmbeddings(model="text-embedding-3-small", openai_api_key=OPENAI_API_KEY)
+                            # Generate embeddings for each chunk
+                            chunk_vectors = [embedding_model.embed_query(chunk) for chunk in chunks]
+                            # --- Store embeddings in Pinecone ---
+                            upserts = [(f"vec-{i}", chunk_vectors[i]) for i in range(len(chunks))]
+                            index.upsert(upserts)
+                            print(f"Stored {len(chunks)} text chunks in Pinecone successfully.")
+        Concepts
+            REST API
+                General
+                    Overview
+                            Enables communication between software applications over the web.
+                            Based on REST architecture: lightweight, stateless, and flexible.
+                    Key Components
+                            Resources and Endpoints
+                                Resources represent data or services (e.g., users, products).
+                                Each resource is identified by a unique URL (endpoint).
+                            HTTP Methods
+                                GET: Retrieve information (e.g., fetch user details).
+                                POST: Create a new resource (e.g., add a new user).
+                                PUT: Update an existing resource (e.g., edit user data).
+                                DELETE: Remove a resource (e.g., delete a user).
+                            Statelessness
+                                Each request is independent.
+                                Contains all necessary information to process the request.
+                            Representations
+                                Data transferred in formats like JSON or XML.
+                                Resources can have multiple representations.
+                            HTTP Status Codes
+                                200 OK: Request succeeded.
+                                201 Created: Resource successfully created.
+                                400 Bad Request: Invalid request syntax or parameters.
+                                404 Not Found: Resource not found.
+                                500 Internal Server Error: Server encountered an error.
+                            Headers and Parameters
+                                Headers
+                                    Include metadata like authentication tokens and content type.
+                                Query Parameters
+                                    Send additional data in the URL (e.g., filtering users).
+                            HATEOAS (Optional)
+                                Hypermedia as the Engine of Application State.
+                                Includes hyperlinks in API responses to guide clients dynamically.
+                    Example
+                            Library System
+                                GET /api/books: Retrieve all books.
+                                GET /api/books/10: Retrieve details of book ID 10.
+                                POST /api/books: Add a new book.
+                                PUT /api/books/10: Update book ID 10.
+                                DELETE /api/books/10: Remove book ID 10.
+                    Advantages
+                            Simplicity: Easy to understand and implement.
+                            Scalability: Handles large systems efficiently.
+                            Compatibility: Works across various platforms and devices.
+    Parts of the Code
+        Ordered List
+            Storage
+                Process
+                        Read document
+                        Analyse
+            Answering Questions
+                Process
+        Build Order of Code
+            1. SID Generator
+                Purpose
+                        Generates
+                            SIDs
+                                SID(0)
+                                    Identifying word or phrase
+                                SID(1)
+                                    General area to distinguish
+                                    words with double meanings
+                                        e.g.
+                        Analyse
+            Answering Questions
+                Process
+    Current Development
+    Versions/Progress
+        v1
+            Functionality
+                Document Storage
+                    storage
+                            stores
+                                full version
+                                mind map summary
+                    Index and Tags
+                            stores
+                                full version
+                                mind map summary
+    Document Storage
+    and Retrieval
+        "2 Stage Process"
+        Enhancements to Standard
+        Retrieval-Augmented Generation
+        (RAG) System
+            go to "Multi-Level"
+             <freeplane:/%20/C:/Users/Phil/Documents/Freeplane%20Mind%20Maps/DataSphere%20AI/DataSphereAI%20Code%20Elements.mm#ID_422113898>
+            Proposed Methodology
+                Overview
+                    Two-stage process for retrieving relevant information efficiently
+                Stage 1: Document Selection
+                    Summaries
+                        Each document has a summary stored in the "Summary Vector Database"
+                        Summaries contain key topics, names, and dates
+                    Query Processing
+                        Query is vectorized
+                        Top-matching summaries are retrieved
+                    Document Filtering
+                        Only documents with relevant summaries are passed to Stage 2
+                Stage 2: Chunk Selection
+                    Chunk Storage
+                        All documents are chunked and stored in "Master Vector Database"
+                    Similarity Search
+                        Query is vectorized
+                        Similarity search is performed on **all chunks of the retrieved documents**
+                    Final Context Assembly
+                        The most relevant chunks are selected and passed to the LLM
+            Advantages vs straight RAG
+                Efficiency
+                    Limits expensive vector searches to relevant documents only
+                    Reduces computational load compared to searching across all chunks
+                Improved Relevance
+                    Ensures chunks are selected from contextually relevant documents
+                    Reduces false matches from isolated keyword mentions in unrelated chunks
+                Scalability
+                    Works well for large datasets by **pre-filtering documents**
+                Contextual Coherence
+                    Since retrieved chunks come from relevant documents, they are more likely to form a coherent response
+            Disadvantages Method
+                Potential Information Loss
+                    Some documents may contain relevant information but have weak summaries
+                Reliance on Summaries
+                    If summaries are poorly generated, important documents may be filtered out
+                Additional Storage & Processing
+                    Maintaining both a "Summary Vector Database" and a "Master Vector Database" increases storage needs
+                    Summaries must be **generated and updated** regularly
+                Multi-Step Process Overhead
+                    Extra steps in retrieval may introduce **latency**
+            Suggested Improvements
+                Parallel Dual-Path Retrieval
+                    Retrieve relevant chunks using **both summary-based selection and direct chunk search**
+                    Combine and rank chunks from both methods before final selection
+                Two-Stage Hybrid Search (BM25 + Summaries)
+                    Use **BM25 keyword search** alongside summary-based retrieval
+                    Ensures documents with **exact matches to query terms** are not missed
+                Adaptive Retrieval
+                    Dynamically choose retrieval method based on **query type**
+                    If query contains **specific words or numbers**, use **BM25**
+                    If query is **conceptual**, use **summary filtering**
+                    If uncertain, use **both** methods
+                Weighted Chunk Fusion
+                    After retrieving chunks using multiple methods:
+                        Score each chunk based on multiple factors:
+                            ✅ Vector similarity score
+                            ✅ BM25 relevance score (if used)
+                            ✅ Document-level relevance (summary match score)
+                            ✅ Keyword presence in chunk
+                            ✅ Proximity to other relevant chunks
+                        Select the **top N chunks** for the final LLM context
+            Thoughts on Document Summaries
+                Creation
+                    should contain tags
+                    more thought required
+                Retrieval
+                    more thought required
+        Summarization
+            Process
+                Initial Thoughts
+                    Multiple levels
+                        could this be a mindmap??
+                            i.e. hierarchical structure
+                    each level tagged
+    ChatGPT 4o
+    Approach
+        Approach to Summarizing
+        Plot of Novel
+            General
+                Document Processing and Chunking
+                    Preprocessing
+                        Identified structured text (chapters, dialogues, narration)
+                        Removed metadata (headers, table of contents)
+                        Scanned for repeated character names & dialogue markers
+                    Chunking Strategy
+                        Divided text into contextually meaningful chunks
+                        Grouped based on:
+                            Chapters and sub-sections
+                            Named entities (characters, locations, repeated terms)
+                            Action sequences (e.g., a ball, a proposal, a conversation)
+                        Ensured coherence across the narrative
+                Event and Character Tracking
+                    Character Co-Occurrences
+                        Tracked which characters appeared together most often
+                        Identified major relationship dynamics
+                    Action-Based Context Detection
+                        Extracted key actions related to characters
+                        Identified character emotions & attitudes
+                    Tracking Locations and Transitions
+                        Recognized setting changes (Netherfield, Meryton, Longbourn)
+                        Maintained continuity of events (e.g., Kirsty’s illness leads to Babe staying)
+                Contextual Ranking for Summarization
+                    Relevance Scoring
+                        Prioritized character-defining moments
+                        Filtered minor details irrelevant to the plot arc
+                    Compression and Abstraction
+                        Generalized key events into a concise structure
+                        Maintained overall novel structure without unnecessary repetition
+                Logical Reconstruction
+                    Using PandPDingo as an example
+                        Summary Structure
+                            Introduction (Dingo family setup)
+                            Inciting Incident (Ball scene)
+                            Character Conflicts (Darcy’s pride, Babe’s wit)
+                            Rising Action (Kirsty’s illness, Netherfield interactions)
+                            Themes of Love & Misunderstanding
+                Iterative Refinement
+                    Cross-checked character motivations
+                    Ensured logical flow between sections
+                    Final coherence check to remove redundancy
+                Why This Approach Works
+                Better Than Simple Retrieval
+                    Issues with Retrieval-Based RAG
+                        Loses plot continuity
+                        Misses evolving character relationships
+                        Struggles with causal links (e.g., Darcy’s behavior → Babe’s reaction)
+                        Produces redundant or disjointed summaries
+                    Advantages of This Approach
+                        Built an internal representation of the story’s structure
+                        Tracked character relationships and key events
+                        Reconstructed the plot with logical flow
+                Conclusion
+                    Approach used multi-document
+                    summarization + entity tracking + causal reasoning
+                    Enabled understanding of structured stories beyond simple extraction
+                    Resulted in an accurate, logical, and thematic plot summary
+            Adjustment for long
+            document (e.g. War and Peace)
+                Challenges with Longer Documents
+                    Massive Volume of Text
+                        War and Peace ~600,000 words vs. Pride and Prejudice ~120,000 words
+                        Processing full text in one pass infeasible
+                    Large Cast of Characters
+                        Hundreds of named characters across
+                        multiple families, armies, and historical figures
+                        Requires robust entity tracking
+                    Complex Narrative Structure
+                        Multiple interwoven storylines
+                        Events not always chronological
+                    Dense Thematic Elements
+                        Mix of history, philosophy, and personal narratives
+                        Summarization must balance themes and plot
+                Modifications to the Approach
+                    Advanced Document Segmentation
+                        Instead of fixed-length chunking, segment by:
+                            Chapters, books, or major narrative arcs
+                            Named entity clustering (families, historical figures)
+                            Thematic boundaries (war sections vs. personal drama)
+                        Prevents arbitrary truncation and ensures context coherence
+                    Hierarchical Summarization
+                        Multi-level summary process:
+                            Summarize each book separately
+                            Meta-summary of section summaries
+                            Overarching book-wide summary
+                        Ensures **scalability and coherence** across vast content
+                    Entity Tracking and Relationship Mapping
+                        Uses graph database-like tracking:
+                            Character arcs (e.g., Pierre’s philosophical evolution)
+                            Relationship links (e.g., Natasha → Prince Andrei → Pierre)
+                            Event-driven dependencies (e.g., Napoleon’s invasion → Battle of Borodino)
+                        Helps maintain **story continuity and progression**
+                    Thematic Categorization
+                        Classifies content into:
+                            Plot-driven (e.g., war events, duels)
+                            Character-driven (e.g., Natasha’s transformation)
+                            Philosophical/historical (e.g., Tolstoy’s determinism theories)
+                        Balances **thematic depth with narrative flow**
+                    Adaptive Context Retention
+                        Uses memory-efficient retrieval:
+                            Retains unresolved plot points (e.g., Pierre’s inheritance)
+                            Tracks long-term motivations (e.g., Andrei’s shifting ideals)
+                        Ensures continuity across **thousands of pages**
+                    Multi-Pass Summarization
+                        Stepwise refinement:
+                            Pass 1: Identify main events & characters
+                            Pass 2: Determine causal relationships
+                            Pass 3: Extract philosophical/historical themes
+                            Pass 4: Merge into a cohesive **multi-layered summary**
+                        Prevents **loss of depth while condensing the text**
+                Final Verdict: Would This Approach Work?
+                    ✅ Yes, but requires:
+                        Hierarchical abstraction
+                        Structured segmentation by themes and events
+                        Multi-layered summarization
+                        Memory-efficient entity tracking
+                    Ensures:
+                        Plot coherence over thousands of pages
+                        Character development remains intact
+                        Philosophical depth is retained alongside action
+        General Approach which
+        Can Cover all Document
+        Types
+            Generalized
+            Summarization
+            Framework
+                Step 1: Segmentation
+                    Academic Texts → Based on sections (Intro, Methods, Results)
+                    Emails → Based on threads & metadata
+                    Policies → Based on rules & procedures
+                    Novels → Based on chapters & key narrative beats
+                Step 2: Key Information Extraction
+                    Academic → Concepts, findings, methodologies
+                    Emails → Decision points, agreements
+                    Policies → Rules, compliance requirements
+                    Novels → Plot events, relationships, conflicts
+                Step 3: Redundancy Elimination
+                    Academic → Remove excessive background details
+                    Emails → Remove duplicate chain content
+                    Policies → Merge repetitive rules
+                    Novels → Maintain continuity while avoiding over-explaining scenes
+                Step 4: Hierarchical Summarization
+                    Summarize sections first, then merge summaries at a higher level
+                Step 5: Special Handling for Different Document Types
+                    Academic → Cross-referencing citations, handling figures/tables
+                    Emails → Extracting metadata, reconstructing conversation threads
+                    Policies → Legal language preservation, dependency tracking
+                    Novels → Character & relationship tracking, event sequencing, thematic extraction
+    Multi-Stage Retrieval
+    and Generation (MSRG)
+        General Summary
+            Document Ingestion & Storage
+                Initial Processing
+                    Chunk document into small text segments
+                    Create embeddings for each chunk
+                    Store chunks and embeddings in the vector database
+                SectionLevel Summaries
+                    AI determines logical sections of the document
+                    Generates a short and long summary for each section
+                    Stores summaries in the "Section Summary Database"
+                    Metadata links each section summary to relevant chunks
+                Overall Document Summary
+                    AI generates a highlevel summary of the full document
+                    Stored separately for quick reference
+                Metadata Storage
+                    Tracks document type (novel, academic paper, etc.)
+                    Records section hierarchy and relationships
+                    Stores keywords and key entities for faster indexing
+            Determining Document Type
+                ChunkBased Initial Vectorization
+                    Vectorize document chunks before determining type
+                    Compare embeddings to predefined document type vectors
+                AI Validation Step
+                    AI reviews sample chunks to confirm document classification
+                Store Document Type Metadata
+                    Enables documentspecific retrieval strategies
+            Search & Retrieval Strategy
+                Query Understanding
+                    AI categorizes question complexity (simple, moderate, complex)
+                    Allocates token budget dynamically
+                Section PreFiltering
+                    Search against fulltext **section summaries** instead of just embeddings
+                    Selects most relevant sections based on similarity
+                MultiLevel Chunk Retrieval
+                    Retrieve **k most relevant chunks from selected sections**
+                    Retrieve **k most relevant chunks from remaining sections**
+                    Load documentwide summaries if space allows
+                Web Search Integration (Optional)
+                    Reserve context space for realtime search if needed
+                Context Construction for Answering
+                    Load **all section summaries and the overall document summary** if space allows
+                    Load **full sections if context space is available**
+                    Load **the most relevant chunks from both selected and nonselected sections**
+            Dynamic Context Allocation
+                Adjust Context Size Based on Query Complexity
+                    Simple queries (factbased) → Small token budget (4K8K tokens)
+                    Moderate queries (localized analysis) → Medium budget (8K16K tokens)
+                    Complex queries (multidocument reasoning) → Large budget (32K+ tokens)
+                Prioritization of Context Elements
+                    Always include **document summaries first**
+                    Then **all section summaries** if space allows
+                    Then **full sections from selected areas**
+                    Finally **raw text chunks from sections**
+            Answer Generation
+                AI Formulates Response Based on Retrieved Context
+                    Uses structured context to generate accurate answers
+                Response Confidence Handling
+                    If response confidence is low, **expand search and retry**
+    Approach With AI Determination
+    of Storage and Search Strategies
+        General
+            Approach
+                When document is stored
+                    1. Get ChatGPT to figure out best chunking and search stragy
+                    2
+                        In "document description" database
+                            have an element which describes
+                            how the stored elements should be searched to answer questions
+                    3
+                        have a database that is flexible enough to contain all necessary elements
+                            text chunks
+                            relationships
+                            etc.
+            Summary
+                Document Ingestion
+                    AI Determines Document Type
+                    AI Determines Likely Question Types
+                    AI Defines Storage Strategy
+                    AI Defines Search Strategy
+                    Store Document & Metadata in Databases
+                Databases
+                    Content Database (Stores text chunks)
+                    Metadata Database (Stores extracted key elements)
+                    Strategy Database (Stores storage & search strategies)
+                Question Processing
+                    Identify Relevant Document(s)
+                    Categorize Question Type
+                    Retrieve Corresponding Search Strategy
+                    Load Relevant Data into Context
+                Search Strategies (Based on Document Type)
+                    Novel
+                        If Plot → Load Chapter Summaries + Relevant Chunks
+                        If Relationship → Load Character Relationship Data + Text
+                        If Theme → Load Extracted Themes + Quotes
+                    Academic Paper
+                        If Methodology → Load Methods Section + Key Citations
+                        If Results → Load Summary + Graph Data
+                    Email Archive
+                        If Decision → Load Final Email in Thread + Key Replies
+                        If Context → Load Email Thread with Time Metadata
+                    Policies & Procedures
+                        If Rule-Based → Load Directly from Extracted Rules
+                        If Comparison → Load Related Policy Sections
+                Optimization Strategies
+                    Hybrid AI + Rule-Based Categorization
+                    Adaptive Search Strategies (Dynamic Based on Past Queries)
+                    Graph-Based Storage for Relationships
+                    Metadata Compression & Pruning
+            Capabilities Required/Desired
+                Counting
+                    e.g. How often did something occur
+                        between
+                            dates
+                    things to count
+                        meetings
+                        communications
+                        chapters in a document
+            "Multi Level" Document Storage
+                Brainstorm
+                        general
+                            each "level"
+                                has
+                                    stored text
+                                    summary
+                            all documents stored in chunks
+                                chunks have maximum length
+                        Short document
+                            size to be determined
+                            To Store
+                                whole document
+                                summary
+                        Lowest level
+                            To Store
+                                whole document
+                                summary
+                        link to 2 stage
+                         <freeplane:/%20/C:/Users/Phil/Documents/Freeplane%20Mind%20Maps/DataSphere%20AI/DataSphereAI%20Code%20Elements.mm#ID_1137509506>
+                        example
+                            consider asking question
+                                short document
+                                    narative
+                                        1. Question asked
+                                            question parsed
+                                                "what is it asking about"
+                                        2. Relevant document(s) identified from
+                                            document database
+                                            = top level database
+                                            contains summary of document and tags
+                            store novel
+                                storage
+                                    at storage
+                                        1. store document in chunks in overall database
+                                        2. create chapter summaries for each chapter
+                                            store in metadata database
+                                                fields
+                                                    content type
+                                                        section summary
+                                                    tags
+                                                        people names
+                                                        subjects
+                                                        etc
+                                                    start and end chunk numbers
+                                    all chunks tagged
+                                        alll have
+                                            source document
+                                retrieval
+                                    ask question
+                                        determine relevant
+                                            tags
+                                                subjects
+                                                names
+                                        question types
+                                            event
+                                            timeline
+                                            relationship
+                                            place
+                                            people
+            Potential Difficulties
+                Large Documents
+        How I Should Build This
+            My Approach To This
+                General
+                        Start with just a couple of document types
+            Planning
+                Document Types
+                        figure out full list
+                            Novel
+                            Email list
+                            Academic Texrt
+                            Customer details
+                            Project specs
+                            Meeting record
+                            etc
+                        for each type
+                            figure out
+                                probable question types
+                                storage strategy
+                                    base this on ability to anwer all question types
+                To Consider
+                        Document types
+                            custom
+                                should it be possible to specify custom types
+                                    if so how are storage and search strategies developed
+                Objectives
+                        should be ablle to effectively answer all questions on document
+            Building
+                a
+                To Consider
+                        Document types
+                            custom
+                                should it be possible to specify custom types
+                                    if so how are storage and search strategies developed
+                        a
+    Development Plan
+        General Approach
+            General
+                Start simple with OpenAI + Pinecone + LangChain
+                Implement two-stage retrieval with summary search
+                Scale later by switching to self-hosted solutions
+        Step 1: Basic RAG Prototype (Quick & Simple)
+            Goal: Implement a simple RAG system with chunking, vector search, and retrieval.
+            Tools to Use
+                Embedding Model: OpenAI’s text-embedding-ada-002
+                Vector Database: Pinecone (managed) or FAISS (local)
+                LLM for Answer Generation: ChatGPT (GPT-4 API)
+                Framework: LangChain (integrates vector search + LLM)
+                Storage: JSON or SQLite for initial document storage
+            Basic Steps
+                Load documents → Chunk them (e.g., 512 tokens each)
+                Embed chunks → Convert text into vectors
+                Store embeddings → Save in Pinecone or FAISS
+                Process user query → Convert to a vector and search
+                Retrieve top K chunks → Pass to GPT-4 for response
+            ✅ Why this approach?
+                No infrastructure setup required
+                Fast and easy to test
+                Avoids unnecessary complexity early on
+        Step 2: Implement Two-Stage Search (Summary + Chunking)
+            Enhancements
+                Generate summary vectors for documents
+                Store summaries in a separate index in Pinecone
+                Query Processing:
+                    Search summary index first for relevant documents
+                    Retrieve chunks only from matched documents
+                    Pass refined chunks to GPT-4
+            ✅ Why this step?
+                Reduces noise in chunk retrieval
+                Improves accuracy without significant query time increase
+                Still simple to implement
+        Step 3: Scale and Optimize for Performance
+            Enhancements
+                Switch to Self-Hosted Vector DB (FAISS, Weaviate, ChromaDB) if costs increase
+                Optimize Chunking Strategy (overlap, sentence-based splitting)
+                Use Hybrid Search (BM25 + Vector Search) for better retrieval
+                Deploy on AWS or Azure for production (use managed services)
+            ✅ Why this step?
+                Optimizes speed and cost
+                Reduces API dependency
+                Supports large-scale document storage
+        Summary: Best Tools to Use
+            LLM
+                Recommended: OpenAI's GPT-4 API
+                Advanced: Fine-tuned GPT or Llama 3
+            Embedding Model
+                Recommended: text-embedding-ada-002 (OpenAI API)
+                Advanced: Open-source (bge-large, E5)
+            Vector Search
+                Recommended: Pinecone (fully managed)
+                Advanced: FAISS/Weaviate/ChromaDB (self-hosted)
+            Chunking
+                Recommended: LangChain
+                Advanced: Custom chunking logic
+            Summary Generation
+                Recommended: OpenAI's GPT-4 (generate summaries)
+                Advanced: Fine-tuned summarization model
+            Storage
+                Recommended: JSON/SQLite
+                Advanced: PostgreSQL, DynamoDB
+            Deployment
+                Recommended: Local or Google Colab
+                Advanced: AWS Lambda, Azure Functions
+    General Code
+    Considerations
+        SQL Injection Attacks
+            f-Strings in Python
+                Definition
+                    A way to insert variables into strings using {}
+                Example
+                    code
+                        name = "Phil"
+                        nationality = "British and American Dual Citizen"
+                        print(f"My name is {name} and my nationality is {nationality}.")
+                    Output
+                        "My name is Phil and my nationality is British and American Dual Citizen."
+                Advantage
+                    Readable and concise syntax for string formatting
+                Risk in SQL Execution
+                    Directly embeds variables, making SQL queries vulnerable
+            SQL Injection Attack
+                Definition
+                    A technique where an attacker manipulates SQL queries to execute unintended commands
+                How It Works
+                    Attacker injects SQL commands through user input
+                Example
+                    code
+                        user_input = "users; DROP TABLE users; --"
+                        query = f"SELECT * FROM {user_input}"
+                        print(query)
+                    Output
+                        "SELECT * FROM users; DROP TABLE users; --"
+                    Consequence
+                        Entire `users` table is deleted
+            Why f-Strings Are Dangerous in SQL Queries
+                Direct String Substitution
+                    f-strings embed variables directly into SQL statements
+                Cannot Prevent Malicious Input
+                    If the variable contains harmful SQL code, it gets executed
+                Alternative: Parameterized Queries
+                    Properly escapes user input to prevent SQL injection
+            Safe Approaches to Prevent SQL Injection
+                Parameterized Queries (Preferred)
+                    Example
+                        code
+                            cursor.execute("SELECT * FROM users WHERE username = ?", (user_input,))
+                    Why It's Safe
+                        The `?` ensures `user_input` is treated as data, not SQL code
+                    Problem
+                        table names cannot
+                        be parameterized
+                            e,g
+                                this results in an error
+                                    table_name = "docs" 
+                                    cursor.execute("DELETE FROM ? WHERE id = ?", (table_name, user_id))
+                Table Name Validation (When Dynamic
+                Table Names Are Needed)
+                    Use a predefined list of allowed table names
+                    Example
+                        code
+                            allowed_tables = ["users", "documents", "chunks"]
+                            if text_dbName in allowed_tables:
+                                cursor.execute("DELETE FROM " + text_dbName)
+                            else:
+                                raise ValueError("Invalid table name!")
+                    Why It's Safer
+                        Prevents an attacker from supplying arbitrary table names
+                Dictionary Mapping for Safe Table Names
+                    Example
+                        code
+                            table_map = {
+                                "users": "users",
+                                "documents": "documents",
+                                "chunks": "chunks"
+                            }
+                            if table_name in table_map:
+                                safe_table = table_map[table_name]
+                                cursor.execute(f"DELETE FROM {safe_table} WHERE id = ?", (user_id,))
+                    Why It's Safe
+                        Ensures that only known tables can be affected
+            Using Double Quotes in SQL
+                Why Double Quotes Matter
+                    Prevents syntax errors
+                    Ensures table and column names are treated as single entities
+                    Avoids issues with reserved words or special characters
+                Example Without Double Quotes (Unsafe)
+                    Code
+                        import sqlite3
+                        conn = sqlite3.connect(":memory:")
+                        cursor = conn.cursor()
+                        table_name = 'users; DROP TABLE accounts; --'
+                        cursor.execute(f"CREATE TABLE {table_name} (id INTEGER PRIMARY KEY, name TEXT);")
+                        this results in
+                            CREATE TABLE "users; DROP TABLE accounts; --" (id INTEGER PRIMARY KEY, name TEXT);
+                    Issue
+                        SQL injection risk: executes multiple commands
+                        Could result in unintended data loss
+                Example With Double Quotes (Safer)
+                    Code
+                        import sqlite3
+                        conn = sqlite3.connect(":memory:")
+                        cursor = conn.cursor()
+                        table_name = "users; DROP TABLE accounts; --"
+                        cursor.execute(f'CREATE TABLE "{table_name}" (id INTEGER PRIMARY KEY, name TEXT);')
+                        this results in
+                            CREATE TABLE "users; DROP TABLE accounts; --" (id INTEGER PRIMARY KEY, name TEXT);
+                            this is bad table name but won't do anything
+                    Result
+                        SQL treats the entire table name as a string
+                        Prevents execution of unintended commands
+                Best Practices
+                    Always validate table names before execution
+                    Use double quotes for identifiers in SQLite
+                    Use parameterized queries for values, not table names
+            Dynamic Table Names in SQL
+                What It Means
+                    Table names are determined at runtime instead of hardcoded
+                Why It’s a Security Concern
+                    SQL placeholders (`?`) work for values but **not for table names**
+                Safe Handling Methods
+                    Use a fixed list of allowed table names
+                    Validate input before execution
+            Conclusion
+                f-Strings in SQL Are Unsafe
+                    Allow direct injection of SQL code
+                Use Parameterized Queries When Possible
+                    Prevents SQL injection by treating inputs as data
+                For Dynamic Table Names, Use Validation
+                    Only allow pre-approved table names to avoid risks

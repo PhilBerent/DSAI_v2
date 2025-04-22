@@ -1,0 +1,826 @@
+DSAI App Details
+    Other Map Links
+        DSAI Code Elements
+         <freeplane:/%20/C:/Users/Phil/Documents/Freeplane%20Mind%20Maps/DataSphere%20AI/DataSphereAI%20Code%20Elements.mm#ID_207159078>
+        DSAI App Details
+         <freeplane:/%20/C:/Users/Phil/Documents/Freeplane%20Mind%20Maps/DataSphere%20AI/DataSphere%20AI%20-%20App%20Details.mm#ID_207159078>
+        DSAI Contacts
+         <freeplane:/%20/C:/Users/Phil/Documents/Freeplane%20Mind%20Maps/DataSphere%20AI/DataSphereAI%20Contacts.mm#ID_207159078>
+        Doing Lists - Life Plan
+         <freeplane:/%20/C:/Users/Phil/Documents/Freeplane%20Mind%20Maps/Life%20Stuff/Doing%20Lists%20-%20Life%20Plan.mm#ID_1025130403>
+        Return DataSphere AI Main
+         <freeplane:/%20/C:/Users/Phil/Documents/Freeplane%20Mind%20Maps/DataSphere%20AI/DataSphere%20AI.mm#ID_274829190>
+    How It Works
+        Elements
+            Data Store
+                Global Data Store
+                        Storage that contains all non Private Data Items for Project
+                Personal Data Store
+                        Storage for each user that contains all Private Data Items for Project
+            Content Directories
+                Master Content Directory
+                    General
+                            could be
+                                content list with each Content Element
+                                    tagged by subject type
+                                mind map with branches
+                                and sub branches by subject
+                                    leading to relevant name of Data Item at end of each branch
+                            Dealing with permissions
+                                each Data Item
+                                    lists Members with access rights
+                    Contents
+                            contents
+                                listed and tagged
+                                    all Data Items
+                                        except Personal Data Items
+                                        tagged by
+                                            subject elements
+                                            Member Permissions
+                Personal Member Content Directories
+                        contains
+                    Contents
+                            items designated as private by Member
+                            any thing the member wants to use but is
+                                does not want available to whole project group
+                            e.g.
+                                to do lists
+                                journal of activities
+                                development notes
+                                some
+                                    LLM discussions
+                                work in progress
+            Project Members
+                Project Master
+                        Initiates Project Space
+                        Invites Project Members
+                        Member Priviledges
+                            Project Manager Sets
+                            Member Privileges
+                            Project Manage can
+                                Add/Remove/Ammend priviledges on an onfgoing basis
+                        Specifies
+                            Project Sub Groups
+                                members of team managing different areas
+                                    therefore neeeding access to different "Data Items"
+                        Has the right to ammend member priviledges
+                Project Team
+                        includes all members of project
+                            determined by Project Master
+            Member Privileges
+                How Priviledges Set
+                        Assigned by Project Master
+                        Assigned by Member who has been granted
+                            Priviledge Setting Priviledge
+                                Note:
+                                    Member granted Privilefdge Setting Privilege
+                                    only has the right to assign privileges to others which they themselves have
+                Priviledge Types
+                        Data Items add/delete  priviledge
+                        Project Members add/remove  Privilege
+                        Privilege Setting Privilege
+                            right to add/remove Privileges
+                                this could be important if a group member
+                                managing a team adds to the team
+                                and therefore needs to be able to set Privilege for new members
+                            member can never set privileges for others which they have themselves
+                        Data Item Access Priviledge
+                            Some data items in DataStore only acessible by some group members
+                                e.g.
+                                    sensitive information
+                                    information only relevant to particular Member SubGroups
+                        Global Sub Group Creation Priviledge
+            Member Sub Groups
+                Definition
+                        Sub Group
+                            = Group of Members containing Some but not all project members
+                            Sub Group will have access to some but not all Data Items
+                Global Sub Groups
+                        set by either
+                            Project Master
+                            Member with Siub Group Setting Privileges
+                        reason
+                            Much data should be available to all
+                            Some Data Items in DataStore
+                                should only be available
+                                to subset of members
+                                    e.g.
+                                        confidential materials
+                                        Data Items relating to
+                                        one particular are of project
+                        can be revised as appropriate on an ongoing basis
+                        on set up
+                            Project Master
+                                may add customized tagging specs
+                                    e.g.
+                                        Patient Name
+                                        Relevant employees
+                                        Scientific devices used
+                                        etc.
+                                    if not added AI will do its best to determine most relevant tags to describe content
+                Member Designated Sub Groups
+                        Sub Group Master
+                            designates members
+                            assigns privilileges to members
+                            as with Project Mater can
+                                revise
+                                    membership
+                                    privileges
+                                add customized tagging specs
+                        reason
+                            Data which is relevant to a particular aspect ot the project can be seperated off
+            Answering Questions
+                Process
+                        1. Master Content Directory Is Accessed
+                        2. Relevant documents identified
+                        3. For text documents
+            MindMap Usage
+                General
+                        mind mapping a vital part of use
+                        mind maps have branches and sub branches for each subject
+                when element added
+                        always mind map notes created
+                contain
+                        subject summary
+                        references to whole documents or parts of documents
+        Data Storage & Retrieval System
+            Elements
+                Data Items (DIs)
+                    Definition
+                        Stored elements in the system
+                        Includes:
+                            Documents
+                            Records
+                            Communications
+                            Contacts
+                            Concepts
+                    Storage Formats
+                        Full Text (for short/simple items)
+                        Mind Map Summary (for long/complex items)
+                DI Types ("DI Types")
+                    General
+                        apply to both
+                            DIs
+                            DIIB Nodes
+                        Types designed to cover every possible type of
+                            DI
+                            node in the DIIB
+                            ->
+                                very general catagories
+                        each DI Type has
+                            "Type Specific Elements"
+                                or "TSEs"
+                                usage
+                                    for DI Node
+                                        = properties or labels that must be added to DI Node if information is available
+                                    for DI
+                                        = properties or labels that must be extracted from DI in the form of SIDs if information is available
+                        explanation
+                            in DI Types listing
+                                TSEs followed by (l)
+                                    are labels
+                                TSEs followed by (p)
+                                    are properties
+                    DI Types
+                        Written Communication
+                            TSEs
+                                Generated/FromInput(l)
+                                DI#(l)
+                                DI Name(l)
+                                Communication Type(p)
+                                Sender(p)
+                                Recipient(s)(p)
+                                Date & Time(p)
+                                Subject(s)(p)
+                                Attachments(p)
+                                Thread/Conversation Reference(p)
+                        Meeting or Live Conversation Record (including phone and zoom calls)
+                            TSEs
+                                Generated/FromInput(l)
+                                DI#(l)
+                                DI Name(l)
+                                Meeting Type(p)
+                                Subjects(p)
+                                Participants(p)
+                                Organizer(p)
+                                Meeting Title(p)
+                                Organizations Represented(p)
+                                Date & Time(p)
+                                Location(p)
+                                Agenda(p)
+                                Summary(p)
+                                Decisions Made(p)
+                                Action Items(p)
+                        Conference Details
+                            TSEs
+                                Generated/FromInput(l)
+                                DI#(l)
+                                DI Name(l)
+                                Conference Type(p)
+                                Subjects(p)
+                                Participants(p)
+                                Organizer(p)
+                                Meeting Title(p)
+                                Organizations Represented(p)
+                                Dates(p)
+                                Location(p)
+                                Agenda(p)
+                                Summary(p)
+                                Decisions Made(p)
+                                Action Items(p)
+                        AI Chat
+                            TSEs
+                                Generated/FromInput(l)
+                                DI#(l)
+                                DI Name(l)
+                                Chat Type(p)
+                                Participants(p)
+                                Date & Time(p)
+                                Subjects(p)
+                        Development/Code Module
+                            TSEs
+                                Generated/FromInput(l)
+                                DI#(l)
+                                DI Name(l)
+                                File Name(p)
+                                Programming Language(p)
+                                Functionality(p)
+                                Date Created/Updated(p)
+                                Author(s)(p)
+                                Dependencies(p)
+                                Version Control(p)
+                                Related Issues/Tickets(p)
+                        Financial Record
+                            TSEs
+                                Generated/FromInput(l)
+                                DI#(l)
+                                DI Name(l)
+                                Record Type(p)
+                                Amounts Paid or Received(p)
+                                Currency(p)
+                                Date(p)
+                                Payee & Payer(p)
+                                Transaction ID(s)(p)
+                                Payment Method(s)(p)
+                                Reason for Payment(s)(p)
+                        Person
+                            TSEs
+                                Generated/FromInput(l)
+                                DI#(l)
+                                DI Name(l)
+                                Contact Name(p)
+                                Role/Position/Relationship(p)
+                                Skills(p)
+                                Organization(p)
+                                Email(p)
+                                Phone Number(p)
+                                Date Added/Updated(p)
+                                Contact Information(p)
+                        Organization
+                            TSEs
+                                Generated/FromInput(l)
+                                DI#(l)
+                                DI Name(l)
+                                Organization Type(p)
+                                Contact Name(p)
+                                Organization(p)
+                                Organization Purpose(p)
+                                Contact Email(p)
+                                Phone Number(p)
+                                Date Added/Updated(p)
+                        Task or To-Do Item
+                            TSEs
+                                Generated/FromInput(l)
+                                DI#(l)
+                                DI Name(l)
+                                Task Type(p)
+                                Assigned by(p)
+                                Assigned To(p)
+                                Due Date(p)
+                                Priority Level(p)
+                                Status(p)
+                        Journal Entry
+                            TSEs
+                                Generated/FromInput(l)
+                                DI#(l)
+                                DI Name(l)
+                                Writer(p)
+                                Date(p)
+                                Subjects(p)
+                        Other Document
+                            TSEs
+                                Generated/FromInput(l)
+                                DI#(l)
+                                DI Name(l)
+                                Document Type(l)
+                                Title(p)
+                                Author(s)(p)
+                                Publication Date(p)
+                                Tags/Subjects(p)
+                        Other Non Document Concept
+                            TSEs
+                                Generated/FromInput(l)
+                                DI#(l)
+                                DI Name(l)
+                                Concept Name(p)
+                                Concept Area(p)
+                                Concept Type(p)
+                        Other Not Covered Item
+                            TSEs
+                                Generated/FromInput(l)
+                                DI#(l)
+                                DI Name(l)
+                                Name(p)
+                                Concept Type(p)
+                                Other Labels(p)
+                Subject Identifiers (SIDs)
+                    General
+                        Up to 3-word phrases identifying the principal subjects of
+                            DIs
+                            Questions
+                        Purpose
+                            Used for indexing and retrieval
+                                Extracted from queries to determine key search terms
+                    Generation and
+                    Conversion to STE
+                        1. Generated
+                            extracted from DI
+                                converted to STEs by adding
+                            When
+                                New DI stored
+                                    extracted from DI
+                                Question Asked
+                                    extracted from question
+                                SID(1) added
+                                    = context to prevent ambiguity
+                            converted to STE
+                                see "Conversion to STE"
+                        2. Converted to STE
+                            converted to STE
+                                see "Conversion to STE"
+                    Structure
+                        Same as STEs
+                        Structure
+                            SID(0) - Primary term (e.g., "Architect")
+                            SID(1) - Contextual descriptor (e.g., "Construction")
+                            If no ambiguity exists, SID(1) = SID(0)
+                            Examples
+                                ["Elephant", "Elephant"] (one meaning)
+                                ["Architect", "Construction"] (to clarify "architect" refers to construction as oppsed to software project)
+                                ["Windows", "Building Feature"] (to avoid "Windows, Computing")
+                                ["Proposal", "Business"] (to avoid "Proposal, Marriage")
+                                ["Staff Meeting", "Staff Meeting"] (only one meaning)
+                                ["Email", "Email"] (only one meaning)
+                                ["PRESCRIBED_BY", "Medical Process"] (for medical prescriptions)
+                                ["EMPLOYED_BY", "EMPLOYED_BY" (only one meaning)
+                    Conversion to STEs
+                        Purpose
+                            Ensures consistency in search and storage
+                        Process
+                            Each SID is checked against the TD and the corresponding STE is
+                                one of
+                                    added
+                                    retrieved
+                                    updated
+                                    see section on STE updating process
+                                     <#ID_1361991303>
+                            STE# returned
+                Syntactic Taxonomy Elements (STEs)
+                    Definition
+                        Standardized terms for categorization and indexing
+                    Types
+                        Objects/Locations People/Animals and Concepts
+                            any nouns or noun phrases
+                            e.g.
+                                People/Animals (not names)
+                                    Doctor
+                                    Puppy
+                                    King
+                                    Elephant
+                                    Sheep Dog
+                                Objects/Locations
+                                    Mount Everest
+                                    Fish Food
+                                    Hospital
+                                    United Nations
+                                    ScubaGear
+                                Concepts
+                                    Mathematics
+                                    Philosophy
+                                    Diseases
+                                        e.g.
+                                            Malaria
+                                            Common Cold
+                                    Skills
+                                        e.g.
+                                            C++ programming
+                                            Financial Management
+                                            Fixed-Income Derivatives
+                                    etc
+                        Proper Nouns
+                            Names of
+                                People
+                                Places
+                                Organisations
+                                etc
+                        Relationships to reflect relationships
+                        between nodes in Graph Database
+                            e.g.
+                                "WORKED_WITH"
+                                "EMPLOYED_BY"
+                                "ATTENDED_CONFERENCE"
+                                "HAS_SKILL"
+                    Structure
+                        STE(0) - Primary term (e.g., "Architect")
+                        STE(1) - Contextual descriptor (e.g., "Construction")
+                        If no ambiguity exists, STE(1) = STE(0)
+                        Examples
+                            ["Elephant", "Elephant"] (one meaning)
+                            ["Architect", "Construction"] (to clarify "architect" refers to construction as oppsed to software project)
+                            ["Windows", "Building Feature"] (to avoid "Windows, Computing")
+                            ["Proposal", "Business"] (to avoid "Proposal, Marriage")
+                            ["Staff Meeting", "Staff Meeting"] (only one meaning)
+                            ["Email", "Email"] (only one meaning)
+                            ["PRESCRIBED_BY", "Medical Process"] (for medical prescriptions)
+                            ["EMPLOYED_BY", "EMPLOYED_BY" (only one meaning)
+                    Indexing
+                        Each STE has a unique STE#
+                        References all DIIB nodes where it appears
+                Taxonomy Database (TD)
+                    General
+                        Also called
+                            "TD"
+                        purpose
+                            Ensures consistency in terminology
+                                e.g. If a search is made for "medication" but has been recorded as "drug" in tags for DI
+                                ensures that correct items are still found
+                            Prevents redundancy
+                    Structure
+                        List of STEs
+                            each STE in List
+                                Each STE has a unique
+                                    STE number
+                                        =STE#
+                                References all DIIB nodes where STE# appears
+                    STE Updating Process
+                        Process
+                            If a new STE is better than an existing one, update the TD
+                            STE# remains unchanged
+                            1. STEs generated  (from question or new DI)
+                            2. STE searched for in TD
+                                if
+                                    does not exist
+                                        added to TD and new STE# assigned
+                                    exists
+                                        STE# returned
+                                    something with essentially
+                                    same meaning
+                                    but different wording exists
+                                        1. Search STE compared to Retrieved STE
+                                        2. Determination is made of which one
+                                            "better"
+                                                better descriptor of concept
+                                                more likely to be found as search term
+                                        3. If
+                                            Retrieved STE better
+                                                no change to TD
+                                                STE# returned
+                                            Search STE better
+                                                STE in TD changed to Search STE
+                                                STE# returned
+                        Benefits
+                            1. All "tags" in the Graph Database used to index DIs
+                                 are STE#
+                                    rather than the STEs themselves
+                                    refer to
+                                        All entities
+                                            e.g.
+                                                living things
+                                                objects
+                                                buildings
+                                                organizations
+                                                concepts
+                                                and everything else
+                                        Relationships between entities
+                                            e.g.
+                                                BELONGED_TO
+                                                WORKET_WITH
+                                                etc
+                            2. If a better descriptor for an STE is found
+                                in TD
+                                    1. descriptor changed in the TD
+                                    2. STE# number remains the same
+                                    this means that effectively all of the entries
+                                    in the DIIB are also updated with the
+                                    new descriptor for this STE
+                DI Indexing Database (DIIB)
+                    General
+                        Nodes
+                            DI Nodes from Input
+                                Directly reference a DI
+                                Contain properties and labels matching STE#s
+                            Generated DI Nodes
+                                Represent key concepts from multiple DIs
+                                Contain only references, no direct DI link
+                        Relationships
+                            Example: A DI paper on "Malaria Treatments" leads to:
+                                Nodes for:
+                                    Dr. William Brown (Contact Information)
+                                    Good Health Hospital (Organization)
+                                    Malaria (Non-Document Concept)
+                                Relationships:
+                                    "CONTRIBUTING_AUTHOR" (Dr. Brown ? Paper)
+                                    "EMPLOYED_BY" (Dr. Brown ? Good Health Hospital)
+                                    "EXPERTS_IN_THIS" (Dr. Brown ? Malaria)
+                        Storage Efficiency
+                            All nodes and relationships reference STE#s
+                            If STE names change, updates occur in TD only
+                                -> effectively STE descriptor updated automatically in DIIB
+                    Data Index Nodes (DI Nodes)
+                        From Input or Generated
+                            DI Nodes from Input
+                                Directly reference a DI
+                                Contain properties and labels matching STE#s
+                            Generated DI Nodes
+                                Represent key concepts from multiple DIs
+                                Contain only references, no direct DI link
+                        DI Nodes have
+                            "Node Elements"
+                                defined as
+                                    Labels
+                                        generally only
+                                            the primary subject of the Node
+                                                could be
+                                                    any object being or concept
+                                            DI#
+                                    Properties
+                                        have
+                                            "property names"
+                                                e.g.
+                                                    "Written By"
+                                                    "Date"
+                                                    etc
+                                            "Property Values"
+                                                which are the specifics for
+                                                that node of the properties
+                                                    e.g.
+                                                        Who it was written by
+                                                        the date it was sent
+                                                        etc.
+                                    Relationships to other Nodes
+                                        Example: A DI paper on "Malaria Treatments" leads to:
+                                            Nodes for:
+                                                Dr. William Brown (Contact Information)
+                                                Good Health Hospital (Organization)
+                                                Malaria (Non-Document Concept)
+                                            Relationships:
+                                                "CONTRIBUTING_AUTHOR" (Dr. Brown ? Paper)
+                                                "EMPLOYED_BY" (Dr. Brown ? Good Health Hospital)
+                                                "EXPERTS_IN_THIS" (Dr. Brown ? Malaria)
+                            DI Node Types
+                                see section on DI Types
+                            Type Specific Elements
+                                "TSEs"
+                                Node Elements which must be added to DI Nodes of a given type if information is available
+                        How Node Elements Recorded
+                            Labels
+                                recorded in Node as STE#
+                            DI Node Types
+                                Recorded as Text
+                            Type Specific Elements
+                                "TSEs"
+                                    if Labels
+                                        recorded in Node as STE#
+                                    Properties
+                                        if TSEs
+                                            property names
+                                                recorded as text
+                                                    this is because there is no room
+                                                    for ambiguity as the way property
+                                                    names are defined by the DI Type
+                                            property values
+                                                recorded in Node as STE#
+                                        if additional properties which are not TSEs
+                                            recorded as STE#
+                                                because
+                                                     the description of property is not fixed
+                                                    to ensure consistency need to check with TD
+                                                    therefore use STE# from TD as description
+                            Relationships
+                                recorded in node as STE#s
+                                    to ensure considtency between say
+                                        AUTHORED_BY
+                                        WRITTEN_BY
+                        Storage Efficiency
+                            All nodes and relationships reference STE#s
+                            If STE names change, updates occur in TD only
+            Storage Process
+                Determining DI Type
+                    Identified at input stage
+                    Determines required Type-Specific Elements "TSEs"
+                Extracting SIDs
+                    Identifies key subjects and entities
+                    Includes proper nouns and key topics
+                    must include TSEs if information is available
+                Converting SIDs to STEs
+                    Checks against TD for SIDs matching existing STEs
+                        based on result
+                            adds to TD
+                            retrieves from TD
+                            updates TD
+                            see
+                                Subject Identifiers (SIDs)/
+                                Generation and
+                                Conversion to STE
+                                 <#ID_966340399>
+                    Result is list of STE#s
+                DI File System (DIFS) Storage
+                    Assigns a unique DI#
+                    Stores full text or mind map summary
+                    Mind Map Format
+                        Indents represent hierarchical structure
+                        Used for quick retrieval of relevant sections
+                DI Node Creation
+                    1. For each DI:
+                        DI Node from Input ? Direct reference to DI#
+                            Create it
+                            will have
+                                all TSEs (type specific elements) if available
+                            may have
+                                additional elements
+                                    Labels
+                                    properties
+                        DI Nodes for referenced concepts
+                            if exists
+                                find it
+                            if doesnt exist
+                                determine Type
+                                Create it
+                                will have
+                                    all TSEs (type specific elements) if available
+                                may have
+                                    additional elements
+                                        Labels
+                                        properties
+                        example
+                            if DI is "Paper By Dr William Brown of
+                            Good Health Hospital on Infectious Diseases "
+                                DI from Input
+                                    DI type "Other Document"
+                                        will have all TSEs for "Other Document"
+                                DIs from referenced Concepts
+                                    create or find DI Nodes for
+                                        Dr William Brown
+                                            DI Type: Contact Information
+                                        Infectious Diseases
+                                            DI Type: Other non document concept
+                                        Good Health Hospital
+                                            DI Type: Institution
+                    2. Relationships between nodes are created
+                        Ensures cross-referencing for future queries
+                        example
+                            Dr William Brown
+                                AUTHOR_OF
+                                    linked to DI Node of paper on infectious diseases
+                                EMPLOYED_BY
+                                    linked to DI Node of Good Health Hospital
+                                HAS_AREA_OF_KNOWLEDGE
+                                    linked to DI  node for Infectious Diseases
+                            Node for Infectious Diseases
+                                EXPERTISE_IN_THIS_AREA
+                                    linked to DI node for Dr Brown
+                                WRITINGS_ABOUT
+                                    linked to node for article
+                            Node for Good Health Hospital
+                                EMPLOYS
+                                    linked to node for Dr Brown
+                            and so on
+            Retrieval Process
+                Stage 1: Extract STE#s from Query
+                    Extract SIDs from query
+                        Identify key subjects, entities, and relationships
+                    Convert to STEs using TD
+                Stage 2: Find Relevant Nodes in DIIB
+                    Search for nodes with matching STE#s
+                    explore connected nodes relevant to query
+                        example
+                            Query "Give me a summary of the conclusions of  articles which have been written by Dr William Brown of Good Health Hospital" on Infectious Diseases in the last 3 years"
+                                1. Find node for the correct Dr William Brown by checking for Good Health hospital either as a property or a relationship to the node for the hospital
+                                look for all nodes to which the Dr's node has the relation AUTHOR_OF and have the label "Article"
+                                for all of these nodes filter out onese where
+                                    the subject is not "Infectious Diseases"
+                                    the date of publication is outside those requested
+                Stage 3: Retrieve Most Relevant DIs
+                    Access connected DIs from the graph
+                    Select full documents or mind map summaries
+                Stage 4: Assemble Context
+                    Compile retrieved information for answer generation
+                        consists of
+                            retrieved DIs
+                            information contained in relevent DI Nodes which were visited
+                                would include
+                                    information about
+                                        Dr William Brown
+                                        Good Health Hospital
+                    Adjust detail level based on query complexity
+                Stage 5: Use Assembled Context to Answer Question
+                    Compile retrieved information for answer generation
+                        consists of
+                            retrieved DIs
+                            information contained in relevent DI Nodes which were visited
+                                would include
+                                    information about
+                                        Dr William Brown
+                                        Good Health Hospital
+                    Adjust detail level based on query complexity
+            Additional Considerations
+                Handling Ambiguity
+                    Uses STE(1) to disambiguate terms
+                    May prompt for user clarification if ambiguity remains
+                Query Expansion
+                    Finds related terms to improve search results
+                    E.g., "Communicable Disease" retrieved instead of "Infectious Disease"
+                Scalability & Performance
+                    Priority ranking for most relevant nodes
+                    Graph pruning to optimize storage
+    Interface
+        Chat Options
+            Storeage Specification
+                    for each chat
+                        User asked
+                            "store this chat"
+    Projected Usage
+        Project Related
+        Item Stored
+            Text Items
+                    Project Documents
+                        Reports
+                        Presentations
+                        Spreadsheets
+                        Reference Materials
+                    Correspondence
+                        Emails
+                        Meeting Notes
+                        Call/Video Transcripts
+                        Chat Summaries
+                    Contact Information
+                        Individuals
+                        Organizations
+                        Communication Histories
+                        Roles and Expertise
+                    Knowledge Bases
+                        Industry-Specific Guidelines
+                        FAQs
+                        Best Practices
+                    Standard Operating Procedures (SOPs)
+                        Task Protocols
+                        Workflow Guidelines
+                    Regulatory and Compliance Records
+                        Laws and Regulations
+                        Compliance Checklists
+                        Licenses and Certifications
+                    Meeting Records
+                        Agendas
+                        Minutes
+                        Action Plans
+                    Templates and Forms
+                        Contracts
+                        Proposals
+                        Consent Forms
+                    Research and Case Notes
+                        Annotated Articles
+                        Personal Observations
+                    Issue Logs and Resolutions
+                        Problem Descriptions
+                        Resolution Steps
+                        Outcomes
+                    Financial Records
+                        Budgets
+                        Invoices
+                        Payment Logs
+                    Learning and Training Materials
+                        Training Manuals
+                        Webinar Notes
+                        Workshop Summaries
+                    User Feedback
+                        Surveys
+                        Client Reviews
+                        Stakeholder Comments
+                    Task and Time Tracking
+                        Milestone Logs
+                        Task Lists
+                        Work Hours
+                    Risk Assessments
+                        Risk Logs
+                        Mitigation Plans
+                        Evaluation Reports
+                    Personal Journals
+                        Daily Logs
+                        To-Do Lists
+                        Private Notes
+                    Drafts and Brainstorming
+                        Document Drafts
+                        Idea Notes
+                    Specialized Data Types
+                        Industry-Specific Categories
+                        Custom-Defined Fields

@@ -1,0 +1,185 @@
+Summary and Description of Code
+
+1 Summary Description of the Document Storage Process:
+
+The storage pipeline, primarily orchestrated by run_novel_storage.py and using stages defined in primary_analysis_stages.py, processes a document (e.g., a novel) through several steps to extract information and prepare it for storage in multiple databases.
+
+The process avoids loading the entire document into an LLM at once, following a Map-Reduce pattern for analysis:
+1.1 Initial Processing & Large Block Analysis (Map Phase):
+1.1.1 Ingestion: Reads the raw text from the input document file (ingestion.py).
+1.1.2 Coarse Chunking: Divides the raw text into large, structurally significant blocks (e.g., chapters) using non-LLM methods like regex (chunking.py).
+
+1.2 Map Analysis: Each large block is analyzed individually and in parallel using an LLM (analysis_functions.py) to extract a summary and key entities (characters, locations, etc.) specific to that block.
+State Save: The results (raw text, large blocks, individual block analyses, consolidated entities from blocks) are saved (state_storage.py).
+
+1.3 Iterative Document Analysis (Reduce Phase):
+1.3.1 State Load: Loads the saved state from the previous stage if resuming.
+1.3.2 Reduce Analysis: The summaries and consolidated entities from all large blocks (collected in the previous step) are sent to the LLM (analysis_functions.py) to synthesize an overall document analysis. This includes determining the document type, generating a comprehensive summary, creating a final list of key entities, and defining the document's overall structure (e.g., list of chapters).
+1.3.3 State Save: The overall document analysis result is saved along with the data from the previous stage.
+
+1.4 Detailed Chunk Analysis:
+1.4.1 State Load: Loads the saved state.
+1.4.2 Adaptive Fine-Grained Chunking: The raw text is chunked into smaller, more manageable units (chunking.py), guided by the document structure determined in the Reduce Phase. Each chunk gets metadata like a unique ID and its source location (e.g., chapter reference, sequence number).
+1.4.3 Parallel Chunk Detail Analysis: Each fine-grained chunk is analyzed individually and in parallel using an LLM (analysis_functions.py, worker_analyze_chunk), incorporating context from the overall document analysis. This extracts detailed information like entities present/mentioned, relationships/interactions, events, and keywords within that specific chunk.
+1.4.4 State Save: The list of chunks, now enriched with detailed analysis, is saved along with previous results.
+
+1.5 Embedding Generation:
+1.5.1 State Load: Loads the saved state.
+1.5.2 Embedding: Embeddings (vector representations) are generated for the text of each analyzed chunk (embedding.py).
+1.5.3 State Save: The generated embeddings (mapped by chunk ID) are saved.
+
+1.6 Graph Data Construction:
+1.6.1 State Load: Loads the saved state.
+1.6.2 Graph Building: The overall document analysis and the detailed chunk analyses are translated into a graph structure consisting of nodes (Document, Structure sections, Entities like Characters/Locations) and edges (HAS\STRUCTURE, INTERACTED\_WITH, MENTIONED\_IN, etc.) (graph_builder.py).
+1.6.3 State Save: The generated lists of nodes and edges are saved.
+
+1.7 Data Storage:
+State Load: Loads the final state (embeddings, nodes, edges, analyzed chunks).
+Database Connections: Establishes connections to Pinecone and Neo4j (db_connections.py).
+Vector Storage: Stores the chunk embeddings and associated basic metadata (text snippet, document ID, sequence) in Pinecone (storage.py).
+Graph Storage: Stores the nodes and edges in Neo4j, creating constraints for uniqueness (storage.py).
+(Placeholder) Document Store: Acknowledges that detailed chunk metadata could be stored in a separate document store, but currently relies on Pinecone/Neo4j (storage.py).
+
+2 Objectives of the Code Structure:
+The code is structured into separate files/modules based on distinct functional responsibilities. The main objectives of this structure appear to be:
+
+2.1 Modularity: Each file handles a specific part of the overall pipeline (e.g., chunking.py handles chunking logic, embedding.py handles embedding generation, analysis_functions.py handles LLM analysis calls). This makes the code easier to understand, develop, and test individually.
+
+2.2 Separation of Concerns: Different aspects of the process (ingestion, analysis, chunking, embedding, graph creation, storage, orchestration) are clearly separated. This prevents monolithic scripts and clarifies the data flow.
+Reusability: Functions within modules (e.g., call_llm_json_mode in llm_calls.py, chunking strategies in chunking.py) can potentially be reused in other pipelines or contexts.
+
+2.3 Maintainability: Changes to a specific part of the process (e.g., changing the embedding model) are localized to the relevant module (embedding.py), minimizing impact on other parts of the pipeline.
+Scalability/Performance: Separating LLM calls (analysis_functions.py, llm_calls.py) allows for techniques like parallel processing (parallel_llm_calls) to be implemented more cleanly, as seen in the map-phase block analysis and the detailed chunk analysis.
+
+2.4 Clarity of Pipeline Flow: The main pipeline logic is concentrated in run_novel_storage.py and primary_analysis_stages.py, making the overall sequence of operations easier to follow. Stage-specific logic is delegated to functions within these or other specialized modules.
+Configuration Management: Global parameters (DSAIParams.py) and prompts (prompts.py) are centralized, allowing easier configuration and modification without altering the core logic files.
+
+3 Function Descriptions:
+Here are the descriptions for functions in the requested files (excluding state_storage.py and ingestion.py):
+
+3.1 File: run_novel_storage.py
+
+
+3.1.1 run_pipeline(document_path: str)
+3.1.1.1 Purpose: Orchestrates the entire document storage pipeline execution from start to finish (or from a specified intermediate stage defined in DSAIParams.RunCodeFrom).
+3.1.1.2 Inputs: document_path (str): The file path of the document to process.
+3.1.1.2 Outputs: None (The function logs progress and errors; results are implicitly stored in databases or state files).
+3.1.1.4 Role: The main entry point and controller for the pipeline. It determines the starting stage based on RunCodeFrom, iterates through the defined stages (Code_Stages_List), calls the appropriate stage function from primary_analysis_stages.py, handles state loading/saving logic between stages, sets up/tears down database connections (commented out currently), and manages overall error handling and logging for the pipeline run.
+
+3.2 File: primary_analysis_stages.py
+
+3.2.1 large_block_analysis(document_path: str, file_id: str)
+3.2.1.1 Purpose: Executes the first major phase of the pipeline: ingestion, coarse chunking based on structure, and the parallel "Map" phase analysis of these large blocks using LLM.
+3.2.1.2 Inputs: document_path (str), file_id (str).
+3.2.1.3 Outputs: Tuple containing raw_text (str), large_blocks (List[Dict]), map_results (List[Dict] - analysis per block), final_entities (Dict - consolidated entities from blocks).
+3.2.1.4 Role: Implements Stage 1 (Start -> LargeBlockAnalysisCompleted). It calls functions from ingestion.py, chunking.py, and analysis_functions.py (perform_map_block_analysis) to perform the initial breakdown and parallel analysis. It also handles saving the state at the end of this stage.
+
+3.2.2.perform_iterative_analysis(file_id: str, raw_text: Optional[str], large_blocks: Optional[List[Dict]], map_results: Optional[List[Dict]], final_entities: Optional[Dict])
+3.2.2.1 Purpose: Executes the "Reduce" phase of the iterative analysis. It takes the results from the map phase (block summaries and entities) and synthesizes them using an LLM to get a comprehensive, document-level analysis (type, overall summary, structure, final entity list).
+3.2.2.2 Inputs: file_id (str), plus optional outputs from the previous stage (raw_text, large_blocks, map_results, final_entities).
+3.2.2.3 Outputs: Tuple containing the inputs passed through (raw_text, large_blocks, map_results, final_entities) and the newly generated doc_analysis_result (Dict).
+3.2.2.4 Role: Implements Stage 2 (LargeBlockAnalysisCompleted -> IterativeAnalysisCompleted). It calls perform_reduce_document_analysis from analysis_functions.py to generate the overall document view. It saves the state including this new result.
+
+3.2.4 perform_detailed_chunk_analysis(file_id: str, raw_text: Optional[str], large_blocks: Optional[List[Dict]], map_results: Optional[List[Dict]], doc_analysis_result: Optional[Dict])
+3.2.4.1 Purpose: Executes the fine-grained adaptive chunking and the parallel detailed analysis of each resulting chunk using LLM.
+3.2.4.2 Inputs: file_id (str), plus optional outputs from previous stages (raw_text, large_blocks, map_results, doc_analysis_result).
+3.2.4.3 Outputs: Tuple containing file_id (str), map_results (passed through), doc_analysis_result (passed through), and chunks_with_analysis (List[Dict] - fine-grained chunks with their detailed LLM analysis).
+3.2.4.4 Role: Implements Stage 3 (IterativeAnalysisCompleted -> DetailedBlockAnalysisCompleted). Calls adaptive_chunking from chunking.py and then orchestrates parallel LLM calls via parallel_llm_calls (from llm_calls.py) using the worker_analyze_chunk helper function (defined in analysis_functions.py) to enrich each chunk. Saves the state.
+
+3.2.5 get_embeddings(file_id: Optional[str], chunks_with_analysis: Optional[List[Dict]], doc_analysis_result: Optional[Dict], map_results: Optional[List[Dict]])
+3.2.5.1 Purpose: Generates vector embeddings for the text content of the analyzed chunks.
+3.2.5.2 Inputs: file_id (str), chunks_with_analysis (List[Dict]), optional doc_analysis_result and map_results (passed through for state saving).
+3.2.5.3 Outputs: Tuple containing embeddings_dict (Dict[str, List[float]]), file_id, chunks_with_analysis, doc_analysis_result, map_results (passed through).
+3.2.5.4 Role: Implements Stage 4 (DetailedBlockAnalysisCompleted -> EmbeddingsCompleted). Calls generate_embeddings from embedding.py. Saves the state including the embeddings.
+
+3.2.6 perform_graph_analyisis(file_id: str, doc_analysis_result: Dict[str, Any], chunks_with_analysis: List[Dict[str, Any]])
+3.2.6.1 Purpose: Constructs the graph representation (nodes and edges) based on the overall document analysis and the detailed chunk-level analyses.
+3.2.6.2 Inputs: file_id (str), doc_analysis_result (Dict), chunks_with_analysis (List[Dict]). Requires embeddings_dict, map_results from global scope or previous state for saving.
+3.2.6.3 Outputs: Tuple containing graph_nodes (List[Dict]), graph_edges (List[Dict]), plus inputs passed through for state saving (file_id, embeddings_dict, chunks_with_analysis, doc_analysis_result, map_results).
+3.2.6.4 Role: Implements Stage 5 (EmbeddingsCompleted -> GraphAnalysisCompleted). Calls build_graph_data from graph_builder.py. Saves the state including the graph data.
+
+3.2.7 store_data(pinecone_index, neo4j_driver, file_id: str, embeddings_dict: Dict[str, List[float]], chunks_with_analysis: List[Dict[str, Any]], graph_nodes: List[Dict], graph_edges: List[Dict])
+3.2.7.1 Purpose: Stores the final processed data (embeddings, graph nodes/edges) into the respective databases (Pinecone, Neo4j).
+3.2.7.2 Inputs: pinecone_index (PineconeIndex), neo4j_driver (Neo4jDriver), file_id (str), embeddings_dict (Dict), chunks_with_analysis (List[Dict]), graph_nodes (List[Dict]), graph_edges (List[Dict]).
+3.2.7.3 Outputs: None.
+3.2.7.4 Role: Implements the final storage stage (Stage 6 - GraphAnalysisCompleted -> End). Calls store_embeddings_pinecone and store_graph_data_neo4j from storage.py. It represents the culmination of the pipeline where processed data is persisted.
+
+3.3 File: analysis_functions.py
+
+3.3.1 analyze_large_block(block_info: Dict[str, Any], block_index: int, additional_data: Any=None)
+3.3.1.1 Purpose: Performs LLM analysis on a single large block of text (e.g., a chapter) to extract its summary and key entities. Designed to be called in parallel during the Map phase.
+3.3.1.2 Inputs: block_info (Dict containing text and metadata for the block), block_index (int), additional_data (Any, currently unused).
+3.3.1.3 Outputs: Optional[Dict]: The analysis result (summary, entities) for the block, including block_ref and block_index, or None if analysis fails.
+3.3.1.4 Role: The core worker function for the Map phase. It formats a specific prompt (get_anal_large_block_prompt), calls the LLM in JSON mode (call_llm_json_mode), and returns the structured analysis for one coarse block.
+
+3.3.2 perform_map_block_analysis(large_blocks: List[Dict[str, Any]])
+3.3.2.1 Purpose: Orchestrates the parallel execution of analyze_large_block for all large blocks. It estimates token usage, determines the number of parallel workers, runs the analysis using parallel_llm_calls, collects the results, filters failures, sorts them, and consolidates entities found across all blocks.
+3.3.2.2 Inputs: large_blocks (List[Dict]).
+3.3.2.3 Outputs: Tuple containing map_results (List[Dict] - successful analyses) and final_entities (Dict - consolidated entities).
+3.3.2.4 Role: Manages the entire Map phase analysis logic, handling parallelism, result aggregation, and entity consolidation. It prepares the necessary inputs for the subsequent Reduce phase.
+
+3.3.3 perform_reduce_document_analysis(map_results: List[Dict[str, Any]], final_entities: Dict[str, List[str]])
+3.3.3.1 Purpose: Performs the Reduce phase analysis. It synthesizes an overall document understanding (type, summary, structure, key entities) by sending the collected block summaries and consolidated entities to the LLM.
+3.3.3.2 Inputs: map_results (List[Dict] - results from the Map phase), final_entities (Dict - consolidated entities).
+3.3.3.3 Outputs: Dict: The final synthesized document analysis result, or an error dictionary if reduction fails.
+3.3.3.4 Role: Executes the core logic of the Reduce phase, taking distributed information (block summaries/entities) and creating a unified document-level view using a specific LLM prompt (getReducePrompt).
+
+3.3.4 analyze_chunk_details(block_info: Dict[str, Any], block_index: int, doc_context: Dict[str, Any])
+3.3.4.1 Purpose: Performs detailed LLM analysis on a single fine-grained chunk to extract entities, relationships/interactions, events, and keywords within that chunk, using the overall document context.
+3.3.4.2 Inputs: block_info (Dict - the chunk data), block_index (int), doc_context (Dict - the overall document analysis result from the Reduce phase).
+3.3.4.3 Outputs: Optional[Dict]: The detailed analysis result for the chunk, or an error dictionary if analysis fails.
+3.3.4.4 Role: The core worker function for the detailed chunk analysis stage. It formats a specific prompt (get_anal_chunk_details_prompt) incorporating both chunk text and document context, calls the LLM in JSON mode, and returns the structured analysis for one fine-grained chunk.
+
+3.3.5 worker_analyze_chunk(chunk_item: Dict[str, Any], block_index: int, doc_analysis_result: Dict[str, Any])
+3.3.5.1 Purpose: A wrapper function designed to be used with parallel_llm_calls for analyzing fine-grained chunks. It calls analyze_chunk_details, handles potential exceptions during the call, adds status information ('success' or 'error') to the chunk dictionary, and implements a basic retry mechanism.
+3.3.5.2 Inputs: chunk_item (Dict - the chunk data), block_index (int), doc_analysis_result (Dict - overall document context, accessed via closure/passed data).
+3.3.5.3 Outputs: Dict: The original chunk_item dictionary updated with an 'analysis' key (containing the result from analyze_chunk_details or None), an 'analysis\status' key, and potentially 'analysis\_error' and 'traceback' keys on failure.
+3.3.5.4 Role: Facilitates the parallel execution of analyze_chunk_details, providing error handling and status reporting for each chunk processed.
+
+3.4 File: chunking.py
+
+3.4.1 find_structural_markers(text: str, patterns: List[Tuple[str, re.Pattern]])
+3.4.1.1 Purpose: Searches the text for predefined regular expression patterns (like "Chapter X") to identify potential structural boundaries.
+3.4.1.2 Inputs: text (str), patterns (List[Tuple[str, re.Pattern]] - e.g., CHAPTER_PATTERNS).
+3.4.1.3 Outputs: List[Tuple[int, int, str]]: A list of tuples, each containing the start index, end index, and type (e.g., "chapter") of a found marker.
+3.4.1.4 Role: A helper function used by coarse_chunk_by_structure to locate major divisions in the text without relying on LLM.
+
+3.4.2 coarse_chunk_by_structure(text: str)
+3.4.2.1 Purpose: Splits the input text into large blocks based primarily on identified structural markers (like chapters). If no reliable markers are found, it falls back to splitting into large, fixed-size overlapping blocks.
+3.4.2.2 Inputs: text (str).
+3.4.2.3 Outputs: List[Dict[str, Any]]: A list of dictionaries, each representing a large block with keys like 'text', 'start_char', 'end_char', and 'ref' (e.g., "Chapter 1").
+3.4.2.4 Role: Performs the initial, non-LLM structural breakdown of the document needed for the Map-Reduce analysis approach, handling documents with and without clear chapter markings.
+
+3.4.3 split_by_paragraph_and_scene(text: str, start_offset: int, structure_ref: str)
+3.4.3.1 Purpose: Splits a given block of text (likely a chapter or section) into smaller chunks based on paragraphs and scene breaks (identified by multiple newlines).
+3.4.3.2 Inputs: text (str - the block to split), start_offset (int - the character offset of this block within the original document), structure_ref (str - reference like "Chapter 1").
+3.4.3.3 Outputs: List[Dict[str, Any]]: A list of dictionaries, each representing a paragraph/scene chunk with 'text', 'start_char', 'end_char', and 'source_location' (including structure_ref).
+3.4.3.4 Role: Performs the basic splitting within larger structural units, preparing potential chunks before adaptive merging.
+
+3.4.4 adaptive_chunking(large_blocks: List[Dict[str, Any]], map_results: List[Dict[str, Any]], chunk_size: int, chunk_overlap: int)
+3.4.4.1 Purpose: Creates the final, fine-grained chunks for analysis and embedding. It iterates through the validated structure (derived from map_results), splits the text within each structural unit (using split_by_paragraph_and_scene), and then adaptively merges these smaller pieces to be as close as possible to the target chunk_size without exceeding it significantly, while respecting structural boundaries. It adds detailed metadata including sequence numbers and unique chunk IDs.
+3.4.4.2 Inputs: large_blocks (List[Dict] - used to get text corresponding to structure), map_results (List[Dict] - used to get the validated structure), chunk_size (int - target chunk size from DSAIParams), chunk_overlap (int - target overlap from DSAIParams, currently not explicitly used in merging logic but available).
+3.4.4.3 Outputs: List[Dict[str, Any]]: The final list of fine-grained chunks, each with 'chunk\id', 'text', and detailed 'metadata' (including 'source\_location').
+3.4.4.4 Role: The core function for creating the appropriately sized, semantically relevant chunks used for detailed analysis, embedding, and retrieval. It bridges the gap between the coarse structure and the final chunk representation.
+
+3.5 File: embedding.py
+
+3.5.1 get_embedding_batch(texts: List[str], model_name: str = EmbeddingModel)
+3.5.1.1 Purpose: Calls the OpenAI API to get embeddings for a batch of texts using the specified model. Includes error handling and retries.
+3.5.1.2 Inputs: texts (List[str]), model_name (str, defaults to EmbeddingModel from DSAIParams).
+3.5.1.3 Outputs: List[List[float]]: A list of embedding vectors corresponding to the input texts, or an empty list if the batch fails.
+3.5.1.4 Role: A helper function to interact with the OpenAI embedding API for a list of texts, managing potential API errors.
+
+3.5.2 generate_embeddings(chunks_with_analysis: List[Dict[str, Any]])
+3.5.2.1 Purpose: Generates embeddings for all chunks provided in the input list. It processes the chunks in batches to stay within API limits and uses threading for potential performance improvement.
+3.5.2.2 Inputs: chunks_with_analysis (List[Dict] - requires 'chunk\id' and 'text' keys).
+3.5.2.3 Outputs: Dict[str, List[float]]: A dictionary mapping chunk IDs to their corresponding embedding vectors.
+3.5.2.4 Role: Orchestrates the embedding generation process for the entire set of final chunks, handling batching and parallel API calls via get_embedding_batch.
+
+3.6 File: graph_builder.py
+
+3.6.1 build_graph_data(document_id: str, doc_analysis: Dict[str, Any], chunks_with_analysis: List[Dict[str, Any]])
+3.6.1.1 Purpose: Translates the overall document analysis and the detailed chunk analyses into lists of nodes and edges suitable for importing into Neo4j. It creates nodes for the document, structural elements (chapters/sections), and unique entities (Characters, Locations, etc.), and edges representing relationships like HAS\STRUCTURE, MENTIONED\_IN, PRESENT\_IN, INTERACTED\_WITH, etc.
+3.6.1.2 Inputs: document_id (str), doc_analysis (Dict - overall analysis result), chunks_with_analysis (List[Dict] - chunks with detailed analysis).
+3.6.1.3 Outputs: Tuple[List[Dict], List[Dict]]: A tuple containing the list of node dictionaries and the list of edge dictionaries.
+3.6.1.4 Role: The core function responsible for converting the extracted textual metadata into a structured graph format. It identifies unique entities, creates nodes for them, and defines the relationships between entities, the document, structure, and potentially chunks based on the LLM analysis results.

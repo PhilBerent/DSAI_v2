@@ -1,0 +1,27 @@
+Ideally I would like to incorporate the sophisticated capabilities of ChatGPT to understand and answer questions about documents into Datasphere AI so that it could handle any type of document. If I was to code this all myself even with the help of AI this would be extremly challenging. It occurs to me however that it might be possible to do this by leverageing chat GPT capabilities as follows:
+1. When a document is stored I would use the chat gpt 4 API 
+- determine the type of document
+- on that basis determine what information should be stored and in what from it should be stored. For example if the text is a novel then as well as the text divided into appropriate chunks, all of the elements that you mentioned - chapter summaries, key relationships, plot detail, etc, should be stored in metadata. Lets call these other elements "key elements". 
+- all this information should be stored in two or more databases. My initial thought is that there should be a "content database" which contains the text in appropriate chunks and a "metadata database" which contains the "key elements" extracted when the document is stored. It seems to me that this might require a very flexible database structure with possibly more than 2 databases to store the information effectively.
+- When the document is stored "search strategies" should be determined for different types of questions and these search strategies should also be stored in the metadata for the document. For example if the document is a novel one stored search strategy might be recorded as "If the user's question concerns the plot then load into context the stored chapter summaries and the most relevant chunks of text". "If the user's question concerns a relationship between characters then load into context the relationship information and the most relevant chunks of text".
+The search strategies for different question types will be determined by the AI model when the document is stored. To do this the AI should consider the type of document; the type of questions that might be asked; and how the document is stored. Actually on consideration it might be best to do things in this order when a document is stored
+(i) AI model examines and understands the document and what "type" of document it is.
+(ii) Based on the AI's understanding of the document it determines the type of questions that might be answered and records (say) the 5 most likely question types in metadata
+(iii) Based on the determined question types the AI determines a storage strategy and stores the document and the document metadata.
+(iv) Based on the storage strategy and the recorded question type a search strategy is determined for each question type and recorded in metadata (possibly question types and search strategies should be recorded in a seperate database)
+
+When a question is asked
+(i) the AI searches for the relevant document or documents. 
+(ii) the question is categorized according to the stored question types
+(iii) the search strategy or stragegies are retrieved for the "question types" recorded for the retrieved documents most colsely matching the users question. Based on the retrieved recorded search strategy or strategies (possibly combining more than one strategy) - the appropriate data from the "content database" and the "metadata database" (or possibly from more than one database containing metadata) and this information is loaded into context
+(iv) The question is then answered using this context.
+
+I note that as well as just having the AI determine the storage and search strategies for different types of documents at run time, it could be possible to determine these storage and search strategies for different question types in advance and have these recorded in a "strategy database" with different strategies for each "document" type. Using this approach when a document is stored:
+(i) The document "type" would be determined
+(ii) Based on the document type the following would be retrieved from the "strategy databse"
+	(a) the storage strategy for that document type
+	(b) the likely question types and corresponding search stragegies for each.
+(iii) How the document is stored and the question types and corresponding search strategies would be stored in the document's metadata
+
+When a question is asked the procedure would be the same as above.
+
