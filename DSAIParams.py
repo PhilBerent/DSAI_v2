@@ -119,9 +119,11 @@ StateStorageList = [
     StateStoragePoints.GraphAnalysisCompleted
 ]
 
-# StateStorageList = []
-# RunCodeFrom = CodeStages.LargeBlockAnalysisCompleted
-RunCodeFrom = CodeStages.IterativeAnalysisCompleted
 # RunCodeFrom = CodeStages.Start
+# RunCodeFrom = CodeStages.LargeBlockAnalysisCompleted
+# RunCodeFrom = CodeStages.IterativeAnalysisCompleted
+RunCodeFrom = CodeStages.DetailedBlockAnalysisCompleted
+# RunCodeFrom = CodeStages.EmbeddingsCompleted
+# RunCodeFrom = CodeStages.GraphAnalysisCompleted
 
 MaxWordOutputPerCall = 3000

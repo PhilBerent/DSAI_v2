@@ -36,6 +36,8 @@ def analyze_large_block(block_info: Dict[str, Any], block_index: int, additional
     """Analyzes a single large text block using LLM. (Now simpler)"""
     block_ref = block_info.get('ref', f'Index {block_index}')
     logging.info(f"Analyzing large block {block_index + 1}: {block_ref} (Length: {len(block_info.get('text',''))} chars)")
+    if (has_string(block_info, "\u2019")):
+            aaa=3
 
     # Get the user prompt using the dedicated function
     try:
@@ -47,10 +49,15 @@ def analyze_large_block(block_info: Dict[str, Any], block_index: int, additional
     try:
         # Use the centralized function for the API call in JSON mode
         # Pass the specific system message and the generated prompt
+        if (has_string(prompt, "\u2019")):
+            aaa=3
+
         block_analysis_result = call_llm_json_mode(
             system_message=system_msg_for_large_block_anal,
             prompt=prompt
         )
+        if (has_string(block_analysis_result, "\u2019")):
+            aaa=3
 
         # Add block reference back for context in reduce step
         block_analysis_result['block_ref'] = block_ref
@@ -82,7 +89,6 @@ def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List
 
     # --- Step 3.0: Estimate Tokens and Calculate Workers ---
     logging.info("Estimating tokens per call for worker calculation...")
-
     estimated_tokens = calc_est_tokens_per_call(
         data_list=large_blocks,
         num_blocks_for_sample=NumSampleBlocksForLBA,
@@ -99,6 +105,8 @@ def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List
 
     # Limit workers by the number of blocks
     num_workers = min(num_workers, len(large_blocks))
+    if has_string(large_blocks, "\u2019"):
+        aaa=3
 
     # --- Step 3.1: Run Parallel Analysis --- # 
     map_results_raw = parallel_llm_calls(

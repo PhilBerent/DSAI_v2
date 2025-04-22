@@ -67,59 +67,63 @@ def run_pipeline(document_path: str):
         return # Exit if setup fails
 
     # Initialize variables to hold state between stages
-    current_raw_text: Optional[str] = None
-    current_large_blocks: Optional[List[Dict[str, Any]]] = None
-    current_map_results: Optional[List[Dict[str, Any]]] = None
-    current_final_entities: Optional[Dict[str, List[str]]] = None
-    current_doc_analysis_result: Optional[Dict[str, Any]] = None
+    raw_text = large_blocks = map_results = final_entities = chunks_with_analysis = \
+        embeddings_dict = doc_analysis_result = graph_nodes = graph_edges = None
 
     try:
         # Determine the starting index in the stages list
         try:
             start_index = Code_Stages_List.index(RunCodeFrom.value)
+
+            logging.info(f"Pipeline will run stages starting from index {start_index}: {Code_Stages_List[start_index:]}")
+
+            # --- Execute Pipeline Stages ---
+            for i, stage in enumerate(Code_Stages_List[start_index:]):
+                # Determine if state should be loaded for this stage
+                # Load state only if it's the *first* stage being executed in this run
+                load_state_flag = (stage != 'Start' and stage == RunCodeFrom.value) # Don't load state if starting from the beginning
+
+                logging.info(f"--- Executing Stage: {stage} (Load State: {load_state_flag}) ---")
+
+                if stage == CodeStages.Start.value:
+                    # Stage 1: Initial Processing
+                    (raw_text, large_blocks, map_results, 
+                    final_entities) = large_block_analysis(document_path, file_id)
+                    aa=2
+                elif stage == CodeStages.LargeBlockAnalysisCompleted.value:
+                    if load_state_flag:
+                        large_blocks, map_results, final_entities, raw_text = loadStateLBA()
+                    # Stage 2: Iterative Analysis (Reduce Phase)
+                    (raw_text, large_blocks, map_results, final_entities, doc_analysis_result) = perform_iterative_analysis(file_id, raw_text, large_blocks, map_results, final_entities)
+                    a=3
+                elif stage == CodeStages.IterativeAnalysisCompleted.value:
+                    if load_state_flag:
+                        doc_analysis_result, large_blocks, map_results, raw_text = loadStateIA()
+                    #  Stage 3: Iterative Analysis (Map Phase)
+                    (file_id, map_results, doc_analysis_result, chunks_with_analysis) = perform_detailed_chunk_analysis(file_id, raw_text, large_blocks, map_results, doc_analysis_result)
+                    # This is the last stage defined in the list, so we break the loop after execution
+                    # If more stages were added, this break might need reconsideration
+                elif stage == CodeStages.DetailedBlockAnalysisCompleted.value:
+                    if load_state_flag:
+                        file_id, chunks_with_analysis, doc_analysis_result, map_results = loadStateDBA()
+                    # --- 4. Embedding Generation --- #                        
+                    (embeddings_dict, file_id, chunks_with_analysis, doc_analysis_result, 
+                        map_results) = get_embeddings(file_id, chunks_with_analysis, 
+                        doc_analysis_result, map_results)
+                elif stage == CodeStages.EmbeddingsCompleted.value:
+                    if load_state_flag:
+                        file_id, embeddings_dict, chunks_with_analysis, doc_analysis_result, map_results = loadStateEA()
+                    # --- 5. Graph Data Construction --- #                    
+                    (graph_nodes, graph_edges, file_id, embeddings_dict, chunks_with_analysis, 
+                    doc_analysis_result, map_results) = perform_graph_analyisis(file_id, doc_analysis_result, chunks_with_analysis)
+                else:
+                    logging.warning(f"Encountered an unrecognized stage: {stage}. Skipping.")
+            
         except ValueError:
-            logging.error(f"Invalid start stage '{RunCodeFrom.value}' specified in DSAIParams.py. Must be one of {Code_Stages_List}. Aborting.")
-            raise ValueError(f"Invalid RunCodeFrom value: {RunCodeFrom.value}")
+            logging.error(f"error")
 
-        logging.info(f"Pipeline will run stages starting from index {start_index}: {Code_Stages_List[start_index:]}")
-
-        # --- Execute Pipeline Stages ---
-        for i, stage in enumerate(Code_Stages_List[start_index:]):
-            # Determine if state should be loaded for this stage
-            # Load state only if it's the *first* stage being executed in this run
-            load_state_flag = (stage != 'Start' and stage == RunCodeFrom.value) # Don't load state if starting from the beginning
-
-            logging.info(f"--- Executing Stage: {stage} (Load State: {load_state_flag}) ---")
-
-            if stage == CodeStages.Start.value:
-                # Stage 1: Initial Processing
-                (current_raw_text, current_large_blocks, current_map_results, 
-                current_final_entities) = large_block_analysis(document_path, file_id)
-                #db
-                a, b = has_string(current_large_blocks, "zzz")
-                a=3
-
-            elif stage == CodeStages.LargeBlockAnalysisCompleted.value:
-                # Stage 2: Iterative Analysis (Reduce Phase)
-                (current_raw_text, current_large_blocks, current_map_results, current_final_entities, current_doc_analysis_result) = perform_iterative_analysis(load_state_flag, file_id, current_raw_text, current_large_blocks, current_map_results, current_final_entities)
-            elif stage == CodeStages.IterativeAnalysisCompleted.value:
-                 # Stage 3: Downstream Processing (Chunking, Analysis, Storage)
-                 chunks_with_analysis = perform_detailed_chunk_analysis(load_state_flag, file_id, pinecone_index, neo4j_driver, current_raw_text, current_large_blocks, current_map_results, current_doc_analysis_result)
-                 # This is the last stage defined in the list, so we break the loop after execution
-                 # If more stages were added, this break might need reconsideration
-                 break
-            elif stage == CodeStages.DetailedBlockAnalysisCompleted.value:
-                (embeddings_dict, file_id, chunks_with_analysis, doc_analysis_result, 
-                    map_results) = get_embeddings(load_state_flag, file_id, chunks_with_analysis, 
-                    doc_analysis_result, current_map_results)
-            elif stage == CodeStages.EmbeddingsCompleted.value:
-                (graph_nodes, graph_edges, file_id, embeddings_dict, chunks_with_analysis, 
-                 doc_analysis_result, map_results) = perform_graph_analyisis(load_state_flag, file_id, doc_analysis_result, chunks_with_analysis)
-            else:
-                 logging.warning(f"Encountered an unrecognized stage: {stage}. Skipping.")
-
-            # Optional: Add a small delay between stages if needed for resource reasons
-            # time.sleep(1)
+        # Optional: Add a small delay between stages if needed for resource reasons
+        # time.sleep(1)
 
     except FileNotFoundError as e:
         # Specific handling for state file not found when expected

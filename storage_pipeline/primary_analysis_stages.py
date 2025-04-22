@@ -113,24 +113,12 @@ def large_block_analysis(document_path: str, file_id: str) -> Tuple[str, List[Di
 
 
 # --- Stage 2: LargeBlockAnalysisCompleted -> IterativeAnalysisCompleted ---
-def perform_iterative_analysis(load_state_flag: bool, file_id: str, raw_text: Optional[str] = None,
+def perform_iterative_analysis(file_id: str, raw_text: Optional[str] = None,
     large_blocks: Optional[List[Dict[str, Any]]] = None, map_results: Optional[List[Dict[str, Any]]] = None,
     final_entities: Optional[Dict[str, List[str]]] = None) -> Tuple[Optional[str], Optional[List[Dict[str, Any]]], Optional[List[Dict[str, Any]]], Optional[Dict[str, List[str]]], Dict[str, Any]]:
-    """Handles the reduce phase of the analysis.
-       Loads state using original_load_state if load_state_flag is True.
-       Saves state using original_save_state if configured.
-    """
-    logging.info(f"Stage 2: Starting Iterative Analysis for {file_id} (Load State: {load_state_flag})...")
-    doc_analysis_result: Dict[str, Any] = {}
+    # Handles the reduce phase of the analysis.
 
-    if load_state_flag:
-        try:
-            large_blocks, map_results, final_entities, raw_text = loadStateLBA()
-            logging.info(f"State loaded successfully for {file_id} using original state_storage.")
-        except (FileNotFoundError, KeyError, ValueError, Exception) as e:
-            # Log error (original load_state uses print, we add logging)
-            logging.error(f"Original state_storage.py load failed when attempting to load for stage LargeBlockAnalysisCompleted: {e}. Aborting.", exc_info=True)
-            raise # Re-raise to stop the pipeline
+    doc_analysis_result: Dict[str, Any] = {}
 
     # --- 3.2 Reduce Phase --- #
     # [Code for Reduce Phase analysis remains unchanged]
@@ -174,25 +162,11 @@ def perform_iterative_analysis(load_state_flag: bool, file_id: str, raw_text: Op
 
 
 # --- Stage 3: IterativeAnalysisCompleted -> End ---
-def perform_detailed_chunk_analysis(load_state_flag: bool, file_id: str,
+def perform_detailed_chunk_analysis(file_id: str,
     raw_text: Optional[str] = None, large_blocks: Optional[List[Dict[str, Any]]] = None,
     map_results: Optional[List[Dict[str, Any]]] = None, doc_analysis_result: Optional[Dict[str, Any]] = None
 ) -> List[Dict[str, Any]]:
-    """Handles fine-grained chunking, PARALLEL chunk analysis, embedding, graph building, and storage.
-       Loads state using original_load_state if load_state_flag is True.
-       Does not save state.
-    """
-    logging.info(f"Stage 3: Starting Downstream Processing for {file_id} (Load State: {load_state_flag})...")
-
-    # --- Load State or Use Passed Data --- 
-    if load_state_flag:
-        logging.info(f"Attempting to load state IterativeAnalysisCompleted...")
-        try:
-            doc_analysis_result, large_blocks, map_results, raw_text = loadStateIA()
-            logging.info(f"State loaded successfully for {file_id} using original state_storage.")
-        except (FileNotFoundError, KeyError, ValueError, Exception) as e:
-            logging.error(f"Original state_storage.py load failed when attempting to load for stage IterativeAnalysisCompleted: {e}. Aborting: {e} .", exc_info=True)
-            raise
+    "Handles fine-grained chunking, PARALLEL chunk analysis, embedding, graph building, and storage."
 
     # --- Ensure critical data is present before proceeding (doc_analysis_result is now guaranteed non-Optional) --- 
     if raw_text is None or large_blocks is None or map_results is None:
@@ -286,24 +260,18 @@ def perform_detailed_chunk_analysis(load_state_flag: bool, file_id: str,
                 save_state(state_to_save, file_path)
             except Exception as e:
                 logging.error(f"Original state_storage.py save failed for DetailedBlockAnalysisCompleted: {e}", exc_info=True)
-        return chunks_with_analysis
+        return file_id, map_results, doc_analysis_result, chunks_with_analysis
     except Exception as e:
         logging.error(f"Error during parallel chunk analysis setup or execution: {e}", exc_info=True)
         raise ValueError(f"Parallel chunk analysis process failed: {e}") from e
 # end funct perform_detailed_chunk_analysis return chunks_with_analysis
 
-def get_embeddings(load_state_flag, file_id: Optional[str] = None,  
+def get_embeddings(file_id: Optional[str] = None,  
         chunks_with_analysis: Optional[List[Dict[str, Any]]] = None, 
         doc_analysis_result: Optional[Dict[str, Any]] = None,
         map_results: Optional[List[Dict[str, Any]]] = None) -> Dict[str, List[float]]:
 
-    # --- 6. Embedding Generation --- #
     # [Code for Embedding Generation remains unchanged] ...
-    if load_state_flag:
-        file_id, chunks_with_analysis, doc_analysis_result, map_results = loadStateDBA()
-        if not chunks_with_analysis:
-            logging.warning("No chunks with analysis found in loaded state. Skipping embedding generation.")
-            return {}
     logging.info("Step 3.3: Generating embeddings...")
     embeddings_dict: Dict[str, List[float]] = {}
     try:
@@ -331,12 +299,8 @@ def get_embeddings(load_state_flag, file_id: Optional[str] = None,
 
     return embeddings_dict, file_id, chunks_with_analysis, doc_analysis_result, map_results
 
-def perform_graph_analyisis(load_state_flag, file_id: str, doc_analysis_result: Dict[str, Any], 
+def perform_graph_analyisis(file_id: str, doc_analysis_result: Dict[str, Any], 
         chunks_with_analysis: List[Dict[str, Any]]) -> Tuple[List[Dict], List[Dict]]:
-    if load_state_flag:
-        file_id, embeddings_dict, chunks_with_analysis, doc_analysis_result, map_results = loadStateEA()
-    # --- 7. Graph Data Construction --- #
-    # [Code for Graph Construction remains unchanged] ...
     logging.info("Step 3.4: Constructing graph data...")
     graph_nodes: List[Dict] = []
     graph_edges: List[Dict] = []
@@ -402,7 +366,3 @@ def store_data(pinecone_index, neo4j_driver, file_id: str,
 
     logging.info(f"Stage 3: Downstream Processing complete for {file_id}.")
 
-# Note: Calls to state_storage functions now use the imported original functions:
-# original_save_state(data: Dict, storage_point: StateStoragePoints)
-# original_load_state(run_from: CodeStages) -> Dict
-# These calls do not involve file_id or stage string values.

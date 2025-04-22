@@ -20,6 +20,7 @@ try:
     from globals import *
     from UtilityFunctions import *
     from DSAIParams import *
+    from DSAIUtilities import *    
 except ImportError as e:
     print(f"Error importing core modules (globals, UtilityFunctions, DSAIParams): {e}")
     raise
@@ -142,10 +143,7 @@ def coarse_chunk_by_structure(full_text: str) -> List[Dict[str, Any]]:
             if not text_slice: continue
 
             # --- ADD CLEANING HERE --- #
-            cleaned_text = text_slice.replace('â€œ', '"') \
-                                     .replace('â€', '"') \
-                                     .replace('â€™', "'") \
-                                     .replace('_', '') # Remove emphasis underscores
+            cleaned_text = cleanText(text_slice) # Use the cleanText function
             # --- END CLEANING --- #
 
             # Determine type and reference using stored info
@@ -159,6 +157,7 @@ def coarse_chunk_by_structure(full_text: str) -> List[Dict[str, Any]]:
                 'ref': ref,
                 'structural_marker': structural_marker
             })
+            aa=1
         logging.info(f"Coarse chunking resulted in {len(coarse_chunks)} structure-based blocks.")
 
     else: # No reliable structure found, use fallback
@@ -176,10 +175,7 @@ def coarse_chunk_by_structure(full_text: str) -> List[Dict[str, Any]]:
             text_slice = full_text[current_pos:split_pos].strip()
             if text_slice:
                  # --- ADD CLEANING HERE --- #
-                 cleaned_text = text_slice.replace('â€œ', '"') \
-                                          .replace('â€', '"') \
-                                          .replace('â€™', "'") \
-                                          .replace('_', '') # Remove emphasis underscores
+                 cleaned_text = cleanText(text_slice) # Use the cleanText function
                  # --- END CLEANING --- #
 
                  unit_type = 'FallbackBlock'

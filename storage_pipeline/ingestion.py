@@ -18,6 +18,7 @@ try:
     from globals import *
     from UtilityFunctions import *
     from DSAIParams import *
+    from DSAIUtilities import *  # Import utility functions if needed
 except ImportError as e:
     print(f"Error importing core modules (globals, UtilityFunctions, DSAIParams): {e}")
     raise
@@ -54,6 +55,7 @@ def ingest_document(file_path: str) -> str:
         # Replace multiple consecutive newlines (and surrounding space) with a single newline
         # This preserves paragraph breaks but collapses excessive blank lines
         cleaned_text = re.sub(r'\s*\n\s*', '\n', cleaned_text).strip()
+        cleaned_text= cleanText(cleaned_text)  # Assuming cleanText is a function defined in UtilityFunctions or similar
 
         # TODO: Add more sophisticated cleaning if needed based on document types
         # e.g., handling specific artifacts from PDF/DOCX conversion if applicable

@@ -61,7 +61,7 @@ def _openai_llm_call(
 
         response = openai_client.chat.completions.create(**params)
         raw_content = response.choices[0].message.content
-        raw_content = cleanLLMOutput(raw_content) # Clean the response if needed        
+        raw_content = cleanText(raw_content) # Clean the response if needed        
         if raw_content is None:
              raise ValueError(f"OpenAI response content is None for model {LLM_model}")
         logging.debug("OpenAI call successful.")
@@ -103,6 +103,8 @@ def _gemini_llm_call(
             prompt,
             generation_config=generation_config
         )
+        if (not has_string(prompt, "’")):
+            aaa=3
 
         # Accessing the response text
         # Need to check response.parts structure and potential blocks/errors
@@ -118,6 +120,8 @@ def _gemini_llm_call(
                   raise ValueError(f"Gemini call blocked. Reason: {response.prompt_feedback.block_reason}")
              else:
                   raise ValueError(f"Gemini response content is empty or inaccessible. Response: {response}")
+        if (not has_string(raw_content, "’")):
+            aaa=3
 
         if raw_content is None:
              raise ValueError(f"Gemini response content is None for model {LLM_model}")
@@ -126,7 +130,7 @@ def _gemini_llm_call(
         # Optional: Clean Gemini's JSON output if it includes markdown backticks
         if response_format and response_format.get("type") == "json_object":
              raw_content = raw_content.strip().removeprefix("```json").removesuffix("```")
-        raw_content = cleanLLMOutput(raw_content) # Clean the response if needed
+        raw_content = cleanText(raw_content) # Clean the response if needed
         return raw_content
 
     except Exception as e:
@@ -202,9 +206,13 @@ def call_llm_json_mode(system_message: str, prompt: str,
             temperature=temperature,
             response_format={"type": "json_object"} # Pass hint to llm_call/provider funcs
         )
-
+        #db
+        if (not has_string(result_string, "’")):
+            aaa=3
         # Parse the cleaned JSON string
         result = json.loads(result_string)
+        if (not has_string(result_string, "’")):
+            aaa=3
         return result
 
     except json.JSONDecodeError as json_e:
@@ -273,7 +281,7 @@ def parallel_llm_calls(
         return results
 
     logging.info(f"Processing {len(input_data_list)} items in parallel with {num_workers} workers...")
-
+    
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         # Map futures to the original index to place results correctly
         future_to_index = {

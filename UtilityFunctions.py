@@ -16,12 +16,60 @@ import json
 import globals as g
 from globals import *
 import gc
-import json
 
 clr.AddReference('Python.Runtime')
 clr.AddReference(r"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.dll")
 from System import Array, Int32, Double
+
  
+def cleanText(text: str) -> str:
+    """
+    Cleans a string by replacing common non-ASCII punctuation and
+    potentially problematic characters with their closest ASCII equivalents.
+    Also handles potential Mojibake patterns if they exist.
+    """
+    if not isinstance(text, str):
+        text = str(text) # Ensure input is a string
+
+    replacements = {
+        # --- Stage 1: Fix potential Mojibake first ---
+        # (If text might already be corrupted, e.g., UTF-8 read as Windows-1252)
+        'â€™': "'",
+        'â€œ': '"',
+        'â€': '"',
+        'â€“': '-',
+        'â€”': '--', # Use double dash for em dash
+        'â€¦': '...',
+        'â€˜': "'",
+        'â€': '"', # Common Mojibake for quote/apostrophe
+        'Ã©': 'e', # Example Mojibake for é
+
+        # --- Stage 2: Convert correct Unicode to simple ASCII ---
+        '\u2018': "'",  # Left single quote -> ASCII apostrophe
+        '\u2019': "'",  # Right single quote / Unicode Apostrophe -> ASCII apostrophe
+        '\u201c': '"',  # Left double quote -> ASCII double quote
+        '\u201d': '"',  # Right double quote -> ASCII double quote
+        '\u2013': '-',  # En dash -> ASCII hyphen
+        '\u2014': '--', # Em dash -> ASCII double hyphen
+        '\u2026': '...', # Ellipsis -> ASCII triple dot
+        '\u00a0': ' ',  # Non-breaking space -> ASCII space
+        # Add more direct Unicode to ASCII mappings as needed
+        '\u00e9': 'e',  # é -> e
+        '\u00e8': 'e',  # è -> e
+        '\u00ea': 'e',  # ê -> e
+        # ... etc. for other common accented characters if desired
+    }
+
+    for bad, good in replacements.items():
+        text = text.replace(bad, good)
+
+    # Optional: Final check for any remaining non-ASCII after replacement
+    # This is generally not needed if replacements are comprehensive and
+    # the final write uses errors='ignore' or 'replace', but can be useful
+    # for debugging the cleaning process itself.
+    # text = text.encode('ascii', 'ignore').decode('ascii')
+
+    return text.strip()
 
 def find_modes(distances, bandwidth=None):
     # Flatten the distance matrix 
@@ -573,9 +621,9 @@ def Read2DMatFromFileSep(fileName, separator="\t"):
     
     return mat2D
 
-def WriteDictToFile(dictionary, filename=g.tempOutputFile, ensureAscii=True):
-    with open(filename, 'w') as file:
-        json.dump(dictionary, file, ensure_ascii=ensureAscii)
+def WriteDictToFile(dictionary, filename=g.tempOutputFile, ensureAscii=False):
+    with open(filename, 'w', encoding='utf-8') as file:
+        json.dump(dictionary, file, ensure_ascii=ensureAscii, indent=2)        
         
 def ReadDictFromFile(filename):
     with open(filename, 'r') as file:
@@ -1625,7 +1673,7 @@ def deep_getsizeof(obj, seen=None):
         size += sum(deep_getsizeof(i, seen) for i in obj)
     return size
 
-def WriteJSONToMindMap(jsonObj, filename=g.tempOutputFile):
+def WriteJSONToMindMapOld(jsonObj, filename=g.tempOutputFile):
     def recurse(obj, level=0, key_name=None, lines=None):
         if lines is None:
             lines = []
@@ -1659,11 +1707,10 @@ def WriteJSONToMindMap(jsonObj, filename=g.tempOutputFile):
 
     lines = recurse(jsonObj)
     with open(filename, 'w', encoding='utf-8') as f:
-        # Convert to ASCII-safe form before writing
-        f.write('\n'.join(lines).encode('ascii', 'backslashreplace').decode('ascii'))
+        f.write('\n'.join(lines))
 
 # function to convert dictionary object to a mindmap
-def WriteDictToMindMap(dictObj, filename=g.tempOutputFile):
+def WriteDictToMindMapOld(dictObj, filename=g.tempOutputFile):
     def recurse(obj, level=0, key_name=None, lines=None):
         if lines is None:
             lines = []
@@ -1690,6 +1737,116 @@ def WriteDictToMindMap(dictObj, filename=g.tempOutputFile):
     with open(filename, 'w', encoding='utf-8') as f:
         # Convert to ASCII-safe form
         f.write('\n'.join(lines).encode('ascii', 'backslashreplace').decode('ascii'))
+
+def WriteJSONToMindMap(jsonObj, filename=g.tempOutputFile): # Kept original default filename
+    """
+    Converts a JSON-like object (dict/list structure) to a hierarchical
+    text format, replacing common non-ASCII punctuation with ASCII
+    equivalents using cleanText() before writing.
+    Writes the result using ASCII encoding.
+    """
+    def recurse(obj, level=0, key_name=None, lines=None):
+        if lines is None:
+            lines = []
+
+        indent = '\t' * level
+
+        # Handle dictionary
+        if isinstance(obj, dict):
+            if key_name is not None:
+                # Clean the key name itself before appending
+                clean_key_name = cleanText(key_name) # Use cleanText
+                lines.append(f"{indent}{clean_key_name}")
+            # This version puts the key on its own line, then recurses
+            # Adjust indentation for children
+            # child_indent = '\t' * (level + 1) # Not strictly needed if children indent themselves
+            for k, v in obj.items():
+                 # Pass the original key 'k' as the name for the value 'v'
+                recurse(v, level + 1, k, lines)
+
+        # Handle list
+        elif isinstance(obj, list):
+            if key_name is not None:
+                 # Clean the key name itself before appending
+                clean_key_name = cleanText(key_name) # Use cleanText
+                lines.append(f"{indent}{clean_key_name}")
+            # This version puts the list name on its own line, then recurses items
+            # child_indent = '\t' * (level + 1) # Not strictly needed
+            for i, item in enumerate(obj): # Using 0-based index for label
+                # Create a label like "parent_key[0]", "parent_key[1]", etc.
+                node_label = f"{key_name}[{i}]" if key_name else f"item[{i}]"
+                 # Clean the generated label before passing it down
+                clean_node_label = cleanText(node_label) # Use cleanText
+                 # Pass cleaned label for the list item
+                recurse(item, level + 1, clean_node_label, lines)
+
+        # Handle scalar (string, number, bool, None)
+        else:
+            # Convert to string and clean the scalar value
+            obj_str = str(obj)
+            clean_obj_str = cleanText(obj_str) # Use cleanText
+
+            if key_name is not None:
+                 # Clean the key name before appending the line
+                clean_key_name = cleanText(key_name) # Use cleanText
+                lines.append(f"{indent}{clean_key_name}: {clean_obj_str}")
+            else: # Safeguard for root scalar
+                 lines.append(f"{indent}{clean_obj_str}")
+
+        return lines
+
+    try:
+        lines = recurse(jsonObj)
+        # Join lines (already cleaned individually)
+        full_output_string = '\n'.join(lines)
+
+        # Write the resulting string (should be mostly ASCII now)
+        # Using ASCII encoding is safe because we replaced problematic chars.
+        # errors='ignore' will drop any remaining non-ASCII chars we didn't clean.
+        with open(filename, 'w', encoding='ascii', errors='ignore') as f:
+             f.write(full_output_string)
+        # print(f"Mind map data (ASCII cleaned) written to {filename}")
+
+    except Exception as e:
+        print(f"Error writing JSON to mind map {filename}: {e}")
+
+def WriteDictToMindMap(dictObj, filename=g.tempOutputFile): # Changed default filename
+    def recurse(obj, level=0, key_name=None, lines=None):
+        if lines is None:
+            lines = []
+
+        indent = '\t' * level
+
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                # Clean the key before appending
+                clean_key = cleanText(k) # Use the revised function
+                lines.append(f"{indent}{clean_key}")
+                recurse(v, level + 1, None, lines)
+
+        elif isinstance(obj, list):
+            for i, item in enumerate(obj, 1):
+                label = f"item_{i}" # Label is already ASCII
+                lines.append(f"{indent}{label}")
+                recurse(item, level + 1, None, lines)
+
+        else:
+            # Clean the scalar value before appending
+            obj_str = str(obj)
+            clean_obj_str = cleanText(obj_str) # Use the revised function
+            lines.append(f"{indent}{clean_obj_str}")
+
+        return lines
+
+    try:
+        lines = recurse(dictObj)
+        full_output_string = '\n'.join(lines) # Lines are already cleaned
+
+        with open(filename, 'w', encoding='ascii', errors='ignore') as f:
+            f.write(full_output_string)
+
+    except Exception as e:
+        print(f"Error writing dictionary to mind map {filename}: {e}")
 
 def WriteDictOrJsonToMM(Obj, filename=g.tempOutputFile):
     if isinstance(Obj, dict):

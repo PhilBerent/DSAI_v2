@@ -20,6 +20,7 @@ LargeBlockAnalysisCompletedFile = os.path.join(StateStorageDirectory, "LargeBloc
 IterativeAnalysisCompletedFile = os.path.join(StateStorageDirectory, "IterativeAnalysisCompleted.json")
 DetailedBlockAnalysisCompletedFile = os.path.join(StateStorageDirectory, "DetailedBlockAnalysisCompleted.json")
 EmbeddingsCompletedFile = os.path.join(StateStorageDirectory, "EmbeddingsCompleted.json")
+GraphAnalysisCompletedFile = os.path.join(StateStorageDirectory, "GraphAnalysisCompleted.json")
 PINECONE_API_KEY = ""
 PINECONE_ENVIRONMENT = ""
 UPSERT_BATCH_SIZE = 0

@@ -1,57 +1,34 @@
 import json
 import os
-import gzip # Import gzip for compression
+import zstandard as zstd
 from typing import Any, Dict
 from UtilityFunctions import *
 from globals import *
 from DSAIParams import *
-
-# Assuming globals.py and enums_and_constants.py are in the same directory or sys.path is configured
-from globals import StateStorageDirectory, LargeBlockAnalysisCompletedFile, IterativeAnalysisCompletedFile
 from enums_and_constants import StateStoragePoints, CodeStages
 
-def _get_file_path(storage_point: StateStoragePoints) -> str:
-    """Maps a StateStoragePoints enum to its corresponding file path."""
-    if storage_point == StateStoragePoints.LargeBlockAnalysisCompleted:
-        return LargeBlockAnalysisCompletedFile
-    elif storage_point == StateStoragePoints.IterativeAnalysisCompleted:
-        return IterativeAnalysisCompletedFile
-    else:
-        # Should not happen if enums are used correctly
-        raise ValueError(f"Unknown StateStoragePoints: {storage_point}")
-
-def save_state(data_to_save: Dict[str, Any], file_path: str):
-    os.makedirs(StateStorageDirectory, exist_ok=True)  # Ensure the directory exists
+def _compress_json_to_file(data: Dict[str, Any], file_path: str, level: int = 10):
+    os.makedirs(StateStorageDirectory, exist_ok=True)
     try:
-        # Serialize data to JSON with ASCII-only encoding
-        json_string = json.dumps(data_to_save, indent=4, ensure_ascii=True)
-
-        # Encode JSON string to bytes (UTF-8 is fine since everything is now ASCII)
-        json_bytes = json_string.encode('utf-8')
-
-        # Write compressed bytes to file
-        with gzip.open(file_path, 'wb') as f_gz:
-            f_gz.write(json_bytes)
-
-        print(f"State successfully saved and compressed to {file_path}")
+        json_bytes = json.dumps(data, indent=4, ensure_ascii=True).encode('utf-8')
+        with open(file_path, 'wb') as f_out:
+            cctx = zstd.ZstdCompressor(level=level)
+            f_out.write(cctx.compress(json_bytes))
+        print(f"State successfully saved with Zstandard compression to {file_path}")
     except Exception as e:
         print(f"Error saving compressed state to {file_path}: {e}")
 
+def _decompress_json_from_file(file_path: str) -> Dict[str, Any]:
+    with open(file_path, 'rb') as f_in:
+        dctx = zstd.ZstdDecompressor()
+        json_bytes = dctx.decompress(f_in.read())
+    return json.loads(json_bytes.decode('utf-8'))
+
+def save_state(data_to_save: Dict[str, Any], file_path: str):
+    _compress_json_to_file(data_to_save, file_path)
+
 def loadStateLBA():
-    """
-    Loads the state from the LargeBlockAnalysisCompleted file.
-
-    Returns:
-        A dictionary containing the loaded state.
-    """
-    file_path = LargeBlockAnalysisCompletedFile
-    with gzip.open(file_path, 'rb') as f_gz:
-        json_bytes = f_gz.read()
-
-    # Decode bytes back to JSON string
-    json_string = json_bytes.decode('utf-8')
-    # Deserialize JSON string
-    loaded_state = json.loads(json_string)
+    loaded_state = _decompress_json_from_file(LargeBlockAnalysisCompletedFile)
     large_blocks = loaded_state.get("large_blocks")
     map_results = loaded_state.get("map_results")
     final_entities = loaded_state.get("final_entities")
@@ -59,11 +36,7 @@ def loadStateLBA():
     return large_blocks, map_results, final_entities, raw_text
 
 def loadStateIA():
-    #   Loads the state from the IterativeAnalysisCompleted file.
-    file_path = IterativeAnalysisCompletedFile
-    with gzip.open(file_path, 'rb') as f_gz:
-        json_bytes = f_gz.read()
-    loaded_state = json.loads(json_bytes.decode('utf-8'))
+    loaded_state = _decompress_json_from_file(IterativeAnalysisCompletedFile)
     doc_analysis_result = loaded_state.get("doc_analysis_result")
     large_blocks = loaded_state.get("large_blocks")
     map_results = loaded_state.get("map_results") 
@@ -71,11 +44,7 @@ def loadStateIA():
     return doc_analysis_result, large_blocks, map_results, raw_text
 
 def loadStateDBA():
-    #   Loads the state from the DetailedBlockAnalysisCompleted file.
-    file_path = DetailedBlockAnalysisCompletedFile
-    with gzip.open(file_path, 'rb') as f_gz:
-        json_bytes = f_gz.read()
-    loaded_state = json.loads(json_bytes.decode('utf-8'))
+    loaded_state = _decompress_json_from_file(DetailedBlockAnalysisCompletedFile)
     file_id = loaded_state.get("file_id")
     chunks_with_analysis = loaded_state.get("chunks_with_analysis")
     map_results = loaded_state.get("map_results") 
@@ -83,10 +52,7 @@ def loadStateDBA():
     return file_id, chunks_with_analysis, doc_analysis_result, map_results
 
 def loadStateEA():
-    file_path = EmbeddingsCompletedFile
-    with gzip.open(file_path, 'rb') as f_gz:
-        json_bytes = f_gz.read()
-    loaded_state = json.loads(json_bytes.decode('utf-8'))
+    loaded_state = _decompress_json_from_file(EmbeddingsCompletedFile)
     file_id = loaded_state.get("file_id")   
     embeddings_dict = loaded_state.get("embeddings_dict")
     chunks_with_analysis = loaded_state.get("chunks_with_analysis")
@@ -94,3 +60,14 @@ def loadStateEA():
     map_results = loaded_state.get("map_results")
     return file_id, embeddings_dict, chunks_with_analysis, doc_analysis_result, map_results
 
+def loadStateGA():
+    loaded_state = _decompress_json_from_file(GraphAnalysisCompletedFile)
+    loaded_state = json.loads(json_bytes.decode('utf-8'))
+    file_id = loaded_state.get("file_id")
+    graph_nodes = loaded_state.get("graph_nodes")
+    graph_edges = loaded_state.get("graph_edges")
+    embeddings_dict = loaded_state.get("embeddings_dict")
+    chunks_with_analysis = loaded_state.get("chunks_with_analysis")
+    doc_analysis_result = loaded_state.get("doc_analysis_result")
+    map_results = loaded_state.get("map_results")
+    return file_id, graph_nodes, graph_edges, embeddings_dict, chunks_with_analysis, doc_analysis_result, map_results

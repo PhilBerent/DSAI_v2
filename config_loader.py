@@ -9,6 +9,7 @@ import logging
 import sys
 from DSAIParams import *  # Import all parameters from DSAIParams
 from globals import *  # Import global variables and constants
+import google.auth
 
 # Adjust path if necessary - assuming this file is now in DSAI_v2_Scripts
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -50,7 +51,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 AIPlatform_upper = AIPlatform.upper()
 if AIPlatform_upper == "GEMINI":
     try:
-        genai.configure(api_key=LLMAPI_KEY)
+        # genai.configure(api_key=LLMAPI_KEY)
+        genai.configure()  # Uses ADC
+        creds, project = google.auth.default()
+        logging.info(f"Using ADC credentials for project: {project}")
+
         logging.info("Gemini client configured via config_loader.")
     except Exception as e:
         logging.error(f"Failed to configure Gemini client in config_loader: {e}")
