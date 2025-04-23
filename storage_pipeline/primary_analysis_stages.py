@@ -112,8 +112,8 @@ def large_block_analysis(document_path: str, file_id: str) -> Tuple[str, List[Di
     return raw_text, large_blocks, map_results, final_entities
 
 
-# --- Stage 2: LargeBlockAnalysisCompleted -> IterativeAnalysisCompleted ---
-def perform_iterative_analysis(file_id: str, raw_text: Optional[str] = None,
+# --- Stage 2: LargeBlockAnalysisCompleted -> ReduceAnalysisCompleted ---
+def perform_reduce_analysis(file_id: str, raw_text: Optional[str] = None,
     large_blocks: Optional[List[Dict[str, Any]]] = None, map_results: Optional[List[Dict[str, Any]]] = None,
     final_entities: Optional[Dict[str, List[str]]] = None) -> Tuple[Optional[str], Optional[List[Dict[str, Any]]], Optional[List[Dict[str, Any]]], Optional[Dict[str, List[str]]], Dict[str, Any]]:
     # Handles the reduce phase of the analysis.
@@ -139,10 +139,10 @@ def perform_iterative_analysis(file_id: str, raw_text: Optional[str] = None,
         raise ValueError(f"Reduce phase analysis failed with exception: {e}") from e
 
 
-    # --- Save State: IterativeAnalysisCompleted ---
+    # --- Save State: ReduceAnalysisCompleted ---
     # Use the original save_state(data, storage_point_enum) signature
-    if StateStoragePoints.IterativeAnalysisCompleted in StateStorageList:
-        logging.info(f"Saving state for {StateStoragePoints.IterativeAnalysisCompleted.name} (using original state_storage)...")
+    if StateStoragePoints.ReduceAnalysisCompleted in StateStorageList:
+        logging.info(f"Saving state for {StateStoragePoints.ReduceAnalysisCompleted.name} (using original state_storage)...")
         state_to_save = {
             "doc_analysis_result": doc_analysis_result,
             "large_blocks": large_blocks,
@@ -151,17 +151,17 @@ def perform_iterative_analysis(file_id: str, raw_text: Optional[str] = None,
             "raw_text": raw_text
         }
         try:
-            file_path = IterativeAnalysisCompletedFile
+            file_path = ReduceAnalysisCompletedFile
             save_state(state_to_save, file_path)
         except Exception as e:
-            logging.error(f"Original state_storage.py save failed for {StateStoragePoints.IterativeAnalysisCompleted.name}: {e}", exc_info=True)
+            logging.error(f"Original state_storage.py save failed for {StateStoragePoints.ReduceAnalysisCompleted.name}: {e}", exc_info=True)
             # raise
 
     logging.info(f"Stage 2: Iterative Analysis complete for {file_id}.")
     return raw_text, large_blocks, map_results, final_entities, doc_analysis_result
 
 
-# --- Stage 3: IterativeAnalysisCompleted -> End ---
+# --- Stage 3: ReduceAnalysisCompleted -> End ---
 def perform_detailed_chunk_analysis(file_id: str,
     raw_text: Optional[str] = None, large_blocks: Optional[List[Dict[str, Any]]] = None,
     map_results: Optional[List[Dict[str, Any]]] = None, doc_analysis_result: Optional[Dict[str, Any]] = None

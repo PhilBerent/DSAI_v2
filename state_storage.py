@@ -36,7 +36,7 @@ def loadStateLBA():
     return large_blocks, map_results, final_entities, raw_text
 
 def loadStateIA():
-    loaded_state = _decompress_json_from_file(IterativeAnalysisCompletedFile)
+    loaded_state = _decompress_json_from_file(ReduceAnalysisCompletedFile)
     doc_analysis_result = loaded_state.get("doc_analysis_result")
     large_blocks = loaded_state.get("large_blocks")
     map_results = loaded_state.get("map_results") 

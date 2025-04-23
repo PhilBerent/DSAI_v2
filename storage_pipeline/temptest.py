@@ -15,11 +15,11 @@ class DocumentType2(Enum):
 # class RunFromType(Enum):
 #     Start = "Start"
 #     LargeBlockAnalysisCompleted = "LargeBlockAnalysisCompleted"
-#     IterativeAnalysisCompleted = "IterativeAnalysisCompleted"
+#     ReduceAnalysisCompleted = "ReduceAnalysisCompleted"
 
 # class StateStoragePoints(Enum):
 #     LargeBlockAnalysisCompleted = "LargeBlockAnalysisCompleted"
-#     IterativeAnalysisCompleted = "IterativeAnalysisCompleted"
+#     ReduceAnalysisCompleted = "ReduceAnalysisCompleted"
 
 # DocumentTypeList = ["Novel", "Biography", "Journal Article"]
     

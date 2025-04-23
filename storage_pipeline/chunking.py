@@ -155,7 +155,8 @@ def coarse_chunk_by_structure(full_text: str) -> List[Dict[str, Any]]:
                 'text': cleaned_text, # Use cleaned text
                 'type': unit_type,
                 'ref': ref,
-                'structural_marker': structural_marker
+                'structural_marker': structural_marker,
+                'start_char': start_pos
             })
             aa=1
         logging.info(f"Coarse chunking resulted in {len(coarse_chunks)} structure-based blocks.")
@@ -186,7 +187,8 @@ def coarse_chunk_by_structure(full_text: str) -> List[Dict[str, Any]]:
                      'text': cleaned_text, # Use cleaned text
                      'type': unit_type,
                      'ref': ref,
-                     'structural_marker': structural_marker
+                     'structural_marker': structural_marker,
+                     'start_char': current_pos
                  })
                  block_index += 1
             current_pos = split_pos + 1
@@ -195,11 +197,111 @@ def coarse_chunk_by_structure(full_text: str) -> List[Dict[str, Any]]:
 
     return coarse_chunks
 
+# --- Helper: Split block into paragraph/scene pieces ---
+def split_by_paragraph_and_scene(text: str, start_offset: int, structure_ref: str) -> List[Dict[str, Any]]:
+    """Splits a block of text into smaller pieces based on paragraphs and scene breaks.
+
+    Args:
+        text: The text content of the larger structural block.
+        start_offset: The starting character offset of this block within the original document.
+        structure_ref: A reference string for the structural block (e.g., "Chapter 1").
+
+    Returns:
+        A list of dictionaries, each representing a piece with text and character offsets.
+    """
+    pieces = []
+    current_char_offset = 0
+    # Split by scene breaks first (multiple newlines)
+    potential_pieces = SCENE_BREAK_PATTERN.split(text)
+
+    for piece_text in potential_pieces:
+        trimmed_piece = piece_text.strip()
+        if not trimmed_piece:
+            # Update offset even for empty lines caused by split to maintain position
+            # Find the original text corresponding to this split part to get its length
+            original_part_start = text.find(piece_text, current_char_offset)
+            if original_part_start != -1:
+                 current_char_offset = original_part_start + len(piece_text)
+            # else: couldn't find it, offset might drift slightly. Best effort.
+            continue
+
+        # Calculate the start/end offsets relative to the original document
+        # Find where this trimmed piece starts within the original *block* text
+        piece_start_in_block = text.find(trimmed_piece, current_char_offset)
+        if piece_start_in_block == -1:
+             logging.warning(f"Could not reliably find start offset for piece within block '{structure_ref}'. Offsets may be approximate.")
+             # Fallback: use current_char_offset, might not be perfect
+             piece_start_in_block = current_char_offset
+
+        piece_original_start = start_offset + piece_start_in_block
+        piece_original_end = piece_original_start + len(trimmed_piece)
+
+        pieces.append({
+            'text': trimmed_piece,
+            'start_char': piece_original_start,
+            'end_char': piece_original_end,
+            'source_location': {'structure_ref': structure_ref} # Initial source location
+        })
+
+        # Update the current character offset within the block text for the next search
+        current_char_offset = piece_start_in_block + len(trimmed_piece)
+
+    # Further split by single newlines (paragraphs) if necessary? - Current logic handles paragraphs implicitly
+    # The SCENE_BREAK_PATTERN split handles major breaks. If finer paragraph splitting is needed,
+    # it could be added here, but often splitting by multiple newlines is sufficient.
+
+    logging.debug(f"Split block '{structure_ref}' into {len(pieces)} pieces.")
+    return pieces
+
+import re
+
+import re
+import logging
+from typing import List, Dict, Any
+
+def align_start_to_boundary(text: str) -> str:
+    """
+    Skips forward to the first likely sentence or word boundary.
+    Removes leading partial words or punctuation fragments.
+    """
+    # Try skipping to the next sentence boundary
+    sentence_start = re.search(r'(?<=[.?!])["’”\']?\s+[A-Z]', text)
+    if sentence_start:
+        return text[sentence_start.start() + 1:].lstrip()
+
+    # If no sentence start, skip to first full word (space followed by letter)
+    word_start = re.search(r'\s+[A-Za-z]', text)
+    if word_start:
+        return text[word_start.start() + 1:].lstrip()
+
+    # Fallback: return as-is
+    return text
+
+def safe_truncate_text(text: str, max_length: int) -> str:
+    """
+    Truncates text to the nearest sentence or word boundary within max_length.
+    """
+    if len(text) <= max_length:
+        return text.strip()
+
+    # Try to find a sentence boundary
+    sentence_endings = list(re.finditer(r'[.!?]["’”\']?\s', text[:max_length + 1]))
+    if sentence_endings:
+        return text[:sentence_endings[-1].end()].strip()
+
+    # If no sentence boundary, try to find a word boundary
+    word_boundary = text[:max_length].rstrip()
+    last_space = word_boundary.rfind(' ')
+    if last_space != -1 and last_space > max_length * 0.5:
+        return word_boundary[:last_space].strip()
+
+    # Fallback: truncate at max_length
+    return word_boundary
 
 # --- REVISED: Step 4 - Adaptive Text Chunking (Fine-Grained) ---
 def adaptive_chunking(
-    structural_units: List[Dict[str, Any]], # Coarse chunks/units
-    map_results: List[Dict[str, Any]],      # Corresponding analysis results from map phase
+    structural_units: List[Dict[str, Any]],  # Coarse chunks/units
+    map_results: List[Dict[str, Any]],       # Corresponding analysis results from map phase
     target_chunk_size: int = DEFAULT_TARGET_CHUNK_SIZE_TOKENS,
     chunk_overlap: int = DEFAULT_CHUNK_OVERLAP_TOKENS
 ) -> List[Dict[str, Any]]:
@@ -220,6 +322,8 @@ def adaptive_chunking(
     final_chunks = []
     chunk_index = 0
 
+    max_chunk_size = int(target_chunk_size * 2.5)
+
     # Ensure map_results align with structural_units
     if len(structural_units) != len(map_results):
         logging.error(f"Mismatch between structural_units ({len(structural_units)}) and map_results ({len(map_results)}) count. Cannot reliably link metadata.")
@@ -235,13 +339,12 @@ def adaptive_chunking(
 
         # Get the corresponding analysis from the map phase
         map_analysis = map_results[unit_idx]
-        unit_type = map_analysis.get('unit_type', 'UnknownType') # <-- Use type from map_analysis
-        # --- End change ---
+        unit_type = map_analysis.get('unit_type', 'UnknownType')  # <-- Use type from map_analysis
 
         # Use the structural marker found during map phase for better reference
         # Fallback to original ref if marker wasn't found or is empty
         struct_meta_ref = map_analysis.get('structural_marker_found')
-        if not struct_meta_ref: # Handle None or empty string
+        if not struct_meta_ref:  # Handle None or empty string
             struct_meta_ref = original_unit_ref
 
         # Use the type determined by the map phase analysis
@@ -255,22 +358,81 @@ def adaptive_chunking(
                 continue
             # Use combined reference for source location
             scene_ref_combined = f"{struct_meta_ref} / Scene {scene_index + 1}"
-            # db
-            if (len(scene_text) < 1):
-                a=2
-            # ed
-            # Split scene by paragraphs
+
             paragraphs = [p.strip() for p in scene_text.split('\n') if p.strip()]
 
             current_chunk_text = ""
             current_chunk_token_count = 0
             para_start_index = 0
+            para_index = 0
 
-            for para_index, paragraph in enumerate(paragraphs):
+            while para_index < len(paragraphs):
+                paragraph = paragraphs[para_index]
                 para_token_count = _get_token_count(paragraph)
 
+                # --- NEW: Enforce hard maximum chunk size ---
+                if current_chunk_token_count + para_token_count > max_chunk_size:
+                    # Force break current_chunk_text if it’s already too big
+                    if current_chunk_token_count > 0:
+                        chunk_id = str(uuid.uuid4())
+                        final_chunks.append({
+                            'chunk_id': chunk_id,
+                            'text': current_chunk_text.strip(),
+                            'metadata': {
+                                'document_id': None,
+                                'source_location': {
+                                    'structure_type': struct_meta_type,
+                                    'structure_ref': f"{scene_ref_combined} / Paras {para_start_index+1}-{para_index}",
+                                    'sequence': chunk_index
+                                }
+                            }
+                        })
+                        chunk_index += 1
+                        overlap_text = " ".join(current_chunk_text.split()[-chunk_overlap:])
+                        current_chunk_text = overlap_text
+                        current_chunk_token_count = _get_token_count(current_chunk_text)
+                        para_start_index = para_index
+                        continue
+
+                    # If the paragraph *alone* is too big, break it mid-paragraph at word boundary
+                    words = paragraph.split()
+                    truncated_paragraph = []
+                    token_total = 0
+                    for word in words:
+                        word_token_count = _get_token_count(word)
+                        if token_total + word_token_count > max_chunk_size:
+                            break
+                        truncated_paragraph.append(word)
+                        token_total += word_token_count
+
+                    chunk_text = " ".join(truncated_paragraph)
+                    chunk_id = str(uuid.uuid4())
+                    final_chunks.append({
+                        'chunk_id': chunk_id,
+                        'text': chunk_text.strip(),
+                        'metadata': {
+                            'document_id': None,
+                            'source_location': {
+                                'structure_type': struct_meta_type,
+                                'structure_ref': f"{scene_ref_combined} / Paras {para_start_index+1}-{para_index+1} (split)",
+                                'sequence': chunk_index
+                            }
+                        }
+                    })
+                    chunk_index += 1
+
+                    # Put the remaining part of the paragraph back for future processing
+                    remaining_text = " ".join(words[len(truncated_paragraph):])
+                    if remaining_text:
+                        paragraphs.insert(para_index + 1, remaining_text)
+                    para_index += 1
+                    current_chunk_text = ""
+                    current_chunk_token_count = 0
+                    para_start_index = para_index
+                    continue
+
                 # If adding this paragraph exceeds target size significantly, finalize the current chunk
-                if current_chunk_token_count > 0 and (current_chunk_token_count + para_token_count > target_chunk_size * 1.2): # Allow some overshoot
+                if current_chunk_token_count > 0 and (current_chunk_token_count + para_token_count > target_chunk_size * 1.2):  # Allow some overshoot
                     chunk_id = str(uuid.uuid4())
                     final_chunks.append({
                         'chunk_id': chunk_id,
@@ -317,6 +479,8 @@ def adaptive_chunking(
                         current_chunk_text = overlap_text
                         current_chunk_token_count = _get_token_count(current_chunk_text)
                         para_start_index = para_index + 1
+
+                para_index += 1
 
             # Add any remaining text as the last chunk for this scene
             if current_chunk_text.strip() and len(current_chunk_text) > MIN_CHUNK_SIZE_CHARS:

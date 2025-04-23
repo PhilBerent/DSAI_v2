@@ -78,13 +78,13 @@ Here are the descriptions for functions in the requested files (excluding state_
 3.2.2.1 Purpose: Executes the "Reduce" phase of the iterative analysis. It takes the results from the map phase (block summaries and entities) and synthesizes them using an LLM to get a comprehensive, document-level analysis (type, overall summary, structure, final entity list).
 3.2.2.2 Inputs: file_id (str), plus optional outputs from the previous stage (raw_text, large_blocks, map_results, final_entities).
 3.2.2.3 Outputs: Tuple containing the inputs passed through (raw_text, large_blocks, map_results, final_entities) and the newly generated doc_analysis_result (Dict).
-3.2.2.4 Role: Implements Stage 2 (LargeBlockAnalysisCompleted -> IterativeAnalysisCompleted). It calls perform_reduce_document_analysis from analysis_functions.py to generate the overall document view. It saves the state including this new result.
+3.2.2.4 Role: Implements Stage 2 (LargeBlockAnalysisCompleted -> ReduceAnalysisCompleted). It calls perform_reduce_document_analysis from analysis_functions.py to generate the overall document view. It saves the state including this new result.
 
 3.2.4 perform_detailed_chunk_analysis(file_id: str, raw_text: Optional[str], large_blocks: Optional[List[Dict]], map_results: Optional[List[Dict]], doc_analysis_result: Optional[Dict])
 3.2.4.1 Purpose: Executes the fine-grained adaptive chunking and the parallel detailed analysis of each resulting chunk using LLM.
 3.2.4.2 Inputs: file_id (str), plus optional outputs from previous stages (raw_text, large_blocks, map_results, doc_analysis_result).
 3.2.4.3 Outputs: Tuple containing file_id (str), map_results (passed through), doc_analysis_result (passed through), and chunks_with_analysis (List[Dict] - fine-grained chunks with their detailed LLM analysis).
-3.2.4.4 Role: Implements Stage 3 (IterativeAnalysisCompleted -> DetailedBlockAnalysisCompleted). Calls adaptive_chunking from chunking.py and then orchestrates parallel LLM calls via parallel_llm_calls (from llm_calls.py) using the worker_analyze_chunk helper function (defined in analysis_functions.py) to enrich each chunk. Saves the state.
+3.2.4.4 Role: Implements Stage 3 (ReduceAnalysisCompleted -> DetailedBlockAnalysisCompleted). Calls adaptive_chunking from chunking.py and then orchestrates parallel LLM calls via parallel_llm_calls (from llm_calls.py) using the worker_analyze_chunk helper function (defined in analysis_functions.py) to enrich each chunk. Saves the state.
 
 3.2.5 get_embeddings(file_id: Optional[str], chunks_with_analysis: Optional[List[Dict]], doc_analysis_result: Optional[Dict], map_results: Optional[List[Dict]])
 3.2.5.1 Purpose: Generates vector embeddings for the text content of the analyzed chunks.

@@ -54,7 +54,7 @@ def ingest_document(file_path: str) -> str:
         cleaned_text = re.sub(r'[ \t]+', ' ', raw_text)
         # Replace multiple consecutive newlines (and surrounding space) with a single newline
         # This preserves paragraph breaks but collapses excessive blank lines
-        cleaned_text = re.sub(r'\s*\n\s*', '\n', cleaned_text).strip()
+        # cleaned_text = re.sub(r'\s*\n\s*', '\n', cleaned_text).strip()
         cleaned_text= cleanText(cleaned_text)  # Assuming cleanText is a function defined in UtilityFunctions or similar
 
         # TODO: Add more sophisticated cleaning if needed based on document types

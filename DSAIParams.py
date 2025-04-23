@@ -114,7 +114,7 @@ if UseDebugMode:
 
 StateStorageList = [
     StateStoragePoints.LargeBlockAnalysisCompleted,
-    StateStoragePoints.IterativeAnalysisCompleted,
+    StateStoragePoints.ReduceAnalysisCompleted,
     StateStoragePoints.DetailedBlockAnalysisCompleted,
     StateStoragePoints.EmbeddingsCompleted,
     StateStoragePoints.GraphAnalysisCompleted
@@ -122,7 +122,7 @@ StateStorageList = [
 
 # RunCodeFrom = CodeStages.Start
 # RunCodeFrom = CodeStages.LargeBlockAnalysisCompleted
-# RunCodeFrom = CodeStages.IterativeAnalysisCompleted
+# RunCodeFrom = CodeStages.ReduceAnalysisCompleted
 # RunCodeFrom = CodeStages.DetailedBlockAnalysisCompleted
 RunCodeFrom = CodeStages.EmbeddingsCompleted
 # RunCodeFrom = CodeStages.GraphAnalysisCompleted

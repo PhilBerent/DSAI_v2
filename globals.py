@@ -17,7 +17,7 @@ EndMarker = "===================================================================
 FakeDocumentBasePath = r"C:/Users/Phil/Documents/DataSphere AI/DataSphere AI Not Code/Inputs And Outputs/Outputs/FakeDocuments/"
 StateStorageDirectory = r"C:\Users\Phil\Documents\DataSphere AI\DataSphere AI Code v2\StateStorage"
 LargeBlockAnalysisCompletedFile = os.path.join(StateStorageDirectory, "LargeBlockAnalysisCompleted.json")
-IterativeAnalysisCompletedFile = os.path.join(StateStorageDirectory, "IterativeAnalysisCompleted.json")
+ReduceAnalysisCompletedFile = os.path.join(StateStorageDirectory, "ReduceAnalysisCompleted.json")
 DetailedBlockAnalysisCompletedFile = os.path.join(StateStorageDirectory, "DetailedBlockAnalysisCompleted.json")
 EmbeddingsCompletedFile = os.path.join(StateStorageDirectory, "EmbeddingsCompleted.json")
 GraphAnalysisCompletedFile = os.path.join(StateStorageDirectory, "GraphAnalysisCompleted.json")

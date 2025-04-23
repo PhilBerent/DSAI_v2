@@ -94,9 +94,8 @@ def run_pipeline(document_path: str):
                     if load_state_flag:
                         large_blocks, map_results, final_entities, raw_text = loadStateLBA()
                     # Stage 2: Iterative Analysis (Reduce Phase)
-                    (raw_text, large_blocks, map_results, final_entities, doc_analysis_result) = perform_iterative_analysis(file_id, raw_text, large_blocks, map_results, final_entities)
-                    a=3
-                elif stage == CodeStages.IterativeAnalysisCompleted.value:
+                    (raw_text, large_blocks, map_results, final_entities, doc_analysis_result) = perform_reduce_analysis(file_id, raw_text, large_blocks, map_results, final_entities)
+                elif stage == CodeStages.ReduceAnalysisCompleted.value:
                     if load_state_flag:
                         doc_analysis_result, large_blocks, map_results, raw_text = loadStateIA()
                     #  Stage 3: Iterative Analysis (Map Phase)
@@ -115,7 +114,7 @@ def run_pipeline(document_path: str):
                         file_id, embeddings_dict, chunks_with_analysis, doc_analysis_result, map_results = loadStateEA()
                     # --- 5. Graph Data Construction --- #                    
                     (graph_nodes, graph_edges, file_id, embeddings_dict, chunks_with_analysis, 
-                    doc_analysis_result, map_results) = perform_graph_analyisis(file_id, doc_analysis_result, chunks_with_analysis)
+                    doc_analysis_result, map_results) = perform_graph_analyisis(file_id, doc_analysis_result, chunks_with_analysis, embeddings_dict, map_results)
                 else:
                     logging.warning(f"Encountered an unrecognized stage: {stage}. Skipping.")
             

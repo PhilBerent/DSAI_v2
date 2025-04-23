@@ -103,8 +103,6 @@ def _gemini_llm_call(
             prompt,
             generation_config=generation_config
         )
-        if (not has_string(prompt, "’")):
-            aaa=3
 
         # Accessing the response text
         # Need to check response.parts structure and potential blocks/errors
@@ -120,9 +118,6 @@ def _gemini_llm_call(
                   raise ValueError(f"Gemini call blocked. Reason: {response.prompt_feedback.block_reason}")
              else:
                   raise ValueError(f"Gemini response content is empty or inaccessible. Response: {response}")
-        if (not has_string(raw_content, "’")):
-            aaa=3
-
         if raw_content is None:
              raise ValueError(f"Gemini response content is None for model {LLM_model}")
 
@@ -206,13 +201,7 @@ def call_llm_json_mode(system_message: str, prompt: str,
             temperature=temperature,
             response_format={"type": "json_object"} # Pass hint to llm_call/provider funcs
         )
-        #db
-        if (not has_string(result_string, "’")):
-            aaa=3
-        # Parse the cleaned JSON string
         result = json.loads(result_string)
-        if (not has_string(result_string, "’")):
-            aaa=3
         return result
 
     except json.JSONDecodeError as json_e:
