@@ -37,28 +37,28 @@ def loadStateLBA():
 
 def loadStateIA():
     loaded_state = _decompress_json_from_file(ReduceAnalysisCompletedFile)
-    doc_analysis_result = loaded_state.get("doc_analysis_result")
+    doc_analysis = loaded_state.get("doc_analysis")
     large_blocks = loaded_state.get("large_blocks")
     map_results = loaded_state.get("map_results") 
     raw_text = loaded_state.get("raw_text")
-    return doc_analysis_result, large_blocks, map_results, raw_text
+    return doc_analysis, large_blocks, map_results, raw_text
 
 def loadStateDBA():
     loaded_state = _decompress_json_from_file(DetailedBlockAnalysisCompletedFile)
     file_id = loaded_state.get("file_id")
     chunks_with_analysis = loaded_state.get("chunks_with_analysis")
     map_results = loaded_state.get("map_results") 
-    doc_analysis_result = loaded_state.get("doc_analysis_result")
-    return file_id, chunks_with_analysis, doc_analysis_result, map_results
+    doc_analysis = loaded_state.get("doc_analysis")
+    return file_id, chunks_with_analysis, doc_analysis, map_results
 
 def loadStateEA():
     loaded_state = _decompress_json_from_file(EmbeddingsCompletedFile)
     file_id = loaded_state.get("file_id")   
     embeddings_dict = loaded_state.get("embeddings_dict")
     chunks_with_analysis = loaded_state.get("chunks_with_analysis")
-    doc_analysis_result = loaded_state.get("doc_analysis_result")
+    doc_analysis = loaded_state.get("doc_analysis")
     map_results = loaded_state.get("map_results")
-    return file_id, embeddings_dict, chunks_with_analysis, doc_analysis_result, map_results
+    return file_id, embeddings_dict, chunks_with_analysis, doc_analysis, map_results
 
 def loadStateGA():
     loaded_state = _decompress_json_from_file(GraphAnalysisCompletedFile)
@@ -68,6 +68,6 @@ def loadStateGA():
     graph_edges = loaded_state.get("graph_edges")
     embeddings_dict = loaded_state.get("embeddings_dict")
     chunks_with_analysis = loaded_state.get("chunks_with_analysis")
-    doc_analysis_result = loaded_state.get("doc_analysis_result")
+    doc_analysis = loaded_state.get("doc_analysis")
     map_results = loaded_state.get("map_results")
-    return file_id, graph_nodes, graph_edges, embeddings_dict, chunks_with_analysis, doc_analysis_result, map_results
+    return file_id, graph_nodes, graph_edges, embeddings_dict, chunks_with_analysis, doc_analysis, map_results

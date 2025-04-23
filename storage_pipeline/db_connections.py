@@ -105,7 +105,21 @@ def get_pinecone_index():
         logging.error(f"Failed to connect to Pinecone: {e}")
         raise
 
-
+neo4j_driver=""
+neo4j_is_active = False # Set to True if Neo4j is active and connected
+def get_neo4j_driver(neo4j_is_active=False):
+    if neo4j_is_active:
+        return neo4j_driver
+    else:
+        try:
+            neo4j_is_active = True
+            return get_neo4j_driver_local()
+        except Exception as e:
+            logging.error(f"Failed to connect to Neo4j: {e}")
+            neo4j_is_active = False
+            raise
+    
+    
 # --- Neo4j Connection ---
 def get_neo4j_driver_local():
     """Connects to Neo4j and returns the driver object."""

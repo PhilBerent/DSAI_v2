@@ -77,25 +77,25 @@ Here are the descriptions for functions in the requested files (excluding state_
 3.2.2.perform_iterative_analysis(file_id: str, raw_text: Optional[str], large_blocks: Optional[List[Dict]], map_results: Optional[List[Dict]], final_entities: Optional[Dict])
 3.2.2.1 Purpose: Executes the "Reduce" phase of the iterative analysis. It takes the results from the map phase (block summaries and entities) and synthesizes them using an LLM to get a comprehensive, document-level analysis (type, overall summary, structure, final entity list).
 3.2.2.2 Inputs: file_id (str), plus optional outputs from the previous stage (raw_text, large_blocks, map_results, final_entities).
-3.2.2.3 Outputs: Tuple containing the inputs passed through (raw_text, large_blocks, map_results, final_entities) and the newly generated doc_analysis_result (Dict).
+3.2.2.3 Outputs: Tuple containing the inputs passed through (raw_text, large_blocks, map_results, final_entities) and the newly generated doc_analysis (Dict).
 3.2.2.4 Role: Implements Stage 2 (LargeBlockAnalysisCompleted -> ReduceAnalysisCompleted). It calls perform_reduce_document_analysis from analysis_functions.py to generate the overall document view. It saves the state including this new result.
 
-3.2.4 perform_detailed_chunk_analysis(file_id: str, raw_text: Optional[str], large_blocks: Optional[List[Dict]], map_results: Optional[List[Dict]], doc_analysis_result: Optional[Dict])
+3.2.4 perform_detailed_chunk_analysis(file_id: str, raw_text: Optional[str], large_blocks: Optional[List[Dict]], map_results: Optional[List[Dict]], doc_analysis: Optional[Dict])
 3.2.4.1 Purpose: Executes the fine-grained adaptive chunking and the parallel detailed analysis of each resulting chunk using LLM.
-3.2.4.2 Inputs: file_id (str), plus optional outputs from previous stages (raw_text, large_blocks, map_results, doc_analysis_result).
-3.2.4.3 Outputs: Tuple containing file_id (str), map_results (passed through), doc_analysis_result (passed through), and chunks_with_analysis (List[Dict] - fine-grained chunks with their detailed LLM analysis).
+3.2.4.2 Inputs: file_id (str), plus optional outputs from previous stages (raw_text, large_blocks, map_results, doc_analysis).
+3.2.4.3 Outputs: Tuple containing file_id (str), map_results (passed through), doc_analysis (passed through), and chunks_with_analysis (List[Dict] - fine-grained chunks with their detailed LLM analysis).
 3.2.4.4 Role: Implements Stage 3 (ReduceAnalysisCompleted -> DetailedBlockAnalysisCompleted). Calls adaptive_chunking from chunking.py and then orchestrates parallel LLM calls via parallel_llm_calls (from llm_calls.py) using the worker_analyze_chunk helper function (defined in analysis_functions.py) to enrich each chunk. Saves the state.
 
-3.2.5 get_embeddings(file_id: Optional[str], chunks_with_analysis: Optional[List[Dict]], doc_analysis_result: Optional[Dict], map_results: Optional[List[Dict]])
+3.2.5 get_embeddings(file_id: Optional[str], chunks_with_analysis: Optional[List[Dict]], doc_analysis: Optional[Dict], map_results: Optional[List[Dict]])
 3.2.5.1 Purpose: Generates vector embeddings for the text content of the analyzed chunks.
-3.2.5.2 Inputs: file_id (str), chunks_with_analysis (List[Dict]), optional doc_analysis_result and map_results (passed through for state saving).
-3.2.5.3 Outputs: Tuple containing embeddings_dict (Dict[str, List[float]]), file_id, chunks_with_analysis, doc_analysis_result, map_results (passed through).
+3.2.5.2 Inputs: file_id (str), chunks_with_analysis (List[Dict]), optional doc_analysis and map_results (passed through for state saving).
+3.2.5.3 Outputs: Tuple containing embeddings_dict (Dict[str, List[float]]), file_id, chunks_with_analysis, doc_analysis, map_results (passed through).
 3.2.5.4 Role: Implements Stage 4 (DetailedBlockAnalysisCompleted -> EmbeddingsCompleted). Calls generate_embeddings from embedding.py. Saves the state including the embeddings.
 
-3.2.6 perform_graph_analyisis(file_id: str, doc_analysis_result: Dict[str, Any], chunks_with_analysis: List[Dict[str, Any]])
+3.2.6 perform_graph_analyisis(file_id: str, doc_analysis: Dict[str, Any], chunks_with_analysis: List[Dict[str, Any]])
 3.2.6.1 Purpose: Constructs the graph representation (nodes and edges) based on the overall document analysis and the detailed chunk-level analyses.
-3.2.6.2 Inputs: file_id (str), doc_analysis_result (Dict), chunks_with_analysis (List[Dict]). Requires embeddings_dict, map_results from global scope or previous state for saving.
-3.2.6.3 Outputs: Tuple containing graph_nodes (List[Dict]), graph_edges (List[Dict]), plus inputs passed through for state saving (file_id, embeddings_dict, chunks_with_analysis, doc_analysis_result, map_results).
+3.2.6.2 Inputs: file_id (str), doc_analysis (Dict), chunks_with_analysis (List[Dict]). Requires embeddings_dict, map_results from global scope or previous state for saving.
+3.2.6.3 Outputs: Tuple containing graph_nodes (List[Dict]), graph_edges (List[Dict]), plus inputs passed through for state saving (file_id, embeddings_dict, chunks_with_analysis, doc_analysis, map_results).
 3.2.6.4 Role: Implements Stage 5 (EmbeddingsCompleted -> GraphAnalysisCompleted). Calls build_graph_data from graph_builder.py. Saves the state including the graph data.
 
 3.2.7 store_data(pinecone_index, neo4j_driver, file_id: str, embeddings_dict: Dict[str, List[float]], chunks_with_analysis: List[Dict[str, Any]], graph_nodes: List[Dict], graph_edges: List[Dict])
@@ -130,9 +130,9 @@ Here are the descriptions for functions in the requested files (excluding state_
 3.3.4.3 Outputs: Optional[Dict]: The detailed analysis result for the chunk, or an error dictionary if analysis fails.
 3.3.4.4 Role: The core worker function for the detailed chunk analysis stage. It formats a specific prompt (get_anal_chunk_details_prompt) incorporating both chunk text and document context, calls the LLM in JSON mode, and returns the structured analysis for one fine-grained chunk.
 
-3.3.5 worker_analyze_chunk(chunk_item: Dict[str, Any], block_index: int, doc_analysis_result: Dict[str, Any])
+3.3.5 worker_analyze_chunk(chunk_item: Dict[str, Any], block_index: int, doc_analysis: Dict[str, Any])
 3.3.5.1 Purpose: A wrapper function designed to be used with parallel_llm_calls for analyzing fine-grained chunks. It calls analyze_chunk_details, handles potential exceptions during the call, adds status information ('success' or 'error') to the chunk dictionary, and implements a basic retry mechanism.
-3.3.5.2 Inputs: chunk_item (Dict - the chunk data), block_index (int), doc_analysis_result (Dict - overall document context, accessed via closure/passed data).
+3.3.5.2 Inputs: chunk_item (Dict - the chunk data), block_index (int), doc_analysis (Dict - overall document context, accessed via closure/passed data).
 3.3.5.3 Outputs: Dict: The original chunk_item dictionary updated with an 'analysis' key (containing the result from analyze_chunk_details or None), an 'analysis\status' key, and potentially 'analysis\_error' and 'traceback' keys on failure.
 3.3.5.4 Role: Facilitates the parallel execution of analyze_chunk_details, providing error handling and status reporting for each chunk processed.
 

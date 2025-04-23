@@ -247,7 +247,7 @@ def analyze_chunk_details(block_info: Dict[str, Any], block_index: int,
         }
 
 def worker_analyze_chunk(chunk_item: Dict[str, Any], block_index: int, 
-    doc_analysis_result: Dict[str, Any]) -> Dict[str, Any]:
+    doc_analysis: Dict[str, Any]) -> Dict[str, Any]:
     errorCount = 1
     executionError = False
     errorMessage = ""
@@ -258,7 +258,7 @@ def worker_analyze_chunk(chunk_item: Dict[str, Any], block_index: int,
             analysis_result = analyze_chunk_details(
                 block_info=chunk_item,
                 block_index=block_index,
-                doc_context=doc_analysis_result # Access outer scope variable
+                doc_context=doc_analysis # Access outer scope variable
             )
             # Return the original item updated with the result
             chunk_item['analysis'] = analysis_result

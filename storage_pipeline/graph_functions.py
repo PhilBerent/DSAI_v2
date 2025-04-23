@@ -17,6 +17,7 @@ import re # Added import for re.sub
 script_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(script_dir)
 sys.path.insert(0, parent_dir)
+from db_connections import *
 
 # Import required global modules
 try:
@@ -28,6 +29,7 @@ except ImportError as e:
     raise
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 def build_graph_data(document_id: str, doc_analysis: Dict[str, Any], chunks_with_analysis: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """Constructs lists of nodes and edges for the graph database.
@@ -44,7 +46,7 @@ def build_graph_data(document_id: str, doc_analysis: Dict[str, Any], chunks_with
             - edges: A list of edge dictionaries for Neo4j.
     """
     logging.info(f"Starting graph data construction for document: {document_id}")
-
+    get_neo4j_driver() # Ensure Neo4j driver is initialized if needed
     nodes = []
     edges = []
     entity_nodes_created: Set[Tuple[str, str]] = set() # Store (entity_type, entity_name) to avoid duplicates

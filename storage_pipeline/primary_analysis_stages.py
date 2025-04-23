@@ -38,7 +38,7 @@ try:
     from storage_pipeline.analysis_functions import perform_map_block_analysis, perform_reduce_document_analysis, analyze_chunk_details
     from storage_pipeline.chunking import coarse_chunk_by_structure, adaptive_chunking
     from storage_pipeline.embedding import generate_embeddings
-    from storage_pipeline.graph_builder import build_graph_data
+    from graph_functions import *
     from storage_pipeline.storage import store_embeddings_pinecone, store_graph_data_neo4j, store_chunk_metadata_docstore
     # Import state storage functions using the original module structure
     from DSAIUtilities import calc_est_tokens_per_call # Token estimation
@@ -118,7 +118,7 @@ def perform_reduce_analysis(file_id: str, raw_text: Optional[str] = None,
     final_entities: Optional[Dict[str, List[str]]] = None) -> Tuple[Optional[str], Optional[List[Dict[str, Any]]], Optional[List[Dict[str, Any]]], Optional[Dict[str, List[str]]], Dict[str, Any]]:
     # Handles the reduce phase of the analysis.
 
-    doc_analysis_result: Dict[str, Any] = {}
+    doc_analysis: Dict[str, Any] = {}
 
     # --- 3.2 Reduce Phase --- #
     # [Code for Reduce Phase analysis remains unchanged]
@@ -127,10 +127,10 @@ def perform_reduce_analysis(file_id: str, raw_text: Optional[str] = None,
         if map_results is None or final_entities is None:
              raise ValueError("Cannot perform reduce phase: map_results or final_entities are missing.")
 
-        doc_analysis_result = perform_reduce_document_analysis(map_results, final_entities)
-        if not doc_analysis_result or "error" in doc_analysis_result:
-            error_msg = doc_analysis_result.get('error', 'Unknown error') if doc_analysis_result else 'No result returned'
-            error_detail = doc_analysis_result.get('error_details', 'No details provided') if doc_analysis_result else 'N/A'
+        doc_analysis = perform_reduce_document_analysis(map_results, final_entities)
+        if not doc_analysis or "error" in doc_analysis:
+            error_msg = doc_analysis.get('error', 'Unknown error') if doc_analysis else 'No result returned'
+            error_detail = doc_analysis.get('error_details', 'No details provided') if doc_analysis else 'N/A'
             logging.error(f"Reduce phase document analysis failed or returned error: {error_msg} - Details: {error_detail}")
             raise ValueError(f"Reduce phase document analysis failed: {error_msg}")
         logging.info("Reduce phase analysis complete.")
@@ -144,7 +144,7 @@ def perform_reduce_analysis(file_id: str, raw_text: Optional[str] = None,
     if StateStoragePoints.ReduceAnalysisCompleted in StateStorageList:
         logging.info(f"Saving state for {StateStoragePoints.ReduceAnalysisCompleted.name} (using original state_storage)...")
         state_to_save = {
-            "doc_analysis_result": doc_analysis_result,
+            "doc_analysis": doc_analysis,
             "large_blocks": large_blocks,
             "map_results": map_results,
             "final_entities": final_entities,
@@ -158,17 +158,17 @@ def perform_reduce_analysis(file_id: str, raw_text: Optional[str] = None,
             # raise
 
     logging.info(f"Stage 2: Iterative Analysis complete for {file_id}.")
-    return raw_text, large_blocks, map_results, final_entities, doc_analysis_result
+    return raw_text, large_blocks, map_results, final_entities, doc_analysis
 
 
 # --- Stage 3: ReduceAnalysisCompleted -> End ---
 def perform_detailed_chunk_analysis(file_id: str,
     raw_text: Optional[str] = None, large_blocks: Optional[List[Dict[str, Any]]] = None,
-    map_results: Optional[List[Dict[str, Any]]] = None, doc_analysis_result: Optional[Dict[str, Any]] = None
+    map_results: Optional[List[Dict[str, Any]]] = None, doc_analysis: Optional[Dict[str, Any]] = None
 ) -> List[Dict[str, Any]]:
     "Handles fine-grained chunking, PARALLEL chunk analysis, embedding, graph building, and storage."
 
-    # --- Ensure critical data is present before proceeding (doc_analysis_result is now guaranteed non-Optional) --- 
+    # --- Ensure critical data is present before proceeding (doc_analysis is now guaranteed non-Optional) --- 
     if raw_text is None or large_blocks is None or map_results is None:
          raise ValueError(f"Critical data unavailable for Stage 3 processing (file_id: {file_id}). Check state or pipeline flow.")
     
@@ -211,7 +211,7 @@ def perform_detailed_chunk_analysis(file_id: str,
         logging.info("Estimating tokens for chunk analysis...")
         estimated_tokens_per_call = calc_est_tokens_per_call(final_chunks, 
             NumSampleBlocksForAC, EstOutputTokenFractionForAC, chunk_system_message, 
-            get_anal_chunk_details_prompt, doc_analysis_result)
+            get_anal_chunk_details_prompt, doc_analysis)
 
         if estimated_tokens_per_call is None:
             logging.warning("Could not estimate tokens per call for chunk analysis. Defaulting to 1 worker.")
@@ -220,11 +220,11 @@ def perform_detailed_chunk_analysis(file_id: str,
             num_workers = calc_num_instances(estimated_tokens_per_call)
         logging.info(f"Calculated number of workers for chunk analysis: {num_workers}")
             
-        # 5.2 Define the worker function (using closure for doc_analysis_result)
+        # 5.2 Define the worker function (using closure for doc_analysis)
         # 5.3 Execute in parallel
         logging.info(f"Starting parallel analysis for {len(final_chunks)} chunks with {num_workers} workers...")
         parallel_results = parallel_llm_calls(worker_analyze_chunk, num_workers, final_chunks, 
-            AIPlatform, RATE_LIMIT_SLEEP_SECONDS, doc_analysis_result)     
+            AIPlatform, RATE_LIMIT_SLEEP_SECONDS, doc_analysis)     
 
         # 5.4 Process results
         # Ensure parallel_results length matches final_chunks
@@ -252,7 +252,7 @@ def perform_detailed_chunk_analysis(file_id: str,
             state_to_save = {
                 "file_id": file_id,                
                 "chunks_with_analysis": chunks_with_analysis,
-                "doc_analysis_result": doc_analysis_result,
+                "doc_analysis": doc_analysis,
                 "map_results": map_results,
             }
             try:
@@ -260,7 +260,7 @@ def perform_detailed_chunk_analysis(file_id: str,
                 save_state(state_to_save, file_path)
             except Exception as e:
                 logging.error(f"Original state_storage.py save failed for DetailedBlockAnalysisCompleted: {e}", exc_info=True)
-        return file_id, map_results, doc_analysis_result, chunks_with_analysis
+        return file_id, map_results, doc_analysis, chunks_with_analysis
     except Exception as e:
         logging.error(f"Error during parallel chunk analysis setup or execution: {e}", exc_info=True)
         raise ValueError(f"Parallel chunk analysis process failed: {e}") from e
@@ -268,7 +268,7 @@ def perform_detailed_chunk_analysis(file_id: str,
 
 def get_embeddings(file_id: Optional[str] = None,  
         chunks_with_analysis: Optional[List[Dict[str, Any]]] = None, 
-        doc_analysis_result: Optional[Dict[str, Any]] = None,
+        doc_analysis: Optional[Dict[str, Any]] = None,
         map_results: Optional[List[Dict[str, Any]]] = None) -> Dict[str, List[float]]:
 
     # [Code for Embedding Generation remains unchanged] ...
@@ -288,7 +288,7 @@ def get_embeddings(file_id: Optional[str] = None,
             "file_id": file_id,
             "embeddings_dict": embeddings_dict,               
             "chunks_with_analysis": chunks_with_analysis,
-            "doc_analysis_result": doc_analysis_result,
+            "doc_analysis": doc_analysis,
             "map_results": map_results,
         }
         try:
@@ -297,15 +297,16 @@ def get_embeddings(file_id: Optional[str] = None,
         except Exception as e:
             logging.error(f"Original state_storage.py save failed for EmbeddingsCompleted: {e}", exc_info=True)
 
-    return embeddings_dict, file_id, chunks_with_analysis, doc_analysis_result, map_results
+    return embeddings_dict, file_id, chunks_with_analysis, doc_analysis, map_results
 
-def perform_graph_analyisis(file_id: str, doc_analysis_result: Dict[str, Any], 
-        chunks_with_analysis: List[Dict[str, Any]]) -> Tuple[List[Dict], List[Dict]]:
+def perform_graph_analyisis(file_id: str, doc_analysis: Dict[str, Any], 
+        chunks_with_analysis: List[Dict[str, Any]], embeddings_dict: List[Dict[str, Any]],
+        map_results: List[Dict[str, Any]]) -> Tuple[List[Dict], List[Dict]]:
     logging.info("Step 3.4: Constructing graph data...")
     graph_nodes: List[Dict] = []
     graph_edges: List[Dict] = []
     try:
-        graph_nodes, graph_edges = build_graph_data(file_id, doc_analysis_result, chunks_with_analysis)
+        graph_nodes, graph_edges = build_graph_data(file_id, doc_analysis, chunks_with_analysis)
         logging.info(f"Graph construction complete. Nodes: {len(graph_nodes)}, Edges: {len(graph_edges)}.")
     except Exception as e:
         logging.error(f"Graph data construction failed: {e}", exc_info=True)
@@ -318,7 +319,7 @@ def perform_graph_analyisis(file_id: str, doc_analysis_result: Dict[str, Any],
             "graph_edges": graph_edges,
             "embeddings_dict": embeddings_dict,               
             "chunks_with_analysis": chunks_with_analysis,
-            "doc_analysis_result": doc_analysis_result,
+            "doc_analysis": doc_analysis,
             "map_results": map_results,
         }
         try:
@@ -328,7 +329,7 @@ def perform_graph_analyisis(file_id: str, doc_analysis_result: Dict[str, Any],
             logging.error(f"Original state_storage.py save failed for EmbeddingsCompleted: {e}", exc_info=True)
     
     
-    return graph_nodes, graph_edges, file_id, embeddings_dict, chunks_with_analysis, doc_analysis_result, map_results
+    return graph_nodes, graph_edges, file_id, embeddings_dict, chunks_with_analysis, doc_analysis, map_results
 # end graph construction return graph_nodes, graph_edges
 def store_data(pinecone_index, neo4j_driver, file_id: str, 
         embeddings_dict: Dict[str, List[float]], chunks_with_analysis: List[Dict[str, Any]], 
