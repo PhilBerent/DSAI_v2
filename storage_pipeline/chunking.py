@@ -301,7 +301,7 @@ def safe_truncate_text(text: str, max_length: int) -> str:
 # --- REVISED: Step 4 - Adaptive Text Chunking (Fine-Grained) ---
 def adaptive_chunking(
     structural_units: List[Dict[str, Any]],  # Coarse chunks/units
-    map_results: List[Dict[str, Any]],       # Corresponding analysis results from map phase
+    block_info_list: List[Dict[str, Any]],       # Corresponding analysis results from map phase
     target_chunk_size: int = DEFAULT_TARGET_CHUNK_SIZE_TOKENS,
     chunk_overlap: int = DEFAULT_CHUNK_OVERLAP_TOKENS
 ) -> List[Dict[str, Any]]:
@@ -310,7 +310,7 @@ def adaptive_chunking(
 
     Args:
         structural_units: List of coarse chunks/blocks from Step 2.
-        map_results: List of analysis results from Step 3 Map phase,
+        block_info_list: List of analysis results from Step 3 Map phase,
                      corresponding 1:1 with structural_units.
         target_chunk_size: Aimed token size for final chunks.
         chunk_overlap: Token overlap between consecutive final chunks.
@@ -324,21 +324,21 @@ def adaptive_chunking(
 
     max_chunk_size = int(target_chunk_size * 2.5)
 
-    # Ensure map_results align with structural_units
-    if len(structural_units) != len(map_results):
-        logging.error(f"Mismatch between structural_units ({len(structural_units)}) and map_results ({len(map_results)}) count. Cannot reliably link metadata.")
+    # Ensure block_info_list align with structural_units
+    if len(structural_units) != len(block_info_list):
+        logging.error(f"Mismatch between structural_units ({len(structural_units)}) and block_info_list ({len(block_info_list)}) count. Cannot reliably link metadata.")
         # Decide how to handle: fallback or raise error? Raising for now.
         raise ValueError("Structural units and map results count mismatch in adaptive_chunking.")
 
     # Process each structural unit (coarse chunk)
     for unit_idx, unit in enumerate(structural_units):
         unit_text = unit.get('text', '')
-        # --- Get type from map_results instead of the coarse unit --- #
+        # --- Get type from block_info_list instead of the coarse unit --- #
         # original_unit_type = unit.get('type', 'UnknownType') # Type from coarse chunking
         original_unit_ref = unit.get('ref', f'Unit_{unit_idx+1}')   # Ref from coarse chunking (e.g., "Unit 1")
 
         # Get the corresponding analysis from the map phase
-        map_analysis = map_results[unit_idx]
+        map_analysis = block_info_list[unit_idx]
         unit_type = map_analysis.get('unit_type', 'UnknownType')  # <-- Use type from map_analysis
 
         # Use the structural marker found during map phase for better reference

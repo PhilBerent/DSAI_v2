@@ -67,7 +67,7 @@ def run_pipeline(document_path: str):
         return # Exit if setup fails
 
     # Initialize variables to hold state between stages
-    raw_text = large_blocks = map_results = final_entities = chunks_with_analysis = \
+    raw_text = large_blocks = block_info_list = final_entities = chunks_with_analysis = \
         embeddings_dict = doc_analysis = graph_nodes = graph_edges = None
 
     try:
@@ -87,34 +87,35 @@ def run_pipeline(document_path: str):
 
                 if stage == CodeStages.Start.value:
                     # Stage 1: Initial Processing
-                    (raw_text, large_blocks, map_results, 
+                    (raw_text, large_blocks, block_info_list, 
                     final_entities) = large_block_analysis(document_path, file_id)
                     aa=2
                 elif stage == CodeStages.LargeBlockAnalysisCompleted.value:
                     if load_state_flag:
-                        large_blocks, map_results, final_entities, raw_text = loadStateLBA()
+                        large_blocks, block_info_list, final_entities, raw_text = loadStateLBA()
                     # Stage 2: Iterative Analysis (Reduce Phase)
-                    (raw_text, large_blocks, map_results, final_entities, doc_analysis) = perform_reduce_analysis(file_id, raw_text, large_blocks, map_results, final_entities)
+                    (raw_text, large_blocks, block_info_list, final_entities, doc_analysis) = perform_reduce_analysis(file_id, raw_text, large_blocks, block_info_list, final_entities)
                 elif stage == CodeStages.ReduceAnalysisCompleted.value:
                     if load_state_flag:
-                        doc_analysis, large_blocks, map_results, raw_text = loadStateIA()
+                        doc_analysis, large_blocks, block_info_list, raw_text, final_entities = loadStateIA()
                     #  Stage 3: Iterative Analysis (Map Phase)
-                    (file_id, map_results, doc_analysis, chunks_with_analysis) = perform_detailed_chunk_analysis(file_id, raw_text, large_blocks, map_results, doc_analysis)
+                    (file_id, block_info_list, doc_analysis, chunks_with_analysis, final_entities) = perform_detailed_chunk_analysis(file_id, raw_text, large_blocks, block_info_list, doc_analysis, final_entities)
                     # This is the last stage defined in the list, so we break the loop after execution
                     # If more stages were added, this break might need reconsideration
                 elif stage == CodeStages.DetailedBlockAnalysisCompleted.value:
                     if load_state_flag:
-                        file_id, chunks_with_analysis, doc_analysis, map_results = loadStateDBA()
+                        file_id, chunks_with_analysis, doc_analysis, block_info_list, final_entities = loadStateDBA()
                     # --- 4. Embedding Generation --- #                        
                     (embeddings_dict, file_id, chunks_with_analysis, doc_analysis, 
-                        map_results) = get_embeddings(file_id, chunks_with_analysis, 
-                        doc_analysis, map_results)
+                        block_info_list, final_entities) = get_embeddings(file_id, chunks_with_analysis, 
+                        doc_analysis, block_info_list, final_entities)
                 elif stage == CodeStages.EmbeddingsCompleted.value:
                     if load_state_flag:
-                        file_id, embeddings_dict, chunks_with_analysis, doc_analysis, map_results = loadStateEA()
+                        (file_id, embeddings_dict, chunks_with_analysis, doc_analysis, 
+                            block_info_list, final_entities) = loadStateEA()
                     # --- 5. Graph Data Construction --- #                    
                     (graph_nodes, graph_edges, file_id, embeddings_dict, chunks_with_analysis, 
-                    doc_analysis, map_results) = perform_graph_analyisis(file_id, doc_analysis, chunks_with_analysis, embeddings_dict, map_results)
+                    doc_analysis, block_info_list) = perform_graph_analyisis(file_id, doc_analysis, chunks_with_analysis, embeddings_dict, block_info_list)
                 else:
                     logging.warning(f"Encountered an unrecognized stage: {stage}. Skipping.")
             

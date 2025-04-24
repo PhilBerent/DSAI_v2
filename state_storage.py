@@ -30,26 +30,28 @@ def save_state(data_to_save: Dict[str, Any], file_path: str):
 def loadStateLBA():
     loaded_state = _decompress_json_from_file(LargeBlockAnalysisCompletedFile)
     large_blocks = loaded_state.get("large_blocks")
-    map_results = loaded_state.get("map_results")
+    block_info_list = loaded_state.get("block_info_list")
     final_entities = loaded_state.get("final_entities")
     raw_text = loaded_state.get("raw_text")
-    return large_blocks, map_results, final_entities, raw_text
+    return large_blocks, block_info_list, final_entities, raw_text
 
 def loadStateIA():
     loaded_state = _decompress_json_from_file(ReduceAnalysisCompletedFile)
     doc_analysis = loaded_state.get("doc_analysis")
     large_blocks = loaded_state.get("large_blocks")
-    map_results = loaded_state.get("map_results") 
+    block_info_list = loaded_state.get("block_info_list") 
     raw_text = loaded_state.get("raw_text")
-    return doc_analysis, large_blocks, map_results, raw_text
+    final_entities = loaded_state.get("final_entities")
+    return doc_analysis, large_blocks, block_info_list, raw_text, final_entities
 
 def loadStateDBA():
     loaded_state = _decompress_json_from_file(DetailedBlockAnalysisCompletedFile)
     file_id = loaded_state.get("file_id")
     chunks_with_analysis = loaded_state.get("chunks_with_analysis")
-    map_results = loaded_state.get("map_results") 
+    block_info_list = loaded_state.get("block_info_list") 
     doc_analysis = loaded_state.get("doc_analysis")
-    return file_id, chunks_with_analysis, doc_analysis, map_results
+    final_entities = loaded_state.get("final_entities")
+    return file_id, chunks_with_analysis, doc_analysis, block_info_list, final_entities
 
 def loadStateEA():
     loaded_state = _decompress_json_from_file(EmbeddingsCompletedFile)
@@ -57,8 +59,9 @@ def loadStateEA():
     embeddings_dict = loaded_state.get("embeddings_dict")
     chunks_with_analysis = loaded_state.get("chunks_with_analysis")
     doc_analysis = loaded_state.get("doc_analysis")
-    map_results = loaded_state.get("map_results")
-    return file_id, embeddings_dict, chunks_with_analysis, doc_analysis, map_results
+    block_info_list = loaded_state.get("block_info_list")
+    final_entities = loaded_state.get("final_entities")
+    return file_id, embeddings_dict, chunks_with_analysis, doc_analysis, block_info_list
 
 def loadStateGA():
     loaded_state = _decompress_json_from_file(GraphAnalysisCompletedFile)
@@ -69,5 +72,5 @@ def loadStateGA():
     embeddings_dict = loaded_state.get("embeddings_dict")
     chunks_with_analysis = loaded_state.get("chunks_with_analysis")
     doc_analysis = loaded_state.get("doc_analysis")
-    map_results = loaded_state.get("map_results")
-    return file_id, graph_nodes, graph_edges, embeddings_dict, chunks_with_analysis, doc_analysis, map_results
+    block_info_list = loaded_state.get("block_info_list")
+    return file_id, graph_nodes, graph_edges, embeddings_dict, chunks_with_analysis, doc_analysis, block_info_list

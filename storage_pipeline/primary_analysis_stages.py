@@ -84,10 +84,10 @@ def large_block_analysis(document_path: str, file_id: str) -> Tuple[str, List[Di
     # --- 3.1 Map Phase --- #
     logging.info("Step 1.3: Performing Map phase block analysis...")
     try:
-        map_results, final_entities = perform_map_block_analysis(large_blocks)
-        if not map_results:
+        block_info_list, final_entities = perform_map_block_analysis(large_blocks)
+        if not block_info_list:
              logging.warning("Map phase analysis returned no results. Check individual block analysis logs.")
-        logging.info(f"Map phase analysis complete. Got {len(map_results)} results.")
+        logging.info(f"Map phase analysis complete. Got {len(block_info_list)} results.")
     except Exception as e:
         logging.error(f"Map phase analysis failed: {e}", exc_info=True)
         raise ValueError(f"Map phase analysis failed: {e}") from e
@@ -98,7 +98,7 @@ def large_block_analysis(document_path: str, file_id: str) -> Tuple[str, List[Di
         logging.info(f"Saving state for {StateStoragePoints.LargeBlockAnalysisCompleted.name} (using original state_storage)... ")
         state_to_save = {
             "large_blocks": large_blocks,
-            "map_results": map_results,
+            "block_info_list": block_info_list,
             "final_entities": final_entities,
             "raw_text": raw_text
         }
@@ -109,12 +109,12 @@ def large_block_analysis(document_path: str, file_id: str) -> Tuple[str, List[Di
             logging.error(f"Original state_storage.py save failed for {StateStoragePoints.LargeBlockAnalysisCompleted.name}: {e}", exc_info=True)
 
     logging.info(f"Stage 1: Initial Processing complete for {file_id}.")
-    return raw_text, large_blocks, map_results, final_entities
+    return raw_text, large_blocks, block_info_list, final_entities
 
 
 # --- Stage 2: LargeBlockAnalysisCompleted -> ReduceAnalysisCompleted ---
 def perform_reduce_analysis(file_id: str, raw_text: Optional[str] = None,
-    large_blocks: Optional[List[Dict[str, Any]]] = None, map_results: Optional[List[Dict[str, Any]]] = None,
+    large_blocks: Optional[List[Dict[str, Any]]] = None, block_info_list: Optional[List[Dict[str, Any]]] = None,
     final_entities: Optional[Dict[str, List[str]]] = None) -> Tuple[Optional[str], Optional[List[Dict[str, Any]]], Optional[List[Dict[str, Any]]], Optional[Dict[str, List[str]]], Dict[str, Any]]:
     # Handles the reduce phase of the analysis.
 
@@ -124,10 +124,10 @@ def perform_reduce_analysis(file_id: str, raw_text: Optional[str] = None,
     # [Code for Reduce Phase analysis remains unchanged]
     logging.info("Step 2.1: Performing Reduce phase document synthesis...")
     try:
-        if map_results is None or final_entities is None:
-             raise ValueError("Cannot perform reduce phase: map_results or final_entities are missing.")
+        if block_info_list is None or final_entities is None:
+             raise ValueError("Cannot perform reduce phase: block_info_list or final_entities are missing.")
 
-        doc_analysis = perform_reduce_document_analysis(map_results, final_entities)
+        doc_analysis = perform_reduce_document_analysis(block_info_list, final_entities)
         if not doc_analysis or "error" in doc_analysis:
             error_msg = doc_analysis.get('error', 'Unknown error') if doc_analysis else 'No result returned'
             error_detail = doc_analysis.get('error_details', 'No details provided') if doc_analysis else 'N/A'
@@ -146,7 +146,7 @@ def perform_reduce_analysis(file_id: str, raw_text: Optional[str] = None,
         state_to_save = {
             "doc_analysis": doc_analysis,
             "large_blocks": large_blocks,
-            "map_results": map_results,
+            "block_info_list": block_info_list,
             "final_entities": final_entities,
             "raw_text": raw_text
         }
@@ -158,18 +158,18 @@ def perform_reduce_analysis(file_id: str, raw_text: Optional[str] = None,
             # raise
 
     logging.info(f"Stage 2: Iterative Analysis complete for {file_id}.")
-    return raw_text, large_blocks, map_results, final_entities, doc_analysis
+    return raw_text, large_blocks, block_info_list, final_entities, doc_analysis
 
 
 # --- Stage 3: ReduceAnalysisCompleted -> End ---
 def perform_detailed_chunk_analysis(file_id: str,
     raw_text: Optional[str] = None, large_blocks: Optional[List[Dict[str, Any]]] = None,
-    map_results: Optional[List[Dict[str, Any]]] = None, doc_analysis: Optional[Dict[str, Any]] = None
-) -> List[Dict[str, Any]]:
+    block_info_list: Optional[List[Dict[str, Any]]] = None, doc_analysis: Optional[Dict[str, Any]] = None,
+    final_entities: Optional[Dict[str, List[str]]] = None) -> List[Dict[str, Any]]:
     "Handles fine-grained chunking, PARALLEL chunk analysis, embedding, graph building, and storage."
 
     # --- Ensure critical data is present before proceeding (doc_analysis is now guaranteed non-Optional) --- 
-    if raw_text is None or large_blocks is None or map_results is None:
+    if raw_text is None or large_blocks is None or block_info_list is None:
          raise ValueError(f"Critical data unavailable for Stage 3 processing (file_id: {file_id}). Check state or pipeline flow.")
     
     # --- 4. Adaptive Fine-Grained Chunking --- #
@@ -177,7 +177,7 @@ def perform_detailed_chunk_analysis(file_id: str,
     logging.info("Step 3.1: Performing adaptive fine-grained chunking...")
     final_chunks: List[Dict[str, Any]] = []
     try:
-        final_chunks = adaptive_chunking(large_blocks, map_results, Chunk_Size, Chunk_overlap)
+        final_chunks = adaptive_chunking(large_blocks, block_info_list, Chunk_Size, Chunk_overlap)
 
         if not final_chunks:
              logging.warning("Adaptive chunking resulted in zero final chunks.")
@@ -253,14 +253,15 @@ def perform_detailed_chunk_analysis(file_id: str,
                 "file_id": file_id,                
                 "chunks_with_analysis": chunks_with_analysis,
                 "doc_analysis": doc_analysis,
-                "map_results": map_results,
+                "block_info_list": block_info_list,
+                "final_entities": final_entities
             }
             try:
                 file_path = DetailedBlockAnalysisCompletedFile
                 save_state(state_to_save, file_path)
             except Exception as e:
                 logging.error(f"Original state_storage.py save failed for DetailedBlockAnalysisCompleted: {e}", exc_info=True)
-        return file_id, map_results, doc_analysis, chunks_with_analysis
+        return file_id, block_info_list, doc_analysis, chunks_with_analysis
     except Exception as e:
         logging.error(f"Error during parallel chunk analysis setup or execution: {e}", exc_info=True)
         raise ValueError(f"Parallel chunk analysis process failed: {e}") from e
@@ -268,8 +269,8 @@ def perform_detailed_chunk_analysis(file_id: str,
 
 def get_embeddings(file_id: Optional[str] = None,  
         chunks_with_analysis: Optional[List[Dict[str, Any]]] = None, 
-        doc_analysis: Optional[Dict[str, Any]] = None,
-        map_results: Optional[List[Dict[str, Any]]] = None) -> Dict[str, List[float]]:
+        doc_analysis: Optional[Dict[str, Any]] = None, block_info_list: Optional[List[Dict[str, Any]]] = None, 
+        final_entities: Optional[Dict[str, List[str]]] = None) -> Dict[str, List[float]]:
 
     # [Code for Embedding Generation remains unchanged] ...
     logging.info("Step 3.3: Generating embeddings...")
@@ -289,7 +290,8 @@ def get_embeddings(file_id: Optional[str] = None,
             "embeddings_dict": embeddings_dict,               
             "chunks_with_analysis": chunks_with_analysis,
             "doc_analysis": doc_analysis,
-            "map_results": map_results,
+            "block_info_list": block_info_list,
+            "final_entities": final_entities
         }
         try:
             file_path = EmbeddingsCompletedFile
@@ -297,11 +299,11 @@ def get_embeddings(file_id: Optional[str] = None,
         except Exception as e:
             logging.error(f"Original state_storage.py save failed for EmbeddingsCompleted: {e}", exc_info=True)
 
-    return embeddings_dict, file_id, chunks_with_analysis, doc_analysis, map_results
+    return embeddings_dict, file_id, chunks_with_analysis, doc_analysis, block_info_list
 
 def perform_graph_analyisis(file_id: str, doc_analysis: Dict[str, Any], 
         chunks_with_analysis: List[Dict[str, Any]], embeddings_dict: List[Dict[str, Any]],
-        map_results: List[Dict[str, Any]]) -> Tuple[List[Dict], List[Dict]]:
+        block_info_list: List[Dict[str, Any]]) -> Tuple[List[Dict], List[Dict]]:
     logging.info("Step 3.4: Constructing graph data...")
     graph_nodes: List[Dict] = []
     graph_edges: List[Dict] = []
@@ -320,7 +322,7 @@ def perform_graph_analyisis(file_id: str, doc_analysis: Dict[str, Any],
             "embeddings_dict": embeddings_dict,               
             "chunks_with_analysis": chunks_with_analysis,
             "doc_analysis": doc_analysis,
-            "map_results": map_results,
+            "block_info_list": block_info_list,
         }
         try:
             file_path = GraphAnalysisCompletedFile
@@ -329,7 +331,7 @@ def perform_graph_analyisis(file_id: str, doc_analysis: Dict[str, Any],
             logging.error(f"Original state_storage.py save failed for EmbeddingsCompleted: {e}", exc_info=True)
     
     
-    return graph_nodes, graph_edges, file_id, embeddings_dict, chunks_with_analysis, doc_analysis, map_results
+    return graph_nodes, graph_edges, file_id, embeddings_dict, chunks_with_analysis, doc_analysis, block_info_list
 # end graph construction return graph_nodes, graph_edges
 def store_data(pinecone_index, neo4j_driver, file_id: str, 
         embeddings_dict: Dict[str, List[float]], chunks_with_analysis: List[Dict[str, Any]], 

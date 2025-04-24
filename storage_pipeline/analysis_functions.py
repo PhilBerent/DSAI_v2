@@ -78,7 +78,7 @@ def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List
 
     Returns:
         A tuple containing:
-        - map_results: A list of analysis results from each successfully processed block.
+        - block_info_list: A list of analysis results from each successfully processed block.
         - final_entities: A dictionary of consolidated entities found across all blocks.
     """
     logging.info(f"Starting Map Phase: Orchestrating analysis for {len(large_blocks)} large blocks...")
@@ -109,7 +109,7 @@ def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List
         aaa=3
 
     # --- Step 3.1: Run Parallel Analysis --- # 
-    map_results_raw = parallel_llm_calls(
+    block_info_list_raw = parallel_llm_calls(
         function_to_run=analyze_large_block,
         num_instances=num_workers,
         input_data_list=large_blocks,
@@ -119,20 +119,20 @@ def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List
 
     # --- Process Results --- #
     # Filter out None results (failures)
-    map_results = [r for r in map_results_raw if r is not None]
+    block_info_list = [r for r in block_info_list_raw if r is not None]
 
-    if not map_results:
+    if not block_info_list:
         logging.error("Map phase failed for all blocks. Cannot proceed to Reduce phase.")
         return [], {}
 
     # Sort results by original block index (important for Reduce phase)
     # The analysis function already added 'block_index'
-    map_results.sort(key=lambda x: x.get('block_index', -1))
+    block_info_list.sort(key=lambda x: x.get('block_index', -1))
 
     # --- Consolidate Entities from Map Results --- #
     logging.info("Consolidating entities from successful map results...")
     consolidated_entities = {"characters": set(), "locations": set(), "organizations": set()}
-    for i, result in enumerate(map_results):
+    for i, result in enumerate(block_info_list):
         # Basic type check, should be dict if successful
         if not isinstance(result, dict):
              logging.warning(f"Skipping invalid map result at index {i} after filtering: {result}")
@@ -149,16 +149,16 @@ def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List
     # Convert sets back to lists for the final structure
     final_entities = {k: sorted(list(v)) for k, v in consolidated_entities.items()} # Sort for consistency
 
-    return map_results, final_entities
+    return block_info_list, final_entities
 
 # --- REVISED: Step 3 - Reduce Phase: Synthesize Document Overview (Uses getReducePrompt) ---
-def perform_reduce_document_analysis(map_results: List[Dict[str, Any]], 
+def perform_reduce_document_analysis(block_info_list: List[Dict[str, Any]], 
             final_entities: Dict[str, List[str]]) -> Dict[str, Any]:
     """
     Performs the Reduce phase of Step 3: Synthesizes the overall document analysis.
     Uses prompts defined in prompts.py.
     Args:
-        map_results: The list of analysis results from the Map phase.
+        block_info_list: The list of analysis results from the Map phase.
         final_entities: The dictionary of consolidated entities from the Map phase.
 
     Returns:
@@ -167,7 +167,7 @@ def perform_reduce_document_analysis(map_results: List[Dict[str, Any]],
     """
     logging.info("Starting Reduce phase: Synthesizing document overview with type-specific instructions...")
 
-    if not map_results:
+    if not block_info_list:
         logging.error("Cannot perform Reduce phase: No valid results from Map phase.")
         return {
             "error": "No valid results from Map phase to synthesize.",
@@ -179,8 +179,8 @@ def perform_reduce_document_analysis(map_results: List[Dict[str, Any]],
 
     # Prepare inputs needed for the prompt generator
     synthesis_input = ""
-    num_blocks = len(map_results)
-    for i, result in enumerate(map_results):
+    num_blocks = len(block_info_list)
+    for i, result in enumerate(block_info_list):
         block_ref_val = result.get('block_ref', f'Index {result.get("block_index", "Unknown")}')
         block_summary_val = result.get('block_summary', 'Summary Unavailable')
         synthesis_input += f"Block {i+1} Summary (Ref: {block_ref_val}): {block_summary_val}\n"

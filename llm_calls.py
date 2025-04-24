@@ -140,7 +140,8 @@ def llm_call(
     prompt: str,
     temperature: float = DefaultLLMTemperature,
     max_tokens: Optional[int] = None,
-    response_format: Optional[Dict[str, str]] = None
+    response_format: Optional[Dict[str, str]] = None,
+    add_initial_prompt: bool = True # Flag to control initial prompt addition
 ) -> str:
     """
     Core wrapper function to make an LLM call, dispatching to the correct provider.
@@ -184,7 +185,7 @@ def llm_call(
 # --- JSON Mode Wrapper (Unchanged conceptually) --- #
 
 def call_llm_json_mode(system_message: str, prompt: str, 
-        temperature: float = DefaultLLMTemperature) -> Dict[str, Any]:
+        temperature: float = DefaultLLMTemperature, add_initial_prompt=True) -> Dict[str, Any]:
     """
     Wrapper function to call the LLM in JSON mode and parse the result.
     Relies on the underlying llm_call dispatcher.
@@ -199,7 +200,8 @@ def call_llm_json_mode(system_message: str, prompt: str,
             system_message=json_system_message,
             prompt=prompt,
             temperature=temperature,
-            response_format={"type": "json_object"} # Pass hint to llm_call/provider funcs
+            response_format={"type": "json_object"}, # Pass hint to llm_call/provider funcs
+            add_initial_prompt=add_initial_prompt
         )
         result = json.loads(result_string)
         return result
