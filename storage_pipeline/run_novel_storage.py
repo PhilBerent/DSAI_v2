@@ -87,14 +87,16 @@ def run_pipeline(document_path: str):
 
                 if stage == CodeStages.Start.value:
                     # Stage 1: Initial Processing
-                    (raw_text, large_blocks, block_info_list, 
-                    final_entities) = large_block_analysis(document_path, file_id)
+                    (raw_text, large_blocks, block_info_list) = large_block_analysis(document_path, file_id)
                     aa=2
                 elif stage == CodeStages.LargeBlockAnalysisCompleted.value:
                     if load_state_flag:
-                        large_blocks, block_info_list, final_entities, raw_text = loadStateLBA()
+                        large_blocks, block_info_list, raw_text = loadStateLBA()
+                    raw_entities_data = extract_raw_entities_data(block_info_list)
+                    d=4
                     # Stage 2: Iterative Analysis (Reduce Phase)
                     (raw_text, large_blocks, block_info_list, final_entities, doc_analysis) = perform_reduce_analysis(file_id, raw_text, large_blocks, block_info_list, final_entities)
+                    a=4
                 elif stage == CodeStages.ReduceAnalysisCompleted.value:
                     if load_state_flag:
                         doc_analysis, large_blocks, block_info_list, raw_text, final_entities = loadStateIA()

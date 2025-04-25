@@ -29,6 +29,37 @@ BLOCK_ANALYSIS_SCHEMA = {
     "structural_marker_found": "string | None (e.g., 'Chapter X Title', 'Part Y Start')"
 }
 
+BLOCK_ANALYSIS_SCHEMA_NEW = {
+    "block_summary": "string (concise summary of this block)",
+    "title": "a short descriptive title for chapter/section",
+    "key_entities_in_block": {
+        "characters": [
+            {
+                "name": "string",
+                "alternate_names": ["string"],
+                "description": "string"
+            }
+        ],
+        "locations": [
+            {
+                "name": "string",
+                "alternate_names": ["string"],
+                "description": "string"
+            }
+        ],
+        "organizations": [
+            {
+                "name": "string",
+                "alternate_names": ["string"],
+                "description": "string"
+            }
+        ]
+    },
+    "unit_type": "The type of unit of this block", 
+    "structural_marker_found": "string | None (e.g., 'Chapter X Title', 'Part Y Start')"
+}
+
+
 # Schema for detailed chunk analysis
 CHUNK_ANALYSIS_SCHEMA = {
     "entities": {
@@ -118,6 +149,38 @@ def _getJournalArticleReduceInstructions(num_blocks: int) -> str:
 # --- Prompt Generation Functions ---
 
 def get_anal_large_block_prompt(block_info: Dict[str, Any], additional_data: Any = None) -> str:
+    """Generates the user prompt for analyzing a large text block."""
+    block_text = block_info.get('text', '')
+    block_ref = block_info.get('ref', 'Unknown Reference')
+
+    # Use the globally defined schema
+    schema_string = json.dumps(BLOCK_ANALYSIS_SCHEMA_NEW, indent=2)
+
+    # Truncate block text if necessary (using a reasonable limit)
+    # TODO: Consider making the truncation limit configurable
+    max_chars = 80000
+    truncated_text = block_text[:max_chars]
+    truncation_note = "(Note: Block might be truncated for analysis if excessively long)" if len(block_text) > max_chars else ""
+
+    prompt = f"""
+Analyze the following large text block from a document. Extract a concise summary, key entities primarily featured *in this block*, and identify any structural marker (like Chapter/Part title) found near the beginning of this block. The 'title', field should include the structural marker and a brief, descriptive and reflecting the main event or topic (e.g., "Chapter 10: Johnson returns to London", "Chapter VII: An Alternative Perspective", "Preface: Discussion of main themes"). The 'unit_type' is the type of text represented by the block(e.g., 'Chapter', 'Section', 'Part', 'Introduction', 'Appendix', 'Conclusion')". Use the block number for the number field. The 'key_entities_in_block' field should be a dictionary with keys 'characters', 'locations', and 'organizations', each containing a list of entities with their details.
+For each entity, include its name, alternate names and a description . If the entity is refered to by only one name in the block then the "alternate_names" field should be blank. The 'description' field should be a brief description of any information that is learned about the entity in the block. This should be purely descriptive information and should not include page references. For example it might become apparent in a block that Mr Brown lives in a house in Buckinghamshire and that his wife's name is Jane. The description for "Mr Brown" for that block then might read "Mr Brown lives in Buckinghamshire and is married to Jane" a description for the location "32 Aubert Park" might read "The home of Mr and Mrs Jones" the desciption for the organization "The Odeon Cinema" might read "Cinema located on Holloway Road" and so on. If nothing is learned about the entity in the block then the description should be blank. 
+Adhere strictly to the provided JSON schema.
+
+JSON Schema:
+{schema_string}
+
+Text Block (Ref: {block_ref}):
+--- START BLOCK ---
+{truncated_text}
+--- END BLOCK ---
+{truncation_note}
+
+Provide the analysis ONLY in the specified JSON format.
+"""
+    return prompt
+
+def get_anal_large_block_promptOld(block_info: Dict[str, Any], additional_data: Any = None) -> str:
     """Generates the user prompt for analyzing a large text block."""
     block_text = block_info.get('text', '')
     block_ref = block_info.get('ref', 'Unknown Reference')

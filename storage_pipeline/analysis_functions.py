@@ -10,6 +10,7 @@ import os
 # Removed concurrent.futures, tiktoken, time, openai imports as they are handled elsewhere
 from enum import Enum
 import traceback
+from collections import defaultdict
 
 # import prompts # Import the whole module
 
@@ -69,7 +70,7 @@ def analyze_large_block(block_info: Dict[str, Any], block_index: int, additional
         raise # Re-raise exception to be caught by parallel_llm_calls
 
 # --- REVISED: Step 3 - Map Phase: Analyze Blocks in Parallel (Now Orchestration) ---
-def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, List[str]]]:
+def perform_map_block_analysisOld(large_blocks: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, List[str]]]:
     """
     Performs the Map phase of Step 3: Orchestrates parallel analysis of large blocks.
 
@@ -150,6 +151,68 @@ def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List
     final_entities = {k: sorted(list(v)) for k, v in consolidated_entities.items()} # Sort for consistency
 
     return block_info_list, final_entities
+
+def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, List[str]]]:
+    """
+    Performs the Map phase of Step 3: Orchestrates parallel analysis of large blocks.
+
+    Args:
+        large_blocks: List of coarse chunks/blocks from Step 2.
+
+    Returns:
+        A tuple containing:
+        - block_info_list: A list of analysis results from each successfully processed block.
+        - final_entities: A dictionary of consolidated entities found across all blocks.
+    """
+    logging.info(f"Starting Map Phase: Orchestrating analysis for {len(large_blocks)} large blocks...")
+
+    if not large_blocks:
+        logging.warning("No large blocks provided to analyze.")
+        return [], {}
+
+    # --- Step 3.0: Estimate Tokens and Calculate Workers ---
+    logging.info("Estimating tokens per call for worker calculation...")
+    estimated_tokens = calc_est_tokens_per_call(
+        data_list=large_blocks,
+        num_blocks_for_sample=NumSampleBlocksForLBA,
+        estimated_output_token_fraction=EstOutputTokenFractionForLBA,
+        system_message=system_msg_for_large_block_anal,
+        prompt_generator_func=get_anal_large_block_prompt,
+    )
+
+    if estimated_tokens is None:
+        logging.warning("Token estimation failed. Using fallback worker count.")
+        num_workers = MAX_WORKERS_FALLBACK
+    else:
+        num_workers = calc_num_instances(estimated_tokens)
+
+    # Limit workers by the number of blocks
+    num_workers = min(num_workers, len(large_blocks))
+    if has_string(large_blocks, "\u2019"):
+        aaa=3
+
+    # --- Step 3.1: Run Parallel Analysis --- # 
+    block_info_list_raw = parallel_llm_calls(
+        function_to_run=analyze_large_block,
+        num_instances=num_workers,
+        input_data_list=large_blocks,
+        platform=AIPlatform,
+        rate_limit_sleep=RATE_LIMIT_SLEEP_SECONDS
+    )
+
+    # --- Process Results --- #
+    # Filter out None results (failures)
+    block_info_list = [r for r in block_info_list_raw if r is not None]
+
+    if not block_info_list:
+        logging.error("Map phase failed for all blocks. Cannot proceed to Reduce phase.")
+        return [], {}
+
+    # Sort results by original block index (important for Reduce phase)
+    # The analysis function already added 'block_index'
+    block_info_list.sort(key=lambda x: x.get('block_index', -1))
+
+    return block_info_list
 
 # --- REVISED: Step 3 - Reduce Phase: Synthesize Document Overview (Uses getReducePrompt) ---
 def perform_reduce_document_analysis(block_info_list: List[Dict[str, Any]], 
@@ -284,4 +347,42 @@ def worker_analyze_chunk(chunk_item: Dict[str, Any], block_index: int,
         logging.debug(f"exeuction failed for chunk {chunk_item['chunk_id']} after \
             {errorCount} retries: {errorMessage}\n{tb_str}")    
         return chunk_item
+
+def extract_raw_entities_data(block_info_list):
+    def consolidate_entity_data(entity_list, entity_dict):
+        for entity in entity_list:
+            name = entity["name"]
+            alt_names = set(entity.get("alternate_names", []))
+            desc = entity.get("description", "").strip()
+
+            # Initialize structure if name not yet seen
+            if name not in entity_dict:
+                entity_dict[name] = {
+                    "alternate_names": set(),
+                    "description_list": set()
+                }
+
+            entity_dict[name]["alternate_names"].update(alt_names)
+            if desc:
+                entity_dict[name]["description_list"].add(desc)
+
+    raw_entities_data = {
+        "characters": {},
+        "locations": {},
+        "organizations": {}
+    }
+
+    for block in block_info_list:
+        key_entities = block.get("key_entities_in_block", {})
+        consolidate_entity_data(key_entities.get("characters", []), raw_entities_data["characters"])
+        consolidate_entity_data(key_entities.get("locations", []), raw_entities_data["locations"])
+        consolidate_entity_data(key_entities.get("organizations", []), raw_entities_data["organizations"])
+
+    # Convert sets to lists and remove duplicates
+    for category in raw_entities_data:
+        for name in raw_entities_data[category]:
+            raw_entities_data[category][name]["alternate_names"] = sorted(list(raw_entities_data[category][name]["alternate_names"]))
+            raw_entities_data[category][name]["description_list"] = sorted(list(raw_entities_data[category][name]["description_list"]))
+
+    return raw_entities_data
 
