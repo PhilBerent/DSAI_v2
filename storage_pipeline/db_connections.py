@@ -56,10 +56,10 @@ try:
     # Initialize client using the key from DSAIParams
     openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
 except NameError:
-    logging.error("OAI_API_KEY not found. Ensure it's defined in DSAIParams.py and imported.")
+    logging.error("OAI_API_KEY not found. Ensure it's defined in DSAIParams.py and imported.", exc_info=True)
     raise
 except Exception as e:
-    logging.error(f"Failed to configure OpenAI: {e}")
+    logging.error(f"Failed to configure OpenAI: {e}", exc_info=True)
     raise
 
 # --- Pinecone Connection ---
@@ -79,7 +79,7 @@ def get_pinecone_index():
              try:
                   index_names = pc.list_indexes().names # Original attempt as fallback
              except Exception:
-                  logging.error("Could not retrieve list of index names from Pinecone response.")
+                  logging.error("Could not retrieve list of index names from Pinecone response.", exc_info=True)
                   raise
         except AttributeError: # Handle cases where the response object doesn't have 'name'
             try:
@@ -87,7 +87,7 @@ def get_pinecone_index():
                  if not isinstance(index_names, list):
                       raise ValueError("list_indexes() did not return a list of names.")
             except Exception as inner_e:
-                 logging.error(f"Could not interpret list_indexes response structure: {inner_e}")
+                 logging.error(f"Could not interpret list_indexes response structure: {inner_e}", exc_info=True)
                  raise
 
         if PINECONE_INDEX_NAME not in index_names:
@@ -102,7 +102,7 @@ def get_pinecone_index():
         logging.info(f"Pinecone index stats: {stats}")
         return index
     except Exception as e:
-        logging.error(f"Failed to connect to Pinecone: {e}")
+        logging.error(f"Failed to connect to Pinecone: {e}", exc_info=True)
         raise
 
 neo4j_driver=""
@@ -115,7 +115,7 @@ def get_neo4j_driver(neo4j_is_active=False):
             neo4j_is_active = True
             return get_neo4j_driver_local()
         except Exception as e:
-            logging.error(f"Failed to connect to Neo4j: {e}")
+            logging.error(f"Failed to connect to Neo4j: {e}", exc_info=True)
             neo4j_is_active = False
             raise
     
@@ -129,7 +129,7 @@ def get_neo4j_driver_local():
         logging.info(f"Successfully connected to Neo4j at: {NEO4J_URI}")
         return driver
     except Exception as e:
-        logging.error(f"Failed to connect to Neo4j: {e}")
+        logging.error(f"Failed to connect to Neo4j: {e}", exc_info=True)
         raise
 
 def get_neo4j_driver():
@@ -140,7 +140,7 @@ def get_neo4j_driver():
         logging.info(f"Successfully connected to Neo4j at: {NEO4J_URI}")
         return driver
     except Exception as e:
-        logging.error(f"Failed to connect to Neo4j: {e}")
+        logging.error(f"Failed to connect to Neo4j: {e}", exc_info=True)
         raise
 
 # --- Initialize Connections (Optional: Can be lazy loaded) ---
@@ -156,7 +156,7 @@ def test_connections():
         openai_client.models.list()
         logging.info("OpenAI connection successful (API key valid for listing models).")
     except Exception as e:
-        logging.error(f"OpenAI connection test failed: {e}")
+        logging.error(f"OpenAI connection test failed: {e}", exc_info=True)
 
     try:
         # Test Pinecone
@@ -164,7 +164,7 @@ def test_connections():
         # index.describe_index_stats() # Already logged in get_pinecone_index
         logging.info("Pinecone connection test successful.")
     except Exception as e:
-        logging.error(f"Pinecone connection test failed: {e}")
+        logging.error(f"Pinecone connection test failed: {e}", exc_info=True)
 
     try:
         # Test Neo4j
@@ -172,7 +172,7 @@ def test_connections():
         driver.close()
         logging.info("Neo4j connection test successful.")
     except Exception as e:
-        logging.error(f"Neo4j connection test failed: {e}")
+        logging.error(f"Neo4j connection test failed: {e}", exc_info=True)
 
     logging.info("Connection tests finished.")
 

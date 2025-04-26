@@ -1,0 +1,102 @@
+
+ChatGPT:
+
+Recommended Plan
+1. Create Canonical Character Nodes
+For each character in your corpus, assign a stable canonical ID. Group all alternate_names under that canonical ID. Youâ€™ll insert one Character node per canonical character, and link aliases.
+
+
+MERGE (c:Character {id: "char_babe", name: "Babe"})
+WITH c
+UNWIND ["Lizzy", "Elizabeth", "Miss Bennet"] AS alias
+MERGE (a:Alias {name: alias})
+MERGE (a)-[:REFERS_TO]->(c)
+You can pull these from your block_info_list by combining all characters.name and their alternate_names.
+
+2. Create Block Nodes and Mentions
+For each block, create a node and link all character aliases mentioned in that block:
+
+MERGE (b:Block {id: "XXXVI", title: "Chapter XXXVI", summary: "..."})
+WITH b
+MATCH (a:Alias {name: "Babe"})
+MERGE (m:Mention {block_id: "XXXVI", alias: "Babe"})
+MERGE (m)-[:MENTIONS]->(a)
+MERGE (b)-[:CONTAINS]->(m)
+You do this for each character alias listed in the characters section of a block.
+
+3. Enable Alias Resolution in Queries
+To get all interactions between Babe and Mr. Darcy, regardless of name:
+
+MATCH (b:Block)-[:CONTAINS]->(m1:Mention)-[:MENTIONS]->(a1:Alias)-[:REFERS_TO]->(c1:Character {id: "char_babe"}),
+      (b)-[:CONTAINS]->(m2:Mention)-[:MENTIONS]->(a2:Alias)-[:REFERS_TO]->(c2:Character {id: "char_darcy"})
+RETURN b.id, b.title, b.summary
+Now you can pull all blocks where both characters appear, which is your starting point for answering relationship questions.
+
+4. (Optional but Powerful) Add Relationship Edges
+You can preprocess and add edges like:
+
+(:Character)-[:INTERACTS_WITH {first_interaction: ..., last_interaction: ..., blocks: [...], tone: "tense/friendly"}]->(:Character)
+Either inferred from co-occurrence in blocks or sentiment/classification logic.
+
+5. Use in RAG
+When retrieving relevant blocks for a query like "How does Babe feel about Mr. Darcy in the middle of the novel?":
+
+Use graph traversal to find co-mentions of both.
+
+Pull all relevant block_ids.
+
+Retrieve those blocks and pass to your LLM.
+
+ï¿½Advantages of This Setup
+Alias-agnostic querying.
+
+Temporal tracing of relationships.
+
+Scalable to other entity types (locations, organizations).
+
+Easy visualization/debugging.
+
+Me:
+I'd like you to build a Python function that ingests block_info_list and builds this graph. However before this I should mentions that the challenge is not only that one character or entity can be know n by more than one name  - in addition it is possible that two different characters can be know by the same name at different points in the text. For example in Pride and Prejudice both Elizabeth Bennet and Jane Bennet might be referred to as Miss Bennet. Does that change your view of how the graph database should be created?
+
+Chat GPT:
+Yes — that's a critical distinction, and you're absolutely right to flag it.
+
+When a single alias (like “Miss Bennet”) refers to multiple characters depending on context, we can’t treat aliases as statically mapped to characters across the whole text. Instead, we need to contextualize alias resolution per block or per mention.
+
+Updated Graph Model: Context-Aware Alias Resolution
+We now need to shift from:
+
+(:Alias)-[:REFERS_TO]->(:Character)
+to a more granular, mention-level mapping like:
+
+(:Mention)-[:MENTIONS]->(:Alias)
+(:Mention)-[:RESOLVES_TO]->(:Character)
+This means:
+
+Alias nodes represent names used in text.
+
+Mention nodes live at the block level.
+
+Each Mention is linked to both the Alias it uses and the Character it refers to in context.
+
+🧠 Conceptual Diagram (Block-Level Context)
+(Block)
+  └─(Mention: "Miss Bennet")
+       ├─[:MENTIONS]→(Alias: "Miss Bennet")
+       └─[:RESOLVES_TO]→(Character: Jane Bennet)
+
+(Another Block)
+  └─(Mention: "Miss Bennet")
+       ├─[:MENTIONS]→(Alias: "Miss Bennet")
+       └─[:RESOLVES_TO]→(Character: Elizabeth Bennet)
+So now “Miss Bennet” is ambiguous globally, but its meaning is clear within each block or mention.
+
+
+This Enables:
+Precise disambiguation per block, based on human or AI-assisted judgment.
+
+Relationship tracking at the block level, e.g. "in which scenes does this Miss Bennet (Elizabeth) interact with Darcy?"
+
+Use of heuristics to automate likely resolution (e.g., based on who else appears in the block).
+

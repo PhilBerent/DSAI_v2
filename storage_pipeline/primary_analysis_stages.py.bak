@@ -248,24 +248,27 @@ def perform_detailed_chunk_analysis(file_id: str,
         if not chunks_with_analysis:
              raise ValueError("Chunk analysis failed for all chunks in parallel execution. Aborting subsequent steps.")
         if StateStoragePoints.DetailedBlockAnalysisCompleted in StateStorageList:
-            logging.info(f"Saving state for DetailedBlockAnalysisCompleted... ")
+            logging.info(f"Saving state for {StateStoragePoints.DetailedBlockAnalysisCompleted.name}...")
             state_to_save = {
                 "file_id": file_id,
                 "chunks_with_analysis": chunks_with_analysis,
                 "doc_analysis": doc_analysis,
-                "block_info_list": block_info_list,
+                "block_info_list": block_info_list, # Include block_info_list
                 "final_entities": final_entities
             }
             try:
                 file_path = DetailedBlockAnalysisCompletedFile
                 save_state(state_to_save, file_path)
             except Exception as e:
-                logging.error(f"Original state_storage.py save failed for DetailedBlockAnalysisCompleted: {e}", exc_info=True)
-        return file_id, block_info_list, doc_analysis, chunks_with_analysis
+                logging.error(f"Original state_storage.py save failed for {StateStoragePoints.DetailedBlockAnalysisCompleted.name}: {e}", exc_info=True)
+                # raise
+
     except Exception as e:
-        logging.error(f"Error during parallel chunk analysis setup or execution: {e}", exc_info=True)
-        raise ValueError(f"Parallel chunk analysis process failed: {e}") from e
-# end funct perform_detailed_chunk_analysis return chunks_with_analysis
+        logging.error(f"Parallel chunk analysis execution failed: {e}", exc_info=True)
+        raise ValueError(f"Parallel chunk analysis execution failed: {e}") from e
+
+    logging.info(f"Stage 3: Chunk Analysis complete for {file_id}.")
+    return file_id, chunks_with_analysis, doc_analysis, block_info_list, final_entities
 
 def get_embeddings(file_id: Optional[str] = None,
         chunks_with_analysis: Optional[List[Dict[str, Any]]] = None,

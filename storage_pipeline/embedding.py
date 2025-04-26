@@ -74,7 +74,7 @@ def generate_embeddings(chunks: List[Dict[str, Any]]) -> Dict[str, List[float]]:
                      logging.error(f"Unexpected response structure or empty data in embedding response for batch starting at index {i}. Retrying...")
 
             except Exception as e:
-                logging.error(f"OpenAI embedding API call failed for batch starting at index {i}: {e}. Retrying in {backoff}s...")
+                logging.error(f"OpenAI embedding API call failed for batch starting at index {i}: {e}. Retrying in {backoff}s...", exc_info=True)
 
             # If loop didn't break (i.e., failed)
             retries += 1
@@ -82,7 +82,7 @@ def generate_embeddings(chunks: List[Dict[str, Any]]) -> Dict[str, List[float]]:
                 time.sleep(backoff)
                 backoff *= 2 # Exponential backoff
             else:
-                logging.error(f"Failed to generate embeddings for batch starting at index {i} after {MAX_BATCH_EMBED_RETRIES} retries.")
+                logging.error(f"Failed to generate embeddings for batch starting at index {i} after {MAX_BATCH_EMBED_RETRIES} retries.", exc_info=True)
                 # Decide how to handle persistent failure: skip batch, raise error?
                 # For now, we'll skip the failed batch IDs but continue
                 logging.warning(f"Skipping chunk IDs: {batch_ids}")

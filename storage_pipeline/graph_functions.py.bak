@@ -257,70 +257,57 @@ def build_graph_data(document_id: str, doc_analysis: Dict[str, Any], chunks_with
     return nodes, edges 
 
 def ingest_blocks_into_neo4j(block_info_list: List[Dict], neo4j_driver: Driver):
+    logging.info(f"Ingesting {len(block_info_list)} blocks into Neo4j...")
+
     def run_query(tx, query, params):
-        tx.run(query, **params)
+        try:
+            result = tx.run(query, params)
+            return result.consume() # consume results to prevent potential locks
+        except Exception as e:
+            logging.error(f"Neo4j query failed: {e}. Query: {query}, Params: {params}", exc_info=True)
+            # Decide whether to raise or just log. Raising might halt the whole ingestion.
+            # raise  # Uncomment to stop ingestion on first error
+            return None # Indicate failure for this specific query
 
     with neo4j_driver.session() as session:
         for block in block_info_list:
-            block_id = str(block.get("block_ref", block["block_index"]))
-            block_title = block["title"]
-            block_summary = block["block_summary"]
+            try:
+                block_ref = block.get('block_ref', 'UnknownRef')
+                summary = block.get('block_summary', '')
+                entities = block.get('key_entities_in_block', {})
 
-            session.execute_write(
-                run_query,
-                """
-                MERGE (b:Block {id: $block_id})
-                SET b.title = $block_title, b.summary = $block_summary
-                """,
-                {
-                    "block_id": block_id,
-                    "block_title": block_title,
-                    "block_summary": block_summary
-                }
+                # Example Query (Adapt based on your exact node/relationship structure)
+                query = (
+                    "MERGE (b:Block {block_ref: $block_ref}) "
+                    "SET b.summary = $summary "
+                    "RETURN b"
                 )
+                params = {'block_ref': block_ref, 'summary': summary}
                 
-            for char in block["key_entities_in_block"].get("characters", []):
-                char_name = char["name"]
-                alt_names = char.get("alternate_names", [])
-                char_desc = char.get("description", "")
-                char_id = char_name.lower().replace(" ", "_")
+                # Run the query within a transaction
+                result_summary = session.execute_write(run_query, query, params)
+                if result_summary is None:
+                    logging.warning(f"Skipped entity/relationship creation for block {block_ref} due to node creation failure.")
+                    continue # Skip entity processing if block creation failed
 
-                session.execute_write(
-                    run_query,
-                    """
-                    MERGE (c:Character {id: $char_id})
-                    SET c.name = $char_name, c.description = $char_desc
-                    """,
-                    {
-                        "char_id": char_id,
-                        "char_name": char_name,
-                        "char_desc": char_desc
-                    }
+                # Process entities for the block (example)
+                for entity_type, entity_list in entities.items():
+                    if isinstance(entity_list, list):
+                        label = entity_type.capitalize() # Simple label creation
+                        if label.endswith('s'): label = label[:-1]
+                        for entity_name in entity_list:
+                            if isinstance(entity_name, str) and entity_name:
+                                entity_query = (
+                                    f"MERGE (e:{label} {{name: $entity_name}}) "
+                                    f"MERGE (b:Block {{block_ref: $block_ref}}) " # Ensure block exists
+                                    f"MERGE (b)-[:CONTAINS_ENTITY]->(e)"
                                 )
+                                entity_params = {'entity_name': entity_name, 'block_ref': block_ref}
+                                session.execute_write(run_query, entity_query, entity_params)
 
-                all_aliases = list(set([char_name] + alt_names))
-                for alias in all_aliases:
-                    alias_id = alias.lower().replace(" ", "_")
-                    mention_id = f"{block_id}_{alias_id}"
+            except Exception as outer_e:
+                block_ref_val = block.get('block_ref', 'UnknownRef')
+                logging.error(f"Error processing block {block_ref_val} for Neo4j ingestion: {outer_e}", exc_info=True)
+                # Continue with the next block
 
-                    session.execute_write(
-                        run_query,
-                        """
-                        MERGE (a:Alias {name: $alias})
-
-                        MERGE (m:Mention {id: $mention_id})
-                        SET m.block_id = $block_id, m.alias_used = $alias
-
-                        WITH m
-                        MATCH (b:Block {id: $block_id}), (a:Alias {name: $alias}), (c:Character {id: $char_id})
-                        MERGE (m)-[:MENTIONS]->(a)
-                        MERGE (m)-[:RESOLVES_TO]->(c)
-                        MERGE (b)-[:CONTAINS]->(m)
-                        """,
-                        {
-                            "mention_id": mention_id,
-                            "block_id": block_id,
-                            "alias": alias,
-                            "char_id": char_id
-                        }
-                    )
+    logging.info("Finished ingesting blocks.")

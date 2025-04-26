@@ -9,6 +9,7 @@ from typing import List, Dict, Any, Optional
 import uuid
 import sys
 import os
+import traceback
 
 # Adjust path to import from parent directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -31,7 +32,7 @@ try:
     # Use the tokenizer appropriate for the embedding model
     encoding = tiktoken.get_encoding("cl100k_base")
 except ImportError:
-    logging.warning("tiktoken library not found. Chunk size estimations might be less accurate.")
+    logging.warning("tiktoken library not found. Chunk size estimations might be less accurate.", exc_info=True)
     encoding = None
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')

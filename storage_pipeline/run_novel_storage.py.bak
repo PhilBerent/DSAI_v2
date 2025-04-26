@@ -32,8 +32,25 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 def run_pipeline(document_path: str):
     """Executes the storage pipeline for a given document using a stage-based approach."""
     start_time = time.time()
-    file_id = os.path.splitext(os.path.basename(document_path))[0] # Use filename without ext as ID    
-    logging.info(f"--- Starting Storage Pipeline for: {file_id} (Run Mode: {RunCodeFrom.value}) ---")
+    logging.info(f"--- Starting Storage Pipeline for: {document_path} (Run Mode: {RunCodeFrom.value}) ---")
+
+    # --- 0. Setup & Connections ---
+    pinecone_index = None # Initialize to ensure availability in finally block
+    neo4j_driver = None   # Initialize to ensure availability in finally block
+    try:
+        logging.info("Setting up database connections...")
+        # Connections are needed for the final stage
+        # pinecone_index = get_pinecone_index()
+        # neo4j_driver = get_neo4j_driver_local()
+        file_id = os.path.splitext(os.path.basename(document_path))[0] # Use filename without ext as ID
+        logging.info(f"Using Document ID: {file_id}")
+    except Exception as e:
+        logging.error(f"Pipeline setup failed: {e}", exc_info=True)
+        # Clean up any potentially partially initialized connections
+        if neo4j_driver:
+            neo4j_driver.close()
+        # Pinecone client doesn't usually require explicit close in this manner
+        return # Exit if setup fails
 
     # Initialize variables to hold state between stages
     raw_text = large_blocks = block_info_list = final_entities = chunks_with_analysis = \
@@ -43,6 +60,7 @@ def run_pipeline(document_path: str):
         # Determine the starting index in the stages list
         try:
             start_index = Code_Stages_List.index(RunCodeFrom.value)
+
             logging.info(f"Pipeline will run stages starting from index {start_index}: {Code_Stages_List[start_index:]}")
 
             # --- Execute Pipeline Stages ---
@@ -50,12 +68,12 @@ def run_pipeline(document_path: str):
                 # Determine if state should be loaded for this stage
                 # Load state only if it's the *first* stage being executed in this run
                 load_state_flag = (stage != 'Start' and stage == RunCodeFrom.value) # Don't load state if starting from the beginning
-                logMessage = ("Loading and executing " if load_state_flag else "Executing ")+f"""stage "{stage}"\n"""
-                logging.info(logMessage)
+
+                logging.info(f"--- Executing Stage: {stage} (Load State: {load_state_flag}) ---")
 
                 if stage == CodeStages.Start.value:
                     # Stage 1: Initial Processing
-                    (raw_text, large_blocks, block_info_list) = large_block_analysis(document_path, file_id)
+                            (raw_text, large_blocks, block_info_list) = large_block_analysis(document_path, file_id)
                     aa=2
                 elif stage == CodeStages.LargeBlockAnalysisCompleted.value:
                     if load_state_flag:

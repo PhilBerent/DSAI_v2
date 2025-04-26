@@ -7,6 +7,7 @@ import openai # Keep for OpenAI client and specific error handling
 import google.generativeai as genai # Import Gemini library
 import concurrent.futures
 import time
+import traceback
 
 # Adjust path to import from the root DSAI_v2_Scripts directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -33,6 +34,29 @@ except ImportError as e:
 # Configuration is now handled in config_loader.py
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# --- Filter specific thread warning --- #
+class ThreadWarningFilter(logging.Filter):
+    def filter(self, record):
+        # Check if the message matches the specific warning
+        return "thread._ident is None in _get_related_thread!" not in record.getMessage()
+
+# Apply the filter to the handlers created by basicConfig
+try:
+    if logging.root.handlers:
+        for handler in logging.root.handlers:
+            # Check if the filter is already added to avoid duplicates if script runs multiple times
+            if not any(isinstance(f, ThreadWarningFilter) for f in handler.filters):
+                handler.addFilter(ThreadWarningFilter())
+                logging.debug("Applied ThreadWarningFilter to logging handler.")
+            else:
+                logging.debug("ThreadWarningFilter already present on handler.")
+    else:
+        # This case should ideally not happen after basicConfig if setup was successful
+        logging.warning("Could not apply ThreadWarningFilter: No handlers found on root logger after basicConfig.")
+except Exception as filter_err:
+    logging.error(f"Failed to add ThreadWarningFilter: {filter_err}", exc_info=True)
+# --- End Filter --- #
 
 # --- Provider-Specific Call Implementations --- #
 
@@ -160,28 +184,51 @@ def llm_call(
         ValueError: If the AIPlatform is unsupported or response content is None.
         Exception: Propagates API errors or other exceptions.
     """
+    
     logging.debug(f"Dispatching LLM call via platform: {AIPlatform}")
     prompt = initialPromptText + prompt  # Prepend initialPromptText to the user prompt
     # Use uppercase comparison for dispatching
-    if AIPlatform.upper() == "OPENAI":
-        return _openai_llm_call(
-            system_message=system_message,
-            prompt=prompt,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            response_format=response_format
-        )
-    elif AIPlatform.upper() == "GEMINI":
-        return _gemini_llm_call(
-            system_message=system_message,
-            prompt=prompt,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            response_format=response_format
-        )
-    else:
-        raise ValueError(f"Unsupported AIPlatform configured: {AIPlatform}")
-
+    errorCount = 1
+    executionError = False
+    success = False
+    errorMessage = ""
+    result = None
+    while errorCount <= 3:    
+        try:
+            success = True
+            if AIPlatform.upper() == "OPENAI":
+                result = _openai_llm_call(
+                    system_message=system_message,
+                    prompt=prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    response_format=response_format
+                )
+            elif AIPlatform.upper() == "GEMINI":
+                result = _gemini_llm_call(
+                    system_message=system_message,
+                    prompt=prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    response_format=response_format
+                )
+            else:
+                raise ValueError(f"Unsupported AIPlatform configured: {AIPlatform}")
+            break
+        except Exception as e:
+            executionError = True
+            success = False
+            errorCount += 1
+            errorMessage = traceback.format_exc()
+            time.sleep(1)
+    
+    if executionError: 
+        if success:
+             logging.info(f"LLM call succeded after {errorCount} retries. Last error message:\n{errorMessage}")
+        else:
+             raise Exception(f"LLM call failed after {errorCount} retries:\n{errorMessage}")
+    
+    return result
 # --- JSON Mode Wrapper (Unchanged conceptually) --- #
 
 def call_llm_json_mode(system_message: str, prompt: str, 
@@ -194,7 +241,8 @@ def call_llm_json_mode(system_message: str, prompt: str,
     # Add JSON instruction for both providers
     json_system_message = system_message + " Ensure the output is a single, valid JSON object and nothing else."
     # For Gemini, the _gemini_llm_call might add further JSON instructions.
-
+    result = None
+    result_string = None
     try:
         result_string = llm_call(
             system_message=json_system_message,
@@ -209,16 +257,12 @@ def call_llm_json_mode(system_message: str, prompt: str,
     except json.JSONDecodeError as json_e:
         # Log the content that failed *after* cleaning attempt
         logging.error(f"JSON decoding failed: {json_e}")
-        logging.error(f"Cleaned content that failed to parse: {cleaned_content[:500]}...")
-        # Log the original raw content as well
-        # Need to ensure raw_content is accessible here, maybe return it from llm_call on error?
-        # For now, log only cleaned_content.
+        logging.error(f"Cleaned content that failed to parse: {prompt[:500]}...")
         raise
     except Exception as e:
         logging.error(f"call_llm_json_mode failed: {e}")
         raise
 
-# --- Parallel Execution & Worker Calculation ---
 
 # Attempt to import Google API core exceptions for Gemini rate limits
 try:

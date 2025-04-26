@@ -63,7 +63,7 @@ def ingest_document(file_path: str) -> str:
         return cleaned_text
 
     except UnicodeDecodeError:
-        logging.warning(f"UTF-8 decoding failed for {file_path}. Trying 'latin-1'.")
+        logging.warning(f"UTF-8 decoding failed for {file_path}. Trying 'latin-1'.", exc_info=True)
         try:
             # Fallback to latin-1 or another common encoding if needed
             with open(file_path, 'r', encoding='latin-1') as f:
@@ -72,10 +72,10 @@ def ingest_document(file_path: str) -> str:
             cleaned_text = ' '.join(raw_text.split())
             return cleaned_text
         except Exception as e:
-            logging.error(f"Error reading file {file_path} even with fallback encoding: {e}")
+            logging.error(f"Error reading file {file_path} even with fallback encoding: {e}", exc_info=True)
             raise IOError(f"Could not read file {file_path}: {e}")
     except Exception as e:
-        logging.error(f"An unexpected error occurred while reading file {file_path}: {e}")
+        logging.error(f"An unexpected error occurred while reading file {file_path}: {e}", exc_info=True)
         raise IOError(f"Could not read file {file_path}: {e}")
 
 # Example Usage (can be removed or put under if __name__ == "__main__")

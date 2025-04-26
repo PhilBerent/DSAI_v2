@@ -44,7 +44,7 @@ def analyze_large_block(block_info: Dict[str, Any], block_index: int, additional
     try:
         prompt = get_anal_large_block_prompt(block_info)
     except Exception as prompt_err:
-        logging.error(f"Failed to generate prompt for block {block_index + 1} ({block_ref}): {prompt_err}")
+        logging.error(f"Failed to generate prompt for block {block_index + 1} ({block_ref}): {prompt_err}", exc_info=True)
         return None
 
     try:
@@ -53,10 +53,7 @@ def analyze_large_block(block_info: Dict[str, Any], block_index: int, additional
         if (has_string(prompt, "\u2019")):
             aaa=3
 
-        block_analysis_result = call_llm_json_mode(
-            system_message=system_msg_for_large_block_anal,
-            prompt=prompt
-        )
+        block_analysis_result = retry_function(call_llm_json_mode, system_msg_for_large_block_anal, prompt)
         if (has_string(block_analysis_result, "\u2019")):
             aaa=3
 
@@ -66,7 +63,7 @@ def analyze_large_block(block_info: Dict[str, Any], block_index: int, additional
         return block_analysis_result
     except Exception as e:
         # The parallel caller will log this exception
-        logging.error(f"LLM call failed for block {block_index + 1} ({block_ref}): {e}")
+        logging.error(f"LLM call failed for block {block_index + 1} ({block_ref}): {e}", exc_info=True)
         raise # Re-raise exception to be caught by parallel_llm_calls
 
 # --- REVISED: Step 3 - Map Phase: Analyze Blocks in Parallel (Now Orchestration) ---
@@ -258,7 +255,7 @@ def perform_reduce_document_analysis(block_info_list: List[Dict[str, Any]],
     try:
         reduce_prompt = getReducePrompt(num_blocks, formatted_entities_str, synthesis_input)
     except Exception as prompt_err:
-         logging.error(f"Failed to generate reduce prompt: {prompt_err}")
+         logging.error(f"Failed to generate reduce prompt: {prompt_err}", exc_info=True)
          # Return error dictionary if prompt generation fails
          return {
             "error": f"Failed during prompt generation: {prompt_err}",
@@ -275,7 +272,7 @@ def perform_reduce_document_analysis(block_info_list: List[Dict[str, Any]],
         logging.info("Reduce phase complete. Document overview synthesized.")
         return final_analysis
     except Exception as e:
-        logging.error(f"Failed to synthesize document overview (Reduce phase): {e}")
+        logging.error(f"Failed to synthesize document overview (Reduce phase): {e}", exc_info=True)
         return {
             "error": f"Failed during final synthesis: {e}",
             "document_type": "Analysis Failed", "structure": [], "overall_summary": "", "preliminary_key_entities": {}
@@ -299,7 +296,7 @@ def analyze_chunk_details(block_info: Dict[str, Any], block_index: int,
         )
         return chunk_analysis_result
     except Exception as e:
-        logging.error(f"Failed to analyze chunk details for {chunk_id}: {e}")
+        logging.error(f"Failed to analyze chunk details for {chunk_id}: {e}", exc_info=True)
         # Return error structure
         return {
             "error": f"Analysis failed for chunk {chunk_id}: {e}",
@@ -334,7 +331,7 @@ def worker_analyze_chunk(chunk_item: Dict[str, Any], block_index: int,
             executionError = True
             tb_str = traceback.format_exc()
             chunk_id = chunk_item.get('chunk_id', 'UNKNOWN_ID')
-            logging.error(f"Worker failed for chunk {chunk_id}: {errorMessage}\n{tb_str}")
+            logging.error(f"Worker failed for chunk {chunk_id}: {errorMessage}\n{tb_str}", exc_info=True)
             # Return the original item marked with an error
             chunk_item['analysis'] = None
             chunk_item['analysis_status'] = 'error'

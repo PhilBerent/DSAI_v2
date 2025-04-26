@@ -1709,7 +1709,7 @@ def WriteJSONToMindMap(jsonObj, filename=g.tempOutputFile): # Kept original defa
             # child_indent = '\t' * (level + 1) # Not strictly needed
             for i, item in enumerate(obj): # Using 0-based index for label
                 # Create a label like "parent_key[0]", "parent_key[1]", etc.
-                node_label = f"{key_name}[{i}]" if key_name else f"item[{i}]"
+                node_label = f"{key_name}[{i}]" if key_name else f"lv_{level}_item_{i}]"
                  # Clean the generated label before passing it down
                 clean_node_label = cleanText(node_label) # Use cleanText
                  # Pass cleaned label for the list item
@@ -1783,7 +1783,7 @@ def WriteDictToMindMap(dictObj, filename=g.tempOutputFile): # Changed default fi
     except Exception as e:
         print(f"Error writing dictionary to mind map {filename}: {e}")
 
-def WriteStructToMindMap(structObj, filename=g.tempOutputFile):
+def WriteStructToMindMap(structObj, showDictLables = False, filename=g.tempOutputFile):
     def recurse(obj, level=0, key_name=None, lines=None):
         if lines is None:
             lines = []
@@ -1792,10 +1792,14 @@ def WriteStructToMindMap(structObj, filename=g.tempOutputFile):
 
         if isinstance(obj, dict):
             # Iterate through dictionary items
+            numItems = len(obj)
+            itemNum = 0
             for k, v in obj.items():
+                itemNum += 1
                 # Clean the key before appending it as a node
                 clean_key = cleanText(k)
-                lines.append(f"{indent}{clean_key}")
+                label = f" - di_{level}_{itemNum}" if showDictLables else ""
+                lines.append(f"{indent}{clean_key} - di_{level}_{itemNum}")
                 # Recurse for the value, passing None as key_name, as the value
                 # doesn't inherently carry the key's name in this format.
                 recurse(v, level + 1, None, lines)
@@ -1804,7 +1808,7 @@ def WriteStructToMindMap(structObj, filename=g.tempOutputFile):
             # Iterate through list items
             for i, item in enumerate(obj, 1):
                 # Create a generic label for the list item
-                label = f"item_{i}" # Label is already ASCII
+                label = f"lv_{level}_item_{i}" # Label is already ASCII
                 lines.append(f"{indent}{label}")
                 # Recurse for the item, passing None as key_name
                 recurse(item, level + 1, None, lines)
@@ -1878,3 +1882,42 @@ def has_string(input_to_search, string_to_look_for):
         return False, ""
 
     return search(input_to_search, string_to_look_for, [])
+
+import time
+import logging
+import traceback
+
+def retry_function(func, *args, numRetries=3, sleep_time=1, **kwargs):
+    if numRetries < 1:
+        raise ValueError("numRetries must be at least 1")
+
+    errorCount = 1
+    executionError = False
+    success = False
+    last_errorMessage = ""
+    result = None
+
+    while errorCount <= numRetries:
+        try:
+            result = func(*args, **kwargs)
+            success = True
+            break
+        except Exception as e:
+            executionError = True
+            last_errorMessage = traceback.format_exc()
+            logging.warning(f"Attempt {errorCount}/{numRetries} failed for '{func.__name__}': {e}")
+
+            errorCount += 1
+            if errorCount <= numRetries:
+                logging.info(f"Retrying in {sleep_time} seconds...")
+                time.sleep(sleep_time)
+
+    if success:
+        if executionError:
+             logging.info(f"Function '{func.__name__}' succeeded on attempt {errorCount}/{numRetries}.")
+        return result
+    else:
+        raise Exception(
+            f"Function '{func.__name__}' failed after {numRetries} attempts. "
+            f"Last error:\n{last_errorMessage}"
+        )

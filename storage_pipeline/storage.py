@@ -93,7 +93,7 @@ def store_embeddings_pinecone(
                 total_upserted += result.upserted_count
                 logging.info(f"Upserted batch result: {result}")
             except Exception as e:
-                logging.error(f"Error during Pinecone batch upsert: {e}")
+                logging.error(f"Error during Pinecone batch upsert: {e}", exc_info=True)
 
     logging.info(f"Finished storing embeddings. Total upserted count reported by Pinecone: {total_upserted}")
 
@@ -110,7 +110,7 @@ def execute_neo4j_write_batch(driver: Neo4jDriver, query: str, batch_data: List[
             summary = result.consume()
             logging.debug(f"Neo4j batch write summary: {summary.counters}")
     except Exception as e:
-        logging.error(f"Failed Neo4j batch write: {e}. Query: {query[:200]}... Data Count: {len(batch_data)}")
+        logging.error(f"Failed Neo4j batch write: {e}. Query: {query[:200]}... Data Count: {len(batch_data)}", exc_info=True)
         # Consider raising the error or implementing more robust error handling/retries
         # raise
 
@@ -146,11 +146,11 @@ def store_graph_data_neo4j(
                 except Exception as e:
                     # Ignore errors if constraint already exists, log others
                     if "already exists" not in str(e).lower():
-                         logging.error(f"Failed to apply constraint: {query}. Error: {e}")
+                         logging.error(f"Failed to apply constraint: {query}. Error: {e}", exc_info=True)
                     else:
                          logging.debug(f"Constraint likely already exists: {query.split(' FOR ')[0]}")
     except Exception as e:
-        logging.error(f"Could not connect to Neo4j to apply constraints: {e}")
+        logging.error(f"Could not connect to Neo4j to apply constraints: {e}", exc_info=True)
         raise
 
     # --- Batch Node Creation --- #
@@ -200,7 +200,7 @@ def store_graph_data_neo4j(
             try:
                 future.result() # Wait for completion and check for exceptions
             except Exception as e:
-                 logging.error(f"Neo4j node write future failed: {e}")
+                 logging.error(f"Neo4j node write future failed: {e}", exc_info=True)
 
     logging.info("Finished processing node storage batches.")
 
@@ -283,7 +283,7 @@ def store_graph_data_neo4j(
              try:
                 future.result()
              except Exception as e:
-                 logging.error(f"Neo4j edge write future failed: {e}")
+                 logging.error(f"Neo4j edge write future failed: {e}", exc_info=True)
 
     logging.info("Finished processing edge storage batches.")
     logging.info("Neo4j graph storage complete.")
