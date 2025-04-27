@@ -210,7 +210,30 @@ def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List
     # The analysis function already added 'block_index'
     block_info_list.sort(key=lambda x: x.get('block_index', -1))
 
-    return block_info_list
+    logging.info("Consolidating entities from successful map results...")
+    consolidated_entities = {"characters": set(), "locations": set(), "organizations": set()}
+    for i, result in enumerate(block_info_list):
+        if not isinstance(result, dict):
+            logging.warning(f"Skipping invalid map result at index {i} after filtering: {result}")
+            continue
+        block_ref_val = result.get('block_ref', f'Index {result.get("block_index", "Unknown")}')
+        entities = result.get('key_entities_in_block', {})
+        if isinstance(entities, dict):
+            # Extract only the 'name' field from each entity
+            character_names = [char.get("name") for char in entities.get("characters", []) if isinstance(char, dict) and "name" in char]
+            location_names = [loc.get("name") for loc in entities.get("locations", []) if isinstance(loc, dict) and "name" in loc]
+            organization_names = [org.get("name") for org in entities.get("organizations", []) if isinstance(org, dict) and "name" in org]
+            
+            consolidated_entities["characters"].update(character_names)
+            consolidated_entities["locations"].update(location_names)
+            consolidated_entities["organizations"].update(organization_names)
+        else:
+            logging.warning(f"Unexpected entity format in block {block_ref_val}: {entities}")
+
+    # Convert sets back to sorted lists for the final structure
+    full_entities_list = {k: sorted(list(v)) for k, v in consolidated_entities.items()}
+
+    return block_info_list, full_entities_list
 
 # --- REVISED: Step 3 - Reduce Phase: Synthesize Document Overview (Uses getReducePrompt) ---
 def perform_reduce_document_analysis(block_info_list: List[Dict[str, Any]], 
@@ -484,3 +507,11 @@ def consolidate_entity_information(block_info_list):
 
     return formatted_entities_data
 
+def get_primary_entity_names(prelim_entity_data):
+    # prelim_entity_data is a dictionary with keys 'characters', 'locations', and 'organizations' the values of each of these are also dictionaries for which the keys are the names of the entities. Return a dictionary 'prelim_primary_names' where the keys are 'characters', 'locations', and 'organizations' and the values are the keys of each of the corresponding dictionaries in 'prelim_entity_data'.
+    prelim_primary_names = {
+        "characters": list(prelim_entity_data["characters"].keys()),
+        "locations": list(prelim_entity_data["locations"].keys()),
+        "organizations": list(prelim_entity_data["organizations"].keys())
+    }
+    return prelim_primary_names

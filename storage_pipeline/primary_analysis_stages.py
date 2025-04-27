@@ -84,7 +84,7 @@ def large_block_analysis(document_path: str, file_id: str) -> Tuple[str, List[Di
     # --- 3.1 Map Phase --- #
     logging.info("Step 1.3: Performing Map phase block analysis...")
     try:
-        block_info_list = perform_map_block_analysis(large_blocks)        
+        block_info_list, full_entities_list = perform_map_block_analysis(large_blocks)        
         a=3
         if not block_info_list:
              logging.warning("Map phase analysis returned no results. Check individual block analysis logs.")
@@ -109,7 +109,7 @@ def large_block_analysis(document_path: str, file_id: str) -> Tuple[str, List[Di
             logging.error(f"Original state_storage.py save failed for {StateStoragePoints.LargeBlockAnalysisCompleted.name}: {e}", exc_info=True)
 
     logging.info(f"Stage 1: Initial Processing complete for {file_id}.")
-    return raw_text, large_blocks, block_info_list
+    return raw_text, large_blocks, block_info_list, full_entities_list
 
 
 # --- Stage 2: LargeBlockAnalysisCompleted -> ReduceAnalysisCompleted ---
