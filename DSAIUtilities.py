@@ -12,6 +12,7 @@ import sqlite3
 import pinecone
 import tiktoken
 from DSAIParams import *
+import traceback
 
 # Attempt to import tiktoken, fall back if unavailable
 try:

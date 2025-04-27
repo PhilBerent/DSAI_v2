@@ -9,6 +9,7 @@ from typing import List, Dict, Any, Optional
 import uuid
 import sys
 import os
+import traceback
 
 # Adjust path to import from parent directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -31,7 +32,7 @@ try:
     # Use the tokenizer appropriate for the embedding model
     encoding = tiktoken.get_encoding("cl100k_base")
 except ImportError:
-    logging.warning("tiktoken library not found. Chunk size estimations might be less accurate.")
+    logging.warning("tiktoken library not found. Chunk size estimations might be less accurate.", exc_info=True)
     encoding = None
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -39,7 +40,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 # --- Configuration --- (Adjusted)
 CHAPTER_PATTERNS = [
     # Find anywhere: CHAPTER, spaces, Roman OR Arabic numerals. Capture type and numeral.
-    re.compile(r"(CHAPTER|PART|BOOK)\s+([IVXLCDM\d]+)", re.IGNORECASE),
+    re.compile(r"(CHAPTER|PART|BOOK|PREFACE|APPENDIX)\s+([IVXLCDM\d]+)", re.IGNORECASE),
 ]
 # Keywords to ignore if a potential chapter line starts with them
 IGNORE_PREFIXES = ("to ", "heading to ", "contents:", "illustrations:")
@@ -148,14 +149,16 @@ def coarse_chunk_by_structure(full_text: str) -> List[Dict[str, Any]]:
 
             # Determine type and reference using stored info
             unit_type = marker_types.get(start_pos, "DetectedStructure") # Use stored type
-            ref = marker_refs.get(start_pos, f"Unit {i+1}")
-            structural_marker = f"{unit_type} {ref}"
+            marker = marker_refs.get(start_pos, f"Unit {i+1}")
+            structural_marker = f"{unit_type} {marker}"
+            ref = f"{i}_{structural_marker}"
 
             coarse_chunks.append({
                 'text': cleaned_text, # Use cleaned text
                 'type': unit_type,
                 'ref': ref,
                 'structural_marker': structural_marker,
+                'block_number': i, # 1-based index
                 'start_char': start_pos
             })
             aa=1
@@ -175,22 +178,24 @@ def coarse_chunk_by_structure(full_text: str) -> List[Dict[str, Any]]:
 
             text_slice = full_text[current_pos:split_pos].strip()
             if text_slice:
-                 # --- ADD CLEANING HERE --- #
-                 cleaned_text = cleanText(text_slice) # Use the cleanText function
-                 # --- END CLEANING --- #
+                    # --- ADD CLEANING HERE --- #
+                    cleaned_text = cleanText(text_slice) # Use the cleanText function
+                    # --- END CLEANING --- #
 
-                 unit_type = 'FallbackBlock'
-                 ref = f"Block {block_index}"
-                 structural_marker = f"{unit_type} {block_index}"
+                    unit_type = 'FallbackBlock'
+                    marker = f"Block {block_index}"
+                    structural_marker = f"{unit_type} {marker}"
+                    ref = f"{i}_{structural_marker}"
 
-                 coarse_chunks.append({
-                     'text': cleaned_text, # Use cleaned text
-                     'type': unit_type,
-                     'ref': ref,
-                     'structural_marker': structural_marker,
-                     'start_char': current_pos
-                 })
-                 block_index += 1
+                    coarse_chunks.append({
+                        'text': cleaned_text, # Use cleaned text
+                        'type': unit_type,
+                        'structural_marker': structural_marker,
+                'ref': ref,                
+                        'block_number': i, # 1-based index                        
+                        'start_char': current_pos
+                    })
+                    block_index += 1
             current_pos = split_pos + 1
 
         logging.info(f"Coarse chunking resulted in {len(coarse_chunks)} fallback blocks.")

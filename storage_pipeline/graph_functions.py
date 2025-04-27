@@ -12,6 +12,7 @@ from typing import List, Dict, Any, Set, Tuple
 import sys
 import os
 import re # Added import for re.sub
+from neo4j import Driver
 
 # Adjust path to import from parent directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -46,7 +47,14 @@ def build_graph_data(document_id: str, doc_analysis: Dict[str, Any], chunks_with
             - edges: A list of edge dictionaries for Neo4j.
     """
     logging.info(f"Starting graph data construction for document: {document_id}")
-    get_neo4j_driver() # Ensure Neo4j driver is initialized if needed
+    try:
+        # Get Neo4j driver (consider moving initialization outside if reused)
+        neo4j_driver = get_neo4j_driver()
+    except Exception as db_err:
+        logging.error(f"Failed to get Neo4j driver: {db_err}", exc_info=True)
+        # Return empty lists or raise depending on desired behavior
+        return [], []
+
     nodes = []
     edges = []
     entity_nodes_created: Set[Tuple[str, str]] = set() # Store (entity_type, entity_name) to avoid duplicates
@@ -247,3 +255,72 @@ def build_graph_data(document_id: str, doc_analysis: Dict[str, Any], chunks_with
 
     logging.info(f"Graph data construction complete. Generated {len(nodes)} nodes and {len(edges)} edges.")
     return nodes, edges 
+
+def ingest_blocks_into_neo4j(block_info_list: List[Dict], neo4j_driver: Driver):
+    def run_query(tx, query, params):
+        tx.run(query, **params)
+
+    with neo4j_driver.session() as session:
+        for block in block_info_list:
+            block_id = str(block.get("block_ref", block["block_index"]))
+            block_title = block["title"]
+            block_summary = block["block_summary"]
+
+            session.execute_write(
+                run_query,
+                """
+                MERGE (b:Block {id: $block_id})
+                SET b.title = $block_title, b.summary = $block_summary
+                """,
+                {
+                    "block_id": block_id,
+                    "block_title": block_title,
+                    "block_summary": block_summary
+                }
+                )
+                
+            for char in block["key_entities_in_block"].get("characters", []):
+                char_name = char["name"]
+                alt_names = char.get("alternate_names", [])
+                char_desc = char.get("description", "")
+                char_id = char_name.lower().replace(" ", "_")
+
+                session.execute_write(
+                    run_query,
+                    """
+                    MERGE (c:Character {id: $char_id})
+                    SET c.name = $char_name, c.description = $char_desc
+                    """,
+                    {
+                        "char_id": char_id,
+                        "char_name": char_name,
+                        "char_desc": char_desc
+                    }
+                                )
+
+                all_aliases = list(set([char_name] + alt_names))
+                for alias in all_aliases:
+                    alias_id = alias.lower().replace(" ", "_")
+                    mention_id = f"{block_id}_{alias_id}"
+
+                    session.execute_write(
+                        run_query,
+                        """
+                        MERGE (a:Alias {name: $alias})
+
+                        MERGE (m:Mention {id: $mention_id})
+                        SET m.block_id = $block_id, m.alias_used = $alias
+
+                        WITH m
+                        MATCH (b:Block {id: $block_id}), (a:Alias {name: $alias}), (c:Character {id: $char_id})
+                        MERGE (m)-[:MENTIONS]->(a)
+                        MERGE (m)-[:RESOLVES_TO]->(c)
+                        MERGE (b)-[:CONTAINS]->(m)
+                        """,
+                        {
+                            "mention_id": mention_id,
+                            "block_id": block_id,
+                            "alias": alias,
+                            "char_id": char_id
+                        }
+                    )

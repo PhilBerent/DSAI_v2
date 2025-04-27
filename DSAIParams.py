@@ -6,7 +6,7 @@ from openai import OpenAI
 import tiktoken
 from langchain.text_splitter import TokenTextSplitter
 from langchain_openai import OpenAIEmbeddings
-from enums_and_constants import *
+from enums_constants_and_classes import *
 
 # Load tokenizer for OpenAI embeddings
 encoding = tiktoken.get_encoding("cl100k_base")  # Correct for text-embedding-3 models

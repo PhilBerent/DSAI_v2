@@ -10,7 +10,8 @@ import os
 # Removed concurrent.futures, tiktoken, time, openai imports as they are handled elsewhere
 from enum import Enum
 import traceback
-from collections import defaultdict
+import collections
+from collections import *
 
 # import prompts # Import the whole module
 
@@ -22,7 +23,7 @@ sys.path.insert(0, parent_dir) # Add parent DSAI_v2_Scripts
 from globals import *
 from UtilityFunctions import *
 from DSAIParams import *
-from enums_and_constants import *
+from enums_constants_and_classes import *
 from llm_calls import *
 from prompts import *
 from DSAIUtilities import *
@@ -44,7 +45,7 @@ def analyze_large_block(block_info: Dict[str, Any], block_index: int, additional
     try:
         prompt = get_anal_large_block_prompt(block_info)
     except Exception as prompt_err:
-        logging.error(f"Failed to generate prompt for block {block_index + 1} ({block_ref}): {prompt_err}")
+        logging.error(f"Failed to generate prompt for block {block_index + 1} ({block_ref}): {prompt_err}", exc_info=True)
         return None
 
     try:
@@ -53,10 +54,7 @@ def analyze_large_block(block_info: Dict[str, Any], block_index: int, additional
         if (has_string(prompt, "\u2019")):
             aaa=3
 
-        block_analysis_result = call_llm_json_mode(
-            system_message=system_msg_for_large_block_anal,
-            prompt=prompt
-        )
+        block_analysis_result = retry_function(call_llm_json_mode, system_msg_for_large_block_anal, prompt)
         if (has_string(block_analysis_result, "\u2019")):
             aaa=3
 
@@ -66,7 +64,7 @@ def analyze_large_block(block_info: Dict[str, Any], block_index: int, additional
         return block_analysis_result
     except Exception as e:
         # The parallel caller will log this exception
-        logging.error(f"LLM call failed for block {block_index + 1} ({block_ref}): {e}")
+        logging.error(f"LLM call failed for block {block_index + 1} ({block_ref}): {e}", exc_info=True)
         raise # Re-raise exception to be caught by parallel_llm_calls
 
 # --- REVISED: Step 3 - Map Phase: Analyze Blocks in Parallel (Now Orchestration) ---
@@ -258,7 +256,7 @@ def perform_reduce_document_analysis(block_info_list: List[Dict[str, Any]],
     try:
         reduce_prompt = getReducePrompt(num_blocks, formatted_entities_str, synthesis_input)
     except Exception as prompt_err:
-         logging.error(f"Failed to generate reduce prompt: {prompt_err}")
+         logging.error(f"Failed to generate reduce prompt: {prompt_err}", exc_info=True)
          # Return error dictionary if prompt generation fails
          return {
             "error": f"Failed during prompt generation: {prompt_err}",
@@ -275,7 +273,7 @@ def perform_reduce_document_analysis(block_info_list: List[Dict[str, Any]],
         logging.info("Reduce phase complete. Document overview synthesized.")
         return final_analysis
     except Exception as e:
-        logging.error(f"Failed to synthesize document overview (Reduce phase): {e}")
+        logging.error(f"Failed to synthesize document overview (Reduce phase): {e}", exc_info=True)
         return {
             "error": f"Failed during final synthesis: {e}",
             "document_type": "Analysis Failed", "structure": [], "overall_summary": "", "preliminary_key_entities": {}
@@ -299,7 +297,7 @@ def analyze_chunk_details(block_info: Dict[str, Any], block_index: int,
         )
         return chunk_analysis_result
     except Exception as e:
-        logging.error(f"Failed to analyze chunk details for {chunk_id}: {e}")
+        logging.error(f"Failed to analyze chunk details for {chunk_id}: {e}", exc_info=True)
         # Return error structure
         return {
             "error": f"Analysis failed for chunk {chunk_id}: {e}",
@@ -334,7 +332,7 @@ def worker_analyze_chunk(chunk_item: Dict[str, Any], block_index: int,
             executionError = True
             tb_str = traceback.format_exc()
             chunk_id = chunk_item.get('chunk_id', 'UNKNOWN_ID')
-            logging.error(f"Worker failed for chunk {chunk_id}: {errorMessage}\n{tb_str}")
+            logging.error(f"Worker failed for chunk {chunk_id}: {errorMessage}\n{tb_str}", exc_info=True)
             # Return the original item marked with an error
             chunk_item['analysis'] = None
             chunk_item['analysis_status'] = 'error'
@@ -348,7 +346,7 @@ def worker_analyze_chunk(chunk_item: Dict[str, Any], block_index: int,
             {errorCount} retries: {errorMessage}\n{tb_str}")    
         return chunk_item
 
-def extract_raw_entities_data(block_info_list):
+def consolidate_entity_informationOld(block_info_list):
     def consolidate_entity_data(entity_list, entity_dict):
         for entity in entity_list:
             name = entity["name"]
@@ -385,4 +383,104 @@ def extract_raw_entities_data(block_info_list):
             raw_entities_data[category][name]["description_list"] = sorted(list(raw_entities_data[category][name]["description_list"]))
 
     return raw_entities_data
+
+def consolidate_entity_information(block_info_list):
+    """
+    Consolidates entity information from a list of block analyses.
+
+    Args:
+        block_info_list: A list where each element conforms to BLOCK_ANALYSIS_SCHEMA.
+
+    Returns:
+        A dictionary categorizing entities ('characters', 'locations', 'organizations').
+        Each category contains a dictionary where keys are unique entity names.
+        The value for each entity name is a dictionary containing:
+          - 'block_list': A sorted list of block indices where the primary name appeared.
+          - 'alternate_names': A list of dictionaries, each with 'alternate_name'
+                               and 'block_list' (indices where it appeared).
+          - 'descriptions': A list of dictionaries, each with 'description'
+                            and 'block_list' (indices where it appeared).
+    """
+    def consolidate_entity_data(entity_list, entity_dict, block_index):
+        """Updates the entity dictionary with data from a single block."""
+        for entity in entity_list:
+            name = entity["name"].strip()
+            if not name: # Skip entities with empty names
+                continue
+
+            alt_names = entity.get("alternate_names", [])
+            desc = entity.get("description", "").strip()
+
+            # Initialize structure if name not yet seen
+            if name not in entity_dict:
+                entity_dict[name] = {
+                    "alt_names_map": collections.defaultdict(set),
+                    "descriptions_map": collections.defaultdict(set),
+                    "primary_name_blocks": set() # Added set to track primary name blocks
+                }
+
+            # --- Track primary name occurrence ---
+            entity_dict[name]["primary_name_blocks"].add(block_index) # Add current block index
+
+            # Store alternate names with block index
+            for alt_name in alt_names:
+                cleaned_alt_name = alt_name.strip()
+                if cleaned_alt_name: # Avoid empty strings
+                    entity_dict[name]["alt_names_map"][cleaned_alt_name].add(block_index)
+
+            # Store description with block index
+            if desc:
+                entity_dict[name]["descriptions_map"][desc].add(block_index)
+
+    raw_entities_data = {
+        "characters": {},
+        "locations": {},
+        "organizations": {}
+    }
+
+    # Process each block and track its index
+    for block_index, block in enumerate(block_info_list):
+        key_entities = block.get("key_entities_in_block", {})
+        consolidate_entity_data(key_entities.get("characters", []), raw_entities_data["characters"], block_index)
+        consolidate_entity_data(key_entities.get("locations", []), raw_entities_data["locations"], block_index)
+        consolidate_entity_data(key_entities.get("organizations", []), raw_entities_data["organizations"], block_index)
+
+    # --- Format the output ---
+    formatted_entities_data = {
+        "characters": {},
+        "locations": {},
+        "organizations": {}
+    }
+
+    for category in raw_entities_data:
+        for name, data in raw_entities_data[category].items():
+            # Format alternate names
+            formatted_alt_names = []
+            for alt_name, block_indices in data["alt_names_map"].items():
+                formatted_alt_names.append({
+                    "alternate_name": alt_name,
+                    "block_list": sorted(list(block_indices))
+                })
+            formatted_alt_names.sort(key=lambda x: x["alternate_name"]) # Sort alphabetically
+
+            # Format descriptions
+            formatted_descriptions = []
+            for description, block_indices in data["descriptions_map"].items():
+                formatted_descriptions.append({
+                    "description": description,
+                    "block_list": sorted(list(block_indices))
+                })
+            formatted_descriptions.sort(key=lambda x: x["description"]) # Sort alphabetically
+
+            # --- Format primary name block list ---
+            primary_block_list = sorted(list(data["primary_name_blocks"]))
+
+            # --- Assemble final dictionary for the entity ---
+            formatted_entities_data[category][name] = {
+                "block_list": primary_block_list, # Added primary name block list
+                "alternate_names": formatted_alt_names,
+                "descriptions": formatted_descriptions
+            }
+
+    return formatted_entities_data
 

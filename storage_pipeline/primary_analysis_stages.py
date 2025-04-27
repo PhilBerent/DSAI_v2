@@ -23,7 +23,7 @@ try:
     # Import specific params needed
     from DSAIParams import *
     # Import enums needed
-    from enums_and_constants import CodeStages, StateStoragePoints
+    from enums_constants_and_classes import CodeStages, StateStoragePoints
     # Import prompt components
     from prompts import *
     from analysis_functions import *
@@ -84,7 +84,7 @@ def large_block_analysis(document_path: str, file_id: str) -> Tuple[str, List[Di
     # --- 3.1 Map Phase --- #
     logging.info("Step 1.3: Performing Map phase block analysis...")
     try:
-        block_info_list = perform_map_block_analysis(large_blocks)
+        block_info_list = perform_map_block_analysis(large_blocks)        
         a=3
         if not block_info_list:
              logging.warning("Map phase analysis returned no results. Check individual block analysis logs.")
@@ -250,7 +250,7 @@ def perform_detailed_chunk_analysis(file_id: str,
         if StateStoragePoints.DetailedBlockAnalysisCompleted in StateStorageList:
             logging.info(f"Saving state for DetailedBlockAnalysisCompleted... ")
             state_to_save = {
-                "file_id": file_id,                
+                "file_id": file_id,
                 "chunks_with_analysis": chunks_with_analysis,
                 "doc_analysis": doc_analysis,
                 "block_info_list": block_info_list,
@@ -267,11 +267,10 @@ def perform_detailed_chunk_analysis(file_id: str,
         raise ValueError(f"Parallel chunk analysis process failed: {e}") from e
 # end funct perform_detailed_chunk_analysis return chunks_with_analysis
 
-def get_embeddings(file_id: Optional[str] = None,  
-        chunks_with_analysis: Optional[List[Dict[str, Any]]] = None, 
-        doc_analysis: Optional[Dict[str, Any]] = None, block_info_list: Optional[List[Dict[str, Any]]] = None, 
+def get_embeddings(file_id: Optional[str] = None,
+        chunks_with_analysis: Optional[List[Dict[str, Any]]] = None,
+        doc_analysis: Optional[Dict[str, Any]] = None, block_info_list: Optional[List[Dict[str, Any]]] = None,
         final_entities: Optional[Dict[str, List[str]]] = None) -> Dict[str, List[float]]:
-
     # [Code for Embedding Generation remains unchanged] ...
     logging.info("Step 3.3: Generating embeddings...")
     embeddings_dict: Dict[str, List[float]] = {}

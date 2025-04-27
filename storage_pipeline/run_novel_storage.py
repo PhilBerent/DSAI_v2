@@ -21,24 +21,10 @@ try:
     from UtilityFunctions import *
     from DSAIParams import * # Imports RunCodeFrom, StateStorageList, DocToAddPath etc.
     # Import enums for state management and the list of stages
-    from enums_and_constants import CodeStages, StateStoragePoints, Code_Stages_List
+    from enums_constants_and_classes import CodeStages, StateStoragePoints, Code_Stages_List
     from primary_analysis_stages import *
 except ImportError as e:
     print(f"Error importing core modules (globals, UtilityFunctions, DSAIParams, enums): {e}")
-    raise
-
-# Pipeline components
-try:
-    # config_loader is likely not needed directly here anymore if DocToAddPath is from DSAIParams
-    # from config_loader import DocToAddPath, Chunk_Size, Chunk_overlap # Chunk parameters are now in DSAIParams
-    from storage_pipeline.db_connections import get_pinecone_index, get_neo4j_driver_local # Removed test_connections, not used
-    # Import the new stage functions
-    # State storage is used within the stage functions now
-    # from state_storage import save_state, load_state # No longer needed here
-except ImportError as e:
-    print(f"Error during absolute import: {e}")
-    print("Ensure you are running this script from a context where DSAI_v2_Scripts is accessible,")
-    print("or that DSAI_v2_Scripts is in your PYTHONPATH.")
     raise
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -46,25 +32,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 def run_pipeline(document_path: str):
     """Executes the storage pipeline for a given document using a stage-based approach."""
     start_time = time.time()
-    logging.info(f"--- Starting Storage Pipeline for: {document_path} (Run Mode: {RunCodeFrom.value}) ---")
-
-    # --- 0. Setup & Connections ---
-    pinecone_index = None # Initialize to ensure availability in finally block
-    neo4j_driver = None   # Initialize to ensure availability in finally block
-    try:
-        logging.info("Setting up database connections...")
-        # Connections are needed for the final stage
-        # pinecone_index = get_pinecone_index()
-        # neo4j_driver = get_neo4j_driver_local()
-        file_id = os.path.splitext(os.path.basename(document_path))[0] # Use filename without ext as ID
-        logging.info(f"Using Document ID: {file_id}")
-    except Exception as e:
-        logging.error(f"Pipeline setup failed: {e}")
-        # Clean up any potentially partially initialized connections
-        if neo4j_driver:
-            neo4j_driver.close()
-        # Pinecone client doesn't usually require explicit close in this manner
-        return # Exit if setup fails
+    file_id = os.path.splitext(os.path.basename(document_path))[0] # Use filename without ext as ID    
+    logging.info(f"--- Starting Storage Pipeline for: {file_id} (Run Mode: {RunCodeFrom.value}) ---")
 
     # Initialize variables to hold state between stages
     raw_text = large_blocks = block_info_list = final_entities = chunks_with_analysis = \
@@ -74,7 +43,6 @@ def run_pipeline(document_path: str):
         # Determine the starting index in the stages list
         try:
             start_index = Code_Stages_List.index(RunCodeFrom.value)
-
             logging.info(f"Pipeline will run stages starting from index {start_index}: {Code_Stages_List[start_index:]}")
 
             # --- Execute Pipeline Stages ---
@@ -82,8 +50,8 @@ def run_pipeline(document_path: str):
                 # Determine if state should be loaded for this stage
                 # Load state only if it's the *first* stage being executed in this run
                 load_state_flag = (stage != 'Start' and stage == RunCodeFrom.value) # Don't load state if starting from the beginning
-
-                logging.info(f"--- Executing Stage: {stage} (Load State: {load_state_flag}) ---")
+                logMessage = ("Loading and executing " if load_state_flag else "Executing ")+f"""stage "{stage}"\n"""
+                logging.info(logMessage)
 
                 if stage == CodeStages.Start.value:
                     # Stage 1: Initial Processing
@@ -92,7 +60,7 @@ def run_pipeline(document_path: str):
                 elif stage == CodeStages.LargeBlockAnalysisCompleted.value:
                     if load_state_flag:
                         large_blocks, block_info_list, raw_text = loadStateLBA()
-                    raw_entities_data = extract_raw_entities_data(block_info_list)
+                    prelim_entity_data = consolidate_entity_information(block_info_list)
                     d=4
                     # Stage 2: Iterative Analysis (Reduce Phase)
                     (raw_text, large_blocks, block_info_list, final_entities, doc_analysis) = perform_reduce_analysis(file_id, raw_text, large_blocks, block_info_list, final_entities)
@@ -142,7 +110,7 @@ def run_pipeline(document_path: str):
                 neo4j_driver.close()
                 logging.info("Neo4j driver closed.")
             except Exception as e:
-                logging.error(f"Error closing Neo4j driver: {e}")
+                logging.error(f"Error closing Neo4j driver: {e}", exc_info=True)
         # Pinecone client does not require explicit close in recent versions
 
     end_time = time.time()
