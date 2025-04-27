@@ -15,17 +15,13 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(script_dir)
 sys.path.insert(0, parent_dir)
 
-# Import required global modules first
-try:
-    from globals import *
-    from UtilityFunctions import *
-    from DSAIParams import * # Imports RunCodeFrom, StateStorageList, DocToAddPath etc.
-    # Import enums for state management and the list of stages
-    from enums_constants_and_classes import CodeStages, StateStoragePoints, Code_Stages_List
-    from primary_analysis_stages import *
-except ImportError as e:
-    print(f"Error importing core modules (globals, UtilityFunctions, DSAIParams, enums): {e}")
-    raise
+from globals import *
+from UtilityFunctions import *
+from DSAIParams import * # Imports RunCodeFrom, StateStorageList, DocToAddPath etc.
+# Import enums for state management and the list of stages
+from enums_constants_and_classes import CodeStages, StateStoragePoints, Code_Stages_List
+from primary_analysis_stages import *
+from alias_resolution import *
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -61,6 +57,7 @@ def run_pipeline(document_path: str):
                     if load_state_flag:
                         large_blocks, block_info_list, raw_text = loadStateLBA()
                     prelim_entity_data = consolidate_entity_information(block_info_list)
+                    resolved_registry = resolve_entity_aliases(prelim_entity_data)
                     d=4
                     # Stage 2: Iterative Analysis (Reduce Phase)
                     (raw_text, large_blocks, block_info_list, final_entities, doc_analysis) = perform_reduce_analysis(file_id, raw_text, large_blocks, block_info_list, final_entities)
