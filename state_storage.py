@@ -5,7 +5,7 @@ from typing import Any, Dict
 from UtilityFunctions import *
 from globals import *
 from DSAIParams import *
-from enums_and_constants import StateStoragePoints, CodeStages
+from enums_constants_and_classes import StateStoragePoints, CodeStages
 
 def _compress_json_to_file(data: Dict[str, Any], file_path: str, level: int = 10):
     os.makedirs(StateStorageDirectory, exist_ok=True)

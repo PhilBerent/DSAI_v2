@@ -23,7 +23,7 @@ try:
     # Import specific params needed
     from DSAIParams import *
     # Import enums needed
-    from enums_and_constants import CodeStages, StateStoragePoints
+    from enums_constants_and_classes import CodeStages, StateStoragePoints
     # Import prompt components
     from prompts import *
     from analysis_functions import *
@@ -84,7 +84,7 @@ def large_block_analysis(document_path: str, file_id: str) -> Tuple[str, List[Di
     # --- 3.1 Map Phase --- #
     logging.info("Step 1.3: Performing Map phase block analysis...")
     try:
-        block_info_list = perform_map_block_analysis(large_blocks)
+        block_info_list = perform_map_block_analysis(large_blocks)        
         a=3
         if not block_info_list:
              logging.warning("Map phase analysis returned no results. Check individual block analysis logs.")

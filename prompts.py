@@ -11,13 +11,13 @@ from typing import List, Dict, Any, Tuple, Optional
 from globals import *
 from UtilityFunctions import *
 from DSAIParams import *
-from enums_and_constants import *
+from enums_constants_and_classes import *
 
 
 # --- Schemas ---
 
 # Schema for block-level analysis in the map phase
-BLOCK_ANALYSIS_SCHEMA = {
+BLOCK_ANALYSIS_SCHEMA_OLD = {
     "block_summary": "string (concise summary of this block)",
     "title": "a short descriptive title for chapter/section",
     "key_entities_in_block": {
@@ -29,7 +29,7 @@ BLOCK_ANALYSIS_SCHEMA = {
     "structural_marker_found": "string | None (e.g., 'Chapter X Title', 'Part Y Start')"
 }
 
-BLOCK_ANALYSIS_SCHEMA_NEW = {
+BLOCK_ANALYSIS_SCHEMA = {
     "block_summary": "string (concise summary of this block)",
     "title": "a short descriptive title for chapter/section",
     "key_entities_in_block": {
@@ -56,7 +56,8 @@ BLOCK_ANALYSIS_SCHEMA_NEW = {
         ]
     },
     "unit_type": "The type of unit of this block", 
-    "structural_marker_found": "string | None (e.g., 'Chapter X Title', 'Part Y Start')"
+    "structural_marker_found": "string | None (e.g., 'Chapter X Title', 'Part Y Start')",
+    "unit_num" : "int"
 }
 
 
@@ -148,13 +149,13 @@ def _getJournalArticleReduceInstructions(num_blocks: int) -> str:
 
 # --- Prompt Generation Functions ---
 
-def get_anal_large_block_prompt(block_info: Dict[str, Any], additional_data: Any = None) -> str:
+def get_anal_large_block_prompt(block_data: Dict[str, Any], additional_data: Any = None) -> str:
     """Generates the user prompt for analyzing a large text block."""
-    block_text = block_info.get('text', '')
-    block_ref = block_info.get('ref', 'Unknown Reference')
+    block_text = block_data.get('text', '')
+    block_ref = block_data.get('ref', 'Unknown Reference')
 
     # Use the globally defined schema
-    schema_string = json.dumps(BLOCK_ANALYSIS_SCHEMA_NEW, indent=2)
+    schema_string = json.dumps(BLOCK_ANALYSIS_SCHEMA, indent=2)
 
     # Truncate block text if necessary (using a reasonable limit)
     # TODO: Consider making the truncation limit configurable
@@ -187,7 +188,7 @@ def get_anal_large_block_promptOld(block_info: Dict[str, Any], additional_data: 
     block_ref = block_info.get('ref', 'Unknown Reference')
 
     # Use the globally defined schema
-    schema_string = json.dumps(BLOCK_ANALYSIS_SCHEMA, indent=2)
+    schema_string = json.dumps(BLOCK_ANALYSIS_SCHEMA_OLD, indent=2)
 
     # Truncate block text if necessary (using a reasonable limit)
     # TODO: Consider making the truncation limit configurable

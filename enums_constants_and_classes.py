@@ -1,8 +1,8 @@
 from enum import Enum
 from globals import *
 from UtilityFunctions import *
-
-
+import collections
+from typing import List, Dict, TypedDict # Make sure TypedDict is imported
 
 class DocumentType(Enum):
     NOVEL = "Novel"
@@ -40,7 +40,24 @@ Code_Stages_List = [
 
 DocumentTypeList = ["Novel", "Biography", "Journal Article"]
 
+# --- Schema Definitions (as defined before) ---
+class AlternateNameInfo(TypedDict):
+    alternate_name: str
+    block_list: List[int]
 
+class DescriptionInfo(TypedDict):
+    description: str
+    block_list: List[int]
 
-    
+class EntityDetails(TypedDict):
+    block_list: List[int]
+    alternate_names: List[AlternateNameInfo]
+    descriptions: List[DescriptionInfo]
+
+ConsolidatedEntitiesInCategory = Dict[str, EntityDetails]
+
+class ConsolidatedOutputSchema(TypedDict):
+    characters: ConsolidatedEntitiesInCategory
+    locations: ConsolidatedEntitiesInCategory
+    organizations: ConsolidatedEntitiesInCategory
 

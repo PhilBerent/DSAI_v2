@@ -21,7 +21,7 @@ try:
     from UtilityFunctions import *
     from DSAIParams import * # Imports RunCodeFrom, StateStorageList, DocToAddPath etc.
     # Import enums for state management and the list of stages
-    from enums_and_constants import CodeStages, StateStoragePoints, Code_Stages_List
+    from enums_constants_and_classes import CodeStages, StateStoragePoints, Code_Stages_List
     from primary_analysis_stages import *
 except ImportError as e:
     print(f"Error importing core modules (globals, UtilityFunctions, DSAIParams, enums): {e}")
@@ -60,7 +60,7 @@ def run_pipeline(document_path: str):
                 elif stage == CodeStages.LargeBlockAnalysisCompleted.value:
                     if load_state_flag:
                         large_blocks, block_info_list, raw_text = loadStateLBA()
-                    raw_entities_data = extract_raw_entities_data(block_info_list)
+                    prelim_entity_data = consolidate_entity_information(block_info_list)
                     d=4
                     # Stage 2: Iterative Analysis (Reduce Phase)
                     (raw_text, large_blocks, block_info_list, final_entities, doc_analysis) = perform_reduce_analysis(file_id, raw_text, large_blocks, block_info_list, final_entities)

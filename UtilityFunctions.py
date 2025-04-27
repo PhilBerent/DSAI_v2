@@ -16,6 +16,8 @@ import json
 import globals as g
 from globals import *
 import gc
+import logging
+import traceback
 
 clr.AddReference('Python.Runtime')
 clr.AddReference(r"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.dll")
@@ -1783,7 +1785,7 @@ def WriteDictToMindMap(dictObj, filename=g.tempOutputFile): # Changed default fi
     except Exception as e:
         print(f"Error writing dictionary to mind map {filename}: {e}")
 
-def WriteStructToMindMap(structObj, showDictLables = False, filename=g.tempOutputFile):
+def WriteObjToMindMap(structObj, showDictLables = False, filename=g.tempOutputFile):
     def recurse(obj, level=0, key_name=None, lines=None):
         if lines is None:
             lines = []
@@ -1833,7 +1835,7 @@ def WriteStructToMindMap(structObj, showDictLables = False, filename=g.tempOutpu
 
 def WriteDictOrJsonToMM(Obj, filename=g.tempOutputFile):
     if isinstance(Obj, dict or list):
-        WriteStructToMindMap(Obj, filename)
+        WriteObjToMindMap(Obj, filename)
     elif isinstance(Obj, str):
         try:
             parsed = json.loads(Obj)
@@ -1883,9 +1885,41 @@ def has_string(input_to_search, string_to_look_for):
 
     return search(input_to_search, string_to_look_for, [])
 
-import time
-import logging
-import traceback
+def describe_object_structure(obj, level=0):
+    """Recursively describe the structure of a Python object (list/dict/nested), with compact list display."""
+    indent = '\t' * level
+    structure = ""
+
+    if isinstance(obj, dict):
+        structure += indent + "dict:\n"
+        for key, value in obj.items():
+            structure += indent + repr(key) + ":\n"  # No extra tab after indent, just newline
+            structure += describe_object_structure(value, level + 1)
+    elif isinstance(obj, list):
+        n = len(obj)
+        if n == 0:
+            structure += indent + "list: 0 items\n"
+        else:
+            first_item = obj[0]
+            item_type = type(first_item).__name__
+            same_type = all(isinstance(x, type(first_item)) for x in obj)
+
+            if same_type and isinstance(first_item, (int, float, str, bool)):
+                structure += indent + f"list: {n} items: {item_type}\n"
+            else:
+                structure += indent + f"list: {n} items:\n"
+                structure += describe_object_structure(first_item, level + 1)
+    else:
+        structure += indent + f"{type(obj).__name__}\n"
+
+    return structure
+
+def WriteObjStructureToFile(obj, filename=g.tempOutputFile):
+    """Write the structure of a Python object to a file."""
+    with open(filename, 'w') as f:
+        structure = describe_object_structure(obj)
+        f.write(structure)
+        f.write("\n\n")
 
 def retry_function(func, *args, numRetries=3, sleep_time=1, **kwargs):
     if numRetries < 1:
@@ -1921,3 +1955,5 @@ def retry_function(func, *args, numRetries=3, sleep_time=1, **kwargs):
             f"Function '{func.__name__}' failed after {numRetries} attempts. "
             f"Last error:\n{last_errorMessage}"
         )
+        
+    
