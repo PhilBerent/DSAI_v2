@@ -203,4 +203,40 @@ def pathTest():
     #     print("Successfully imported alias_resolution from storage_pipeline.")
     # except ImportError as e:
     #     print(f"Error importing alias_resolution: {e}")
-pathTest()
+# pathTest()
+import json
+
+example_data = {
+    "block_summary": "This part covers the initial setup and character introductions.",
+    "title": "Chapter 1: The Beginning",
+    "key_entities_in_block": {
+        "characters": [
+            {"name": "Alice", "alternate_names": [], "description": "Protagonist"},
+            {"name": "Bob", "alternate_names": {"aa":["Robert", "Bobby"], "ab":23}, "description": "Sidekick"},
+            {"name": "Charlie", "alternate_names": None, "description": "Antagonist"}
+        ],
+        "locations": [
+            {"name": "Townsville", "alternate_names": 12345, "description": "Main setting"},
+            None, # Test None entry
+            {}    # Test empty dict entry
+        ],
+        "organizations": [
+             {"name": "Org A", "alternate_names": ["A"], "description": "Good guys"},
+             # Empty list for organizations to test find_first_representative_element
+        ],
+         "entity interactions": [
+            {"entity1 name": "Alice", "entity2 name": "Bob", "interaction description": "Discussed the plan"},
+            {"entity1 name": "Alice", "entity2 name": "Charlie", "interaction description": "Confrontation"}
+        ]
+    },
+    "unit_type": "Chapter",
+    "structural_marker_found": "Chapter 1 Title",
+    "unit_num": 1,
+    "metadata": None,
+    "flags": [True, False],
+    "empty_list_test": [],
+    "list_of_empty": [None, [], {}]
+}
+
+WriteSchemaToFile(example_data)
+a=3

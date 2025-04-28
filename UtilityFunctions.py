@@ -1956,4 +1956,96 @@ def retry_function(func, *args, numRetries=3, sleep_time=1, **kwargs):
             f"Last error:\n{last_errorMessage}"
         )
         
+def create_schema(obj, indent=0):
+    schema_lines = []
+    space = '    ' * indent
+
+    if isinstance(obj, dict):
+        schema_lines.append(space + "{")
+        keys = list(obj.keys())
+        for idx, key in enumerate(keys):
+            value = obj[key]
+            key_line = f'{space}    "{key}": '
+            key_line += create_schema(value, indent + 1).lstrip()
+            if idx != len(keys) - 1:
+                key_line += ","
+            schema_lines.append(key_line)
+        schema_lines.append(space + "}")
+    elif isinstance(obj, list):
+        non_empty_items = [item for item in obj if item not in (None, {}, [], '')]
+        if not non_empty_items:
+            schema_lines.append(space + '[\n' + space + '    "unknown type"\n' + space + ']')
+        elif all(not isinstance(item, (dict, list)) for item in non_empty_items):
+            # simple list of primitives
+            primitive_type = get_type_hint(non_empty_items[0])
+            schema_lines.append(space + f'[{primitive_type}]')
+        elif all(isinstance(item, dict) for item in non_empty_items):
+            # list of dicts
+            schema_lines.append(space + "[")
+            schema_lines.append(build_schema_from_list(non_empty_items, indent + 1))
+            schema_lines.append(space + "]")
+        else:
+            # mixed or nested lists
+            schema_lines.append(space + '[\n' + space + '    "unknown type"\n' + space + ']')
+    else:
+        schema_lines.append(space + get_type_hint(obj))
+
+    return '\n'.join(schema_lines)
+
+def get_type_hint(value):
+    if isinstance(value, str):
+        return '"string"'
+    elif isinstance(value, int):
+        return '"int"'
+    elif isinstance(value, float):
+        return '"float"'
+    elif isinstance(value, bool):
+        return '"bool"'
+    elif value is None:
+        return '"None"'
+    else:
+        return '"unknown type"'
+
+def build_schema_from_list(lst, indent=0):
+    """Build a schema from a list of dicts."""
+    space = '    ' * indent
+    field_types = {}
+
+    for item in lst:
+        for k, v in item.items():
+            if k not in field_types and v not in (None, {}, [], ''):
+                if isinstance(v, list):
+                    # handle inner list properly
+                    non_empty_inner = [el for el in v if el not in (None, {}, [], '')]
+                    if non_empty_inner:
+                        if all(not isinstance(el, (dict, list)) for el in non_empty_inner):
+                            inner_type = get_type_hint(non_empty_inner[0])
+                            field_types[k] = f"[{inner_type}]"
+                        else:
+                            field_types[k] = '[\n' + space + '    "unknown type"\n' + space + ']'
+                    else:
+                        field_types[k] = '[\n' + space + '    "unknown type"\n' + space + ']'
+                elif isinstance(v, dict):
+                    field_types[k] = create_schema(v, indent + 1).strip()
+                else:
+                    field_types[k] = get_type_hint(v)
+
+    lines = []
+    lines.append(space + "{")
+    keys = list(field_types.keys())
+    for idx, key in enumerate(keys):
+        value = field_types[key]
+        line = f'{space}    "{key}": {value}'
+        if idx != len(keys) - 1:
+            line += ","
+        lines.append(line)
+    lines.append(space + "}")
+    return '\n'.join(lines)
+
+# ----------------------
+
+def WriteSchemaToFile(obj, filename=g.tempOutputFile):
+    schema = create_schema(obj)
+    WriteToFile(schema, filename)
+    
     

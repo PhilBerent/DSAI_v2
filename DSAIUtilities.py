@@ -13,6 +13,9 @@ import pinecone
 import tiktoken
 from DSAIParams import *
 import traceback
+import copy
+import re
+
 
 # Attempt to import tiktoken, fall back if unavailable
 try:
@@ -208,4 +211,94 @@ def calc_est_tokens_per_call(
         return None
 
 
+import copy
+import re
 
+def fix_titles_in_names(block_analysis_result):
+    fixed_result = copy.deepcopy(block_analysis_result)
+    
+    titles = ["Mr", "Mrs", "Miss", "Ms"]
+    
+    # Pattern: match title only if NOT immediately followed by a period
+    title_patterns = {title: re.compile(rf'\b{title}\b(?!\.)') for title in titles}
+    
+    def correct_name(name):
+        for title, pattern in title_patterns.items():
+            name = pattern.sub(f"{title}.", name)
+        return name
+
+    characters = fixed_result.get('key_entities_in_block', {}).get('characters', [])
+    
+    for character in characters:
+        if 'name' in character:
+            character['name'] = correct_name(character['name'])
+        
+        if 'alternate_names' in character and isinstance(character['alternate_names'], list):
+            character['alternate_names'] = [correct_name(alt_name) for alt_name in character['alternate_names']]
+
+    return fixed_result
+
+def remove_leading_the(block_analysis_result):
+    fixed_result = copy.deepcopy(block_analysis_result)
+    
+    # Precompiled regex to match "the " or "The " at the start
+    the_pattern = re.compile(r'^(the\s)', re.IGNORECASE)
+    
+    def clean_name(name):
+        return the_pattern.sub('', name)
+    
+    # Process locations
+    locations = fixed_result.get('key_entities_in_block', {}).get('locations', [])
+    for location in locations:
+        if 'name' in location:
+            location['name'] = clean_name(location['name'])
+        if 'alternate_names' in location and isinstance(location['alternate_names'], list):
+            location['alternate_names'] = [clean_name(alt_name) for alt_name in location['alternate_names']]
+    
+    # Process organizations
+    organizations = fixed_result.get('key_entities_in_block', {}).get('organizations', [])
+    for organization in organizations:
+        if 'name' in organization:
+            organization['name'] = clean_name(organization['name'])
+        if 'alternate_names' in organization and isinstance(organization['alternate_names'], list):
+            organization['alternate_names'] = [clean_name(alt_name) for alt_name in organization['alternate_names']]
+    
+    return fixed_result
+
+import copy
+
+def capitalize_first_letter(block_analysis_result):
+    fixed_result = copy.deepcopy(block_analysis_result)
+    
+    def capitalize_name(name):
+        return name[:1].upper() + name[1:] if name else name
+
+    key_entities = fixed_result.get('key_entities_in_block', {})
+    
+    for entity_type in ['characters', 'locations', 'organizations']:
+        entities = key_entities.get(entity_type, [])
+        for entity in entities:
+            if 'name' in entity:
+                entity['name'] = capitalize_name(entity['name'])
+            if 'alternate_names' in entity and isinstance(entity['alternate_names'], list):
+                entity['alternate_names'] = [capitalize_name(alt_name) for alt_name in entity['alternate_names']]
+    
+    return fixed_result
+
+def capitalize_all_words(block_analysis_result):
+    fixed_result = copy.deepcopy(block_analysis_result)
+    
+    def title_case_name(name):
+        return name.title() if name else name
+
+    key_entities = fixed_result.get('key_entities_in_block', {})
+    
+    for entity_type in ['characters', 'locations', 'organizations']:
+        entities = key_entities.get(entity_type, [])
+        for entity in entities:
+            if 'name' in entity:
+                entity['name'] = title_case_name(entity['name'])
+            if 'alternate_names' in entity and isinstance(entity['alternate_names'], list):
+                entity['alternate_names'] = [title_case_name(alt_name) for alt_name in entity['alternate_names']]
+    
+    return fixed_result

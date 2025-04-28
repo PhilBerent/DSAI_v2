@@ -38,10 +38,8 @@ def analyze_large_block(block_info: Dict[str, Any], block_index: int, additional
     """Analyzes a single large text block using LLM. (Now simpler)"""
     block_ref = block_info.get('ref', f'Index {block_index}')
     logging.info(f"Analyzing large block {block_index + 1}: {block_ref} (Length: {len(block_info.get('text',''))} chars)")
-    if (has_string(block_info, "\u2019")):
-            aaa=3
-
     # Get the user prompt using the dedicated function
+
     try:
         prompt = get_anal_large_block_prompt(block_info)
     except Exception as prompt_err:
@@ -51,12 +49,11 @@ def analyze_large_block(block_info: Dict[str, Any], block_index: int, additional
     try:
         # Use the centralized function for the API call in JSON mode
         # Pass the specific system message and the generated prompt
-        if (has_string(prompt, "\u2019")):
-            aaa=3
 
-        block_analysis_result = retry_function(call_llm_json_mode, system_msg_for_large_block_anal, prompt)
-        if (has_string(block_analysis_result, "\u2019")):
-            aaa=3
+        block_analysis_result = retry_function(call_llm_json_mode, system_msg_for_large_block_anal, prompt, numRetries=7)
+        block_analysis_result = fix_titles_in_names(block_analysis_result) # ensures that all titles are followed by a "."
+        block_analysis_result = remove_leading_the(block_analysis_result) # removes leading "the" from names
+        block_analysis_result = capitalize_all_words(block_analysis_result) # capitalizes the first letter of all words in names
 
         # Add block reference back for context in reduce step
         block_analysis_result['block_ref'] = block_ref
@@ -104,8 +101,6 @@ def perform_map_block_analysisOld(large_blocks: List[Dict[str, Any]]) -> Tuple[L
 
     # Limit workers by the number of blocks
     num_workers = min(num_workers, len(large_blocks))
-    if has_string(large_blocks, "\u2019"):
-        aaa=3
 
     # --- Step 3.1: Run Parallel Analysis --- # 
     block_info_list_raw = parallel_llm_calls(
@@ -150,7 +145,7 @@ def perform_map_block_analysisOld(large_blocks: List[Dict[str, Any]]) -> Tuple[L
 
     return block_info_list, final_entities
 
-def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, List[str]]]:
+def get_block_info_list(large_blocks: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, List[str]]]:
     """
     Performs the Map phase of Step 3: Orchestrates parallel analysis of large blocks.
 
@@ -186,8 +181,6 @@ def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List
 
     # Limit workers by the number of blocks
     num_workers = min(num_workers, len(large_blocks))
-    if has_string(large_blocks, "\u2019"):
-        aaa=3
 
     # --- Step 3.1: Run Parallel Analysis --- # 
     block_info_list_raw = parallel_llm_calls(
@@ -210,30 +203,7 @@ def perform_map_block_analysis(large_blocks: List[Dict[str, Any]]) -> Tuple[List
     # The analysis function already added 'block_index'
     block_info_list.sort(key=lambda x: x.get('block_index', -1))
 
-    logging.info("Consolidating entities from successful map results...")
-    consolidated_entities = {"characters": set(), "locations": set(), "organizations": set()}
-    for i, result in enumerate(block_info_list):
-        if not isinstance(result, dict):
-            logging.warning(f"Skipping invalid map result at index {i} after filtering: {result}")
-            continue
-        block_ref_val = result.get('block_ref', f'Index {result.get("block_index", "Unknown")}')
-        entities = result.get('key_entities_in_block', {})
-        if isinstance(entities, dict):
-            # Extract only the 'name' field from each entity
-            character_names = [char.get("name") for char in entities.get("characters", []) if isinstance(char, dict) and "name" in char]
-            location_names = [loc.get("name") for loc in entities.get("locations", []) if isinstance(loc, dict) and "name" in loc]
-            organization_names = [org.get("name") for org in entities.get("organizations", []) if isinstance(org, dict) and "name" in org]
-            
-            consolidated_entities["characters"].update(character_names)
-            consolidated_entities["locations"].update(location_names)
-            consolidated_entities["organizations"].update(organization_names)
-        else:
-            logging.warning(f"Unexpected entity format in block {block_ref_val}: {entities}")
-
-    # Convert sets back to sorted lists for the final structure
-    full_entities_list = {k: sorted(list(v)) for k, v in consolidated_entities.items()}
-
-    return block_info_list, full_entities_list
+    return block_info_list
 
 # --- REVISED: Step 3 - Reduce Phase: Synthesize Document Overview (Uses getReducePrompt) ---
 def perform_reduce_document_analysis(block_info_list: List[Dict[str, Any]], 
@@ -508,10 +478,17 @@ def consolidate_entity_information(block_info_list):
     return formatted_entities_data
 
 def get_primary_entity_names(prelim_entity_data):
-    # prelim_entity_data is a dictionary with keys 'characters', 'locations', and 'organizations' the values of each of these are also dictionaries for which the keys are the names of the entities. Return a dictionary 'prelim_primary_names' where the keys are 'characters', 'locations', and 'organizations' and the values are the keys of each of the corresponding dictionaries in 'prelim_entity_data'.
-    prelim_primary_names = {
-        "characters": list(prelim_entity_data["characters"].keys()),
-        "locations": list(prelim_entity_data["locations"].keys()),
-        "organizations": list(prelim_entity_data["organizations"].keys())
-    }
+    # prelim_entity_data is a dictionary with keys 'characters', 'locations', and 'organizations' the values of each of these are also dictionaries for which the keys are the names of the entities. Return a dictionary 'prelim_primary_names' where the keys are 'characters', 'locations', and 'organizations' and the values are a list of tuples with the first element being the keys of each of the elements in the corresponding dictionaries in 'prelim_entity_data', and the second element being the length of the block_list coreresponding to the keys in 'prelim_entity_data'. The results should be sorted in descending order of the length of the block_list. 
+    i=1
+    prelim_primary_names = {}
+    for entity_type in prelim_entity_data:
+        prelim_primary_names[entity_type] = sorted(
+            prelim_entity_data[entity_type].items(),
+            key=lambda x: len(x[1]['block_list']),
+            reverse=True
+        )
+        # Convert to list of tuples (name, block_list_length)
+        prelim_primary_names[entity_type] = [(name, len(data['block_list'])) for name, data in prelim_primary_names[entity_type]]
+        # Sort by block_list length in descending order
+        prelim_primary_names[entity_type].sort(key=lambda x: x[1], reverse=True)
     return prelim_primary_names
