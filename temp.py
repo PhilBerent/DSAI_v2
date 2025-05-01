@@ -37,4 +37,23 @@ def pathTest():
     #     print("Successfully imported alias_resolution from storage_pipeline.")
     # except ImportError as e:
     #     print(f"Error importing alias_resolution: {e}")
-pathTest()
+# pathTest()
+
+# Example usage:
+# example = parse_name("Mr. William Andrew Mitchell Jones Sr.")
+example = parse_name("Mr. William Andrew Mitchell Jones Sr.")
+aa= ObjToMindMap(example)+"\n\n"
+example = parse_name("Mr. William Jones Sr.")
+aa= aa+ObjToMindMap(example)+"\n\n"
+example = parse_name("William Jones")
+aa= aa+ObjToMindMap(example)+"\n\n"
+example = parse_name("Mr. Jones Sr.")
+aa= aa+ObjToMindMap(example)+"\n\n"
+example = parse_name("William")
+aa= aa+ObjToMindMap(example)+"\n\n"
+example = parse_name("Mr Jones")
+aa= aa+ObjToMindMap(example)+"\n\n"
+WriteToFile(aa)
+
+
+a=3

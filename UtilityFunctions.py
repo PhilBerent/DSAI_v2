@@ -1785,7 +1785,7 @@ def WriteDictToMindMap(dictObj, filename=g.tempOutputFile): # Changed default fi
     except Exception as e:
         print(f"Error writing dictionary to mind map {filename}: {e}")
 
-def WriteObjToMindMap(structObj, showDictLables = False, filename=g.tempOutputFile):
+def ObjToMindMap(structObj, showDictLables = False, filename=g.tempOutputFile):
     def recurse(obj, level=0, key_name=None, lines=None):
         if lines is None:
             lines = []
@@ -1822,10 +1822,14 @@ def WriteObjToMindMap(structObj, showDictLables = False, filename=g.tempOutputFi
             lines.append(f"{indent}{clean_obj_str}")
 
         return lines
+    lines = recurse(structObj, level=0) # Initial level is 0
+    full_output_string = '\n'.join(lines) # Lines are already cleaned
 
+    return full_output_string
+
+def WriteObjToMindMap(structObj, showDictLables = False, filename=g.tempOutputFile):
+    full_output_string = ObjToMindMap(structObj, showDictLables, filename)
     try:
-        lines = recurse(structObj, level=0) # Initial level is 0
-        full_output_string = '\n'.join(lines) # Lines are already cleaned
 
         with open(filename, 'w', encoding='ascii', errors='ignore') as f:
             f.write(full_output_string)

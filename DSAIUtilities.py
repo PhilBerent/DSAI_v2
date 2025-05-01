@@ -37,6 +37,7 @@ try:
     from UtilityFunctions import *
     from DSAIParams import *
     from DSAIParams import AIPlatform # Explicitly import AIPlatform
+    from enums_constants_and_classes import *
     # Import prompt details if needed directly, or rely on prompt_generator_func
     # from prompts import system_msg_for_large_block_anal # Example
 except ImportError as e:
@@ -211,13 +212,10 @@ def calc_est_tokens_per_call(
         return None
 
 
-import copy
-import re
-
 def fix_titles_in_names(block_analysis_result):
     fixed_result = copy.deepcopy(block_analysis_result)
     
-    titles = ["Mr", "Mrs", "Miss", "Ms"]
+    titles = ABREVIATION_TITLE_LIST
     
     # Pattern: match title only if NOT immediately followed by a period
     title_patterns = {title: re.compile(rf'\b{title}\b(?!\.)') for title in titles}
@@ -265,7 +263,6 @@ def remove_leading_the(block_analysis_result):
     
     return fixed_result
 
-import copy
 
 def capitalize_first_letter(block_analysis_result):
     fixed_result = copy.deepcopy(block_analysis_result)
@@ -302,3 +299,48 @@ def capitalize_all_words(block_analysis_result):
                 entity['alternate_names'] = [title_case_name(alt_name) for alt_name in entity['alternate_names']]
     
     return fixed_result
+
+def parse_name(name_input):
+    result = {
+        "input_name": name_input,
+        "title": "",
+        "name_no_title": "",
+        "first_name": "",
+        "middle_names": "",
+        "last_name": "",
+        "suffix": ""
+    }
+
+    if not name_input.strip():
+        return result
+
+    words = name_input.strip().split()
+
+    # Check for suffix
+    if words and words[-1] in SUFFIX_LIST:
+        result["suffix"] = words[-1]
+        words = words[:-1]
+
+    # Check for title
+    if words and words[0] in FULL_TITLE_LIST:
+        result["title"] = words[0]
+        words = words[1:]
+
+    # Build name_no_title
+    result["name_no_title"] = " ".join(words)
+
+    # Parse name parts
+    if len(words) == 1:
+        if result["title"]:
+            result["last_name"] = words[0]
+        else:
+            # one word, no title, set nothing but input_name
+            pass
+    elif len(words) >= 2:
+        result["first_name"] = words[0]
+        result["last_name"] = words[-1]
+        if len(words) > 2:
+            result["middle_names"] = " ".join(words[1:-1])
+
+    return result
+

@@ -21,6 +21,7 @@ from DSAIParams import * # Imports RunCodeFrom, StateStorageList, DocToAddPath e
 # Import enums for state management and the list of stages
 from enums_constants_and_classes import CodeStages, StateStoragePoints, Code_Stages_List
 from primary_analysis_stages import *
+from alias_resolution import *
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -55,8 +56,11 @@ def run_pipeline(document_path: str):
                 elif stage == CodeStages.LargeBlockAnalysisCompleted.value:
                     if load_state_flag:
                         large_blocks, block_info_list, raw_text = loadStateLBA()
-                    prelim_entity_data = consolidate_entity_information(block_info_list)
-                    prelim_primary_names = get_primary_entity_names(prelim_entity_data)
+                    (prelim_entity_data, prelimDat_name_dict, prelimDat_alt_names_dict) = \
+                        consolidate_entity_information(block_info_list)
+                    (prelim_primary_names, primary_names_dict, is_alt_names_in_dict, 
+                        has_alt_names_dict) =  get_primary_entity_names(prelim_entity_data, prelimDat_alt_names_dict)
+                    
                     d=4
                     # Stage 2: Iterative Analysis (Reduce Phase)
                     (raw_text, large_blocks, block_info_list, full_entities_list, doc_analysis) = perform_reduce_analysis(file_id, raw_text, large_blocks, block_info_list, full_entities_list)
