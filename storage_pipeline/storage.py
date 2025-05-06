@@ -265,7 +265,7 @@ def store_graph_data_neo4j(
     # It might be necessary to create edges in separate batches per relationship type
     # with specific MATCH clauses for the start/end node labels and properties.
     # Example for INTERACTED_WITH between Characters:
-    # edge_query_interacted = """
+    #edge_query_interacted = """
     # UNWIND $batch AS edge_data
     # MATCH (start:Character {name: edge_data.start_node_id})
     # MATCH (end:Character {name: edge_data.end_node_id})

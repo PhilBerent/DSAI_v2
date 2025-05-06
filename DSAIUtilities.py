@@ -16,7 +16,6 @@ import traceback
 import copy
 import re
 
-
 # Attempt to import tiktoken, fall back if unavailable
 try:
     import tiktoken
@@ -38,6 +37,7 @@ try:
     from DSAIParams import *
     from DSAIParams import AIPlatform # Explicitly import AIPlatform
     from enums_constants_and_classes import *
+    from nameFunctions import *
     # Import prompt details if needed directly, or rely on prompt_generator_func
     # from prompts import system_msg_for_large_block_anal # Example
 except ImportError as e:
@@ -215,24 +215,14 @@ def calc_est_tokens_per_call(
 def fix_titles_in_names(block_analysis_result):
     fixed_result = copy.deepcopy(block_analysis_result)
     
-    titles = ABREVIATION_TITLE_LIST
-    
-    # Pattern: match title only if NOT immediately followed by a period
-    title_patterns = {title: re.compile(rf'\b{title}\b(?!\.)') for title in titles}
-    
-    def correct_name(name):
-        for title, pattern in title_patterns.items():
-            name = pattern.sub(f"{title}.", name)
-        return name
-
     characters = fixed_result.get('key_entities_in_block', {}).get('characters', [])
     
     for character in characters:
         if 'name' in character:
-            character['name'] = correct_name(character['name'])
+            character['name'] = fix_title_abbreviations(character['name'])
         
         if 'alternate_names' in character and isinstance(character['alternate_names'], list):
-            character['alternate_names'] = [correct_name(alt_name) for alt_name in character['alternate_names']]
+            character['alternate_names'] = [fix_title_abbreviations(alt_name) for alt_name in character['alternate_names']]
 
     return fixed_result
 
@@ -299,48 +289,4 @@ def capitalize_all_words(block_analysis_result):
                 entity['alternate_names'] = [title_case_name(alt_name) for alt_name in entity['alternate_names']]
     
     return fixed_result
-
-def parse_name(name_input):
-    result = {
-        "input_name": name_input,
-        "title": "",
-        "name_no_title": "",
-        "first_name": "",
-        "middle_names": "",
-        "last_name": "",
-        "suffix": ""
-    }
-
-    if not name_input.strip():
-        return result
-
-    words = name_input.strip().split()
-
-    # Check for suffix
-    if words and words[-1] in SUFFIX_LIST:
-        result["suffix"] = words[-1]
-        words = words[:-1]
-
-    # Check for title
-    if words and words[0] in FULL_TITLE_LIST:
-        result["title"] = words[0]
-        words = words[1:]
-
-    # Build name_no_title
-    result["name_no_title"] = " ".join(words)
-
-    # Parse name parts
-    if len(words) == 1:
-        if result["title"]:
-            result["last_name"] = words[0]
-        else:
-            # one word, no title, set nothing but input_name
-            pass
-    elif len(words) >= 2:
-        result["first_name"] = words[0]
-        result["last_name"] = words[-1]
-        if len(words) > 2:
-            result["middle_names"] = " ".join(words[1:-1])
-
-    return result
 

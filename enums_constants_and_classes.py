@@ -4,15 +4,12 @@ from UtilityFunctions import *
 import collections
 from typing import List, Dict, TypedDict # Make sure TypedDict is imported
 
-TITLE_LIST = ["Mr.", "Mrs.", "Ms.", "Miss.", "M.", "Dr.", "Prof.", "Sir", "Lady", "Lord", "Madam", "Dame"]
-# create a list of military titles and their abbreviations just as a list not a dictionary
-MILITARY_TITLES = ["General", "Colonel", "Major", "Captain", "Commander", "Lieutenant", "Ensign", "Admiral", "Commodore", "Midshipman", "Sergeant", "Corporal", "Specialist", "Private", "Gen.", "Col.", "Maj.", "Capt.", "Cmdr.", "Lt.", "Ens.", "Adm.", "Cdre.", "Midn.", "Sgt.", "Cpl.", "Spc.", "Pvt."]
-FULL_TITLE_LIST = TITLE_LIST + MILITARY_TITLES 
-ABREVIATION_TITLE_LIST = ["Mr", "Mrs", "Ms", "Miss", "M", "Dr", "Prof", "Gen", "Col", "Maj", "Capt", "Cmdr", "Lt", "Ens", "Adm", "Cdre", "Midn", "Sgt", "Cpl", "Spc", "Pvt"] 
 
+class Answer(Enum):
+    TRUE = "True"
+    FALSE = "False"
+    DONT_KNOW = "Don't know"
     
-SUFFIX_LIST = ["Jr.", "Sr.", "II", "III", "IV", "V", "PhD", "MD"]
-
 class DocumentType(Enum):
     NOVEL = "Novel"
     BIOGRAPHY = "Biography"

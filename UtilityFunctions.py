@@ -18,6 +18,9 @@ from globals import *
 import gc
 import logging
 import traceback
+import random
+import string
+
 
 clr.AddReference('Python.Runtime')
 clr.AddReference(r"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.dll")
@@ -2052,4 +2055,13 @@ def WriteSchemaToFile(obj, filename=g.tempOutputFile):
     schema = create_schema(obj)
     WriteToFile(schema, filename)
     
+    
+def replaceInString(string, oldElement, newElement):
+    # generate a random string 
+    temp_str = "^#^%~~~"
+    # replace the old element with the new element
+    new_string = string.replace(newElement, temp_str)
+    new_string = new_string.replace(oldElement, newElement)
+    new_string = new_string.replace(temp_str, newElement)
+    return new_string
     

@@ -19,6 +19,8 @@ try:
     from globals import *
     from UtilityFunctions import *
     from DSAIParams import *
+    from DSAIUtilities import *    
+    from nameFunctions import *
 except ImportError as e:
     print(f"Error importing core modules (globals, UtilityFunctions, DSAIParams): {e}")
     raise
@@ -238,5 +240,64 @@ example_data = {
     "list_of_empty": [None, [], {}]
 }
 
-WriteSchemaToFile(example_data)
-a=3
+# WriteSchemaToFile(example_data)
+titles = ABREVIATION_TITLE_LIST
+# Pattern: match title only if NOT immediately followed by a period
+title_patterns = {title: re.compile(rf'\b{title}\b(?!\.)') for title in titles}
+
+def correct_name(name):
+    for title, pattern in title_patterns.items():
+        name = pattern.sub(f"{title}.", name)
+    return name
+
+testDict = {"bongo":1, "bingo":2, "dingo":3}
+a = fix_title_abbreviations("Mr. Dingo")
+print(a)  # Should print "Mr. Dingo."
+b = fix_title_abbreviations("Mr Mrssy")
+print(b)  # Should print "Mr. Dingo."
+c = fix_title_abbreviations("Mr And Mrs. Dingo")
+print(c)  # Should print "Mr. And Mrs. Dingo."
+d = fix_title_abbreviations("Mr. And Mrs Dingo")
+print(d)  # Should print "Mr. And Mrs. Dingo."
+e = fix_title_abbreviations("Mr And Mrs Dingo")
+print(e)  # Should print "Mr. And Mrs. Dingo."
+nd1= NameDetails("Mr. John Globule")
+name1 =  "Babe"; name2 = "Lizzy"
+a = matchFirstName(name1, name2)
+print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+name1 =  "Pho-Pho"; name2 = "Philly"
+print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+a = matchFirstName(name1, name2)
+name1 =  "Phil"; name2 = "Pho-Pho"
+a = matchFirstName(name1, name2)
+print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+name1 =  "Jane"; name2 = "Janie"
+a = matchFirstName(name1, name2)
+print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+name1 =  "Lizzie"; name2 = "Betty"
+a = matchFirstName(name1, name2)
+print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+name1 =  "Lizzy"; name2 = "Betty"
+a = matchFirstName(name1, name2)
+print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+name1 =  "Will"; name2 = "Billy"
+a = matchFirstName(name1, name2)
+print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+name1 =  "Rob"; name2 = "Bobby"
+a = matchFirstName(name1, name2)
+print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+name1 =  "Meg"; name2 = "Peggy"
+a = matchFirstName(name1, name2)
+print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+name1 =  "Meg"; name2 = "Peggie"
+a = matchFirstName(name1, name2)
+print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+name1 =  "Jack"; name2 = "Johnny"
+a = matchFirstName(name1, name2)
+print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+name1 =  "Phil"; name2 = "Pho-Pho"
+a = matchFirstName(name1, name2)
+print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+name1 =  "Bert"; name2 = "Fred"
+a = matchFirstName(name1, name2)
+print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
