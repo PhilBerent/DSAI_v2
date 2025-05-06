@@ -636,7 +636,8 @@ def combinePrelimCharNames(prelim_enity_data, primary_names_entity_dict, entity_
     numEntries1 = len(name1EntityData['block_list'])
     numEntries2 = len(name2EntityData['block_list'])
     combinedNameEntry = {}
-    if numEntries1 > numEntries2:
+    _, best = selectBestName(name1Details, name2Details, numEntries1, numEntries2)
+    if best == 1:
         nameUsed = name1
         indexUsed = index1
         indexNotUsed = index2
@@ -736,26 +737,28 @@ def removePrelimEntDataElements(prelim_entity_data, primary_names_entity_dict,
     for entity_type in prelim_entity_data:
         entity_data_this_type = prelim_entity_data[entity_type]
         entity_dict_this_type = primary_names_entity_dict[entity_type]
-        new_entity_dict_this_type = {}
         elThisTypeToRemove = elementsToRemove[entity_type]
         if len(elThisTypeToRemove) == 0:
             new_entity_data[entity_type] = entity_data_this_type
             new_entity_dict[entity_type] = entity_dict_this_type
             continue
         new_entity_data_this_type = []
+        new_entity_dict_this_type = {}
+        addIndex = 0
         for i in range(len(entity_data_this_type)):
             if i in elThisTypeToRemove:
                 continue
             entity = entity_data_this_type[i]
             new_entity_data_this_type.append(entity)
             entity_name = entity['name']
-            new_entity_data_this_type[entity_name] = i
+            new_entity_dict_this_type[entity_name] = addIndex
+            addIndex += 1
             
         new_entity_data[entity_type] = new_entity_data_this_type
         new_entity_dict[entity_type] = new_entity_dict_this_type
     
     new_entData_alt_names_dict = getIsAnAltNameDict(new_entity_data, new_entity_dict)
-    cmd = CharacterMatchData(prelim_entity_data)
+    cmd = CharacterMatchData(new_entity_data)
     return new_entity_data, new_entity_dict, new_entData_alt_names_dict, cmd
 
 def clean_prelim_entity_data_char(prelim_entity_data, primary_names_entity_dict, 
@@ -786,6 +789,10 @@ def clean_prelim_entity_data_char(prelim_entity_data, primary_names_entity_dict,
                 continue
             name_details1 = cmd.name_details_list[name1Index]
             name1 = name_details1.name
+            # db
+            if name1 == "Miss. Caroline Bingley":
+                aaz=4
+            #ed
             lastName1 = name_details1.last_name
             #  get all names with the same last name
             lastNameMatchIndexes = cmd.last_names_dict.get(lastName1, [])
@@ -842,13 +849,16 @@ def clean_prelim_entity_data_char(prelim_entity_data, primary_names_entity_dict,
                         alt_name1_index = comboIndexes[i]
                         if alt_name1_index == name1Index or alt_name1_index in elementsToRemove['characters']:
                             continue
-                        altName1Details = name_details_list[name1Index]
+                        altName1Details = name_details_list[alt_name1_index]
                         altName1 = comboNames[i]
+                        if not can_reject_match(altName1Details):
+                            continue
                         for j in range(i+1, numComboNames):
                             alt_name2_index = comboIndexes[j]
                             if alt_name2_index == name1Index or alt_name2_index in elementsToRemove['characters']:
                                 continue
                             altName2Details = name_details_list[alt_name2_index]
+                            altName2 = comboNames[j]
                             matchTest = names_match(altName1Details, altName2Details)
                             if matchTest == MatchTest.NO_MATCH:
                                 elementsToRemove['characters'].add(name1Index)

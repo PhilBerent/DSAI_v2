@@ -29,12 +29,13 @@ ABREVIATION_TITLE_LIST = ["Mr", "Mrs", "Ms", "Miss", "M", "Dr", "Prof", "Gen", "
 MALE_TITLE_LIST = ["Mr.", "Sir", "Lord", "Dame", "Gen.", "Col.", "Maj.", "Capt.", "Cmdr.", "Lt.", "Ens.", "Adm.", "Cdre.", "Midn."]
 FEMALE_TITLE_LIST = ["Mrs.", "Ms.", "Miss.", "Ms.", "Lady", "Madam", "Dame", "Gen.", "Col.", "Maj.", "Capt.", "Cmdr.", "Lt.", "Ens.", "Adm.", "Cdre.", "Midn."]
 FOLLOWED_BY_FIRST_NAME_TITLES = ["Sir", "Lady", "Dame", "Brother", "Sister", "Father", "Pastor", "Rabbi", "Imam", "Reverend", "Rev.", "Saint"]
+NAME_QUALIFIERS = {"Von", "Van", "De", "Del", "Di", "Da", "Le", "La", "El", "Al", "Mac", "Mc"}
 
 SUFFIX_LIST = ["Jr.", "Sr.", "II", "III", "IV", "V", "PhD", "MD"]
 
-addedNameToNickNameDict = {
+addedCanToNickDict = {
     "jane": set(["jane", "janie", "janey"]),
-    "philip": set(["phil", "philip", "philly", "pho-pho"]),
+    "philip": set(["phil", "philly", "pho-pho"]),
     #db
     "kirsty": set(["kirsty", "kirst", "kirsten", "jane"]),
     "babe": set(["elizabeth"]),
@@ -42,6 +43,10 @@ addedNameToNickNameDict = {
     "catherine": set(["helen"]),
     "doggy": set(["kitty"]),
     "pamela": set(["lydia"]),
+    "elizabeth": set(["babe"]),
+    #ed
+}
+addedNickToCanDict = {
     "pho-pho": set(["philip"]),
     #ed
 }
@@ -85,20 +90,28 @@ class NameDetails:
 
         # Build name_no_title
         self.name_no_title = " ".join(words)
-
+        numWords = len(words)
 
         # Parse name parts
-        if len(words) == 1:
+        if numWords == 1:
             if self.title:
                 if self.title in FOLLOWED_BY_FIRST_NAME_TITLES:
                     self.first_name = words[0]
                 else:
                     self.last_name = words[0]
-        elif len(words) >= 2:
-            self.first_name = words[0]
-            self.last_name = words[-1]
-            if len(words) > 2:
-                self.middle_names = " ".join(words[1:-1])
+        elif numWords >= 2:
+            poss_qualifer = words[numWords-2]
+            if poss_qualifer in NAME_QUALIFIERS:
+                self.last_name = words[-2] + " " + words[-1]
+                end_middle = -2
+                if numWords > 2:
+                    self.first_name = words[0]
+            else:
+                self.last_name = words[-1]
+                end_middle = -1
+                self.first_name = words[0]
+            if self.first_name != "":
+                self.middle_names = " ".join(words[1:end_middle])
 
         if self.first_name and self.last_name:
             self.first_and_last_name = f"{self.first_name} {self.last_name}"
@@ -229,10 +242,23 @@ def isFemale(name: NameDetails):
     else:
         return Answer.DONT_KNOW
 
+FalseMatches = set({("caroline", "charles")})
+
+def isFalseMatch(name1: str, name2: str) -> bool:
+    name1 = name1.strip().lower()
+    name2 = name2.strip().lower()
+    if name1 == name2:
+        return False
+    if (name1, name2) in FalseMatches or (name2, name1) in FalseMatches:
+        return True
+    return False
 
 def matchFirstName(name1: str, name2: str) -> bool:
     name1 = name1.strip().lower()
     name2 = name2.strip().lower()
+
+    if isFalseMatch(name1, name2):
+        return False
 
     if name1 == name2:
         return True
@@ -244,8 +270,10 @@ def matchFirstName(name1: str, name2: str) -> bool:
     n1All.add(name1)    
     n1List = list(n1All)
     for n1 in n1List:
-        toAdd = addedNameToNickNameDict.get(n1, set())
+        toAdd = addedCanToNickDict.get(n1, set())
         n1All |= toAdd
+        toAdd = addedNickToCanDict.get(n1, set())
+        n1All |= toAdd        
  
     n2Canonicals = nmr.canonicals_of(name2)
     n2Nicknames = nmr.nicknames_of(name2)
@@ -253,11 +281,19 @@ def matchFirstName(name1: str, name2: str) -> bool:
     n2List = list(n2All)
     n2All.add(name2)    
     for n2 in n2List:
-        toAdd = addedNameToNickNameDict.get(n2, set())
-        n2All |= toAdd        
- 
-    # Check for overlap
+        toAdd = addedCanToNickDict.get(n2, set())
+        n2All |= toAdd
+        toAdd = addedNickToCanDict.get(n2, set())
+        n2All |= toAdd
+         
     ret = not n1All.isdisjoint(n2All)
+    
+    return ret
+
+def can_reject_match(nameDetails: NameDetails) -> bool:
+    ret = True
+    if getGender(nameDetails) == Gender.UNKNOWN and not nameDetails.has_first_and_last_name:
+        ret = False
     return ret
 
 def names_match(name1: NameDetails, name2: NameDetails) -> MatchTest:

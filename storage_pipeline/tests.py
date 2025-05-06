@@ -250,54 +250,75 @@ def correct_name(name):
         name = pattern.sub(f"{title}.", name)
     return name
 
-testDict = {"bongo":1, "bingo":2, "dingo":3}
-a = fix_title_abbreviations("Mr. Dingo")
-print(a)  # Should print "Mr. Dingo."
-b = fix_title_abbreviations("Mr Mrssy")
-print(b)  # Should print "Mr. Dingo."
-c = fix_title_abbreviations("Mr And Mrs. Dingo")
-print(c)  # Should print "Mr. And Mrs. Dingo."
-d = fix_title_abbreviations("Mr. And Mrs Dingo")
-print(d)  # Should print "Mr. And Mrs. Dingo."
-e = fix_title_abbreviations("Mr And Mrs Dingo")
-print(e)  # Should print "Mr. And Mrs. Dingo."
-nd1= NameDetails("Mr. John Globule")
-name1 =  "Babe"; name2 = "Lizzy"
-a = matchFirstName(name1, name2)
-print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
-name1 =  "Pho-Pho"; name2 = "Philly"
-print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
-a = matchFirstName(name1, name2)
-name1 =  "Phil"; name2 = "Pho-Pho"
-a = matchFirstName(name1, name2)
-print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
-name1 =  "Jane"; name2 = "Janie"
-a = matchFirstName(name1, name2)
-print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
-name1 =  "Lizzie"; name2 = "Betty"
-a = matchFirstName(name1, name2)
-print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
-name1 =  "Lizzy"; name2 = "Betty"
-a = matchFirstName(name1, name2)
-print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
-name1 =  "Will"; name2 = "Billy"
-a = matchFirstName(name1, name2)
-print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
-name1 =  "Rob"; name2 = "Bobby"
-a = matchFirstName(name1, name2)
-print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
-name1 =  "Meg"; name2 = "Peggy"
-a = matchFirstName(name1, name2)
-print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
-name1 =  "Meg"; name2 = "Peggie"
-a = matchFirstName(name1, name2)
-print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
-name1 =  "Jack"; name2 = "Johnny"
-a = matchFirstName(name1, name2)
-print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
-name1 =  "Phil"; name2 = "Pho-Pho"
-a = matchFirstName(name1, name2)
-print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
-name1 =  "Bert"; name2 = "Fred"
-a = matchFirstName(name1, name2)
-print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+# testDict = {"bongo":1, "bingo":2, "dingo":3}
+# a = fix_title_abbreviations("Mr. Dingo")
+# print(a)  # Should print "Mr. Dingo."
+# b = fix_title_abbreviations("Mr Mrssy")
+# print(b)  # Should print "Mr. Dingo."
+# c = fix_title_abbreviations("Mr And Mrs. Dingo")
+# print(c)  # Should print "Mr. And Mrs. Dingo."
+# d = fix_title_abbreviations("Mr. And Mrs Dingo")
+# print(d)  # Should print "Mr. And Mrs. Dingo."
+# e = fix_title_abbreviations("Mr And Mrs Dingo")
+# print(e)  # Should print "Mr. And Mrs. Dingo."
+# nd1= NameDetails("Mr. John Globule")
+# name1 =  "Babe"; name2 = "Lizzy"
+# a = matchFirstName(name1, name2)
+# print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+# name1 =  "Pho-Pho"; name2 = "Philly"
+# print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+# a = matchFirstName(name1, name2)
+# name1 =  "Phil"; name2 = "Pho-Pho"
+# a = matchFirstName(name1, name2)
+# print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+# name1 =  "Jane"; name2 = "Janie"
+# a = matchFirstName(name1, name2)
+# print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+# name1 =  "Lizzie"; name2 = "Betty"
+# a = matchFirstName(name1, name2)
+# print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+# name1 =  "Lizzy"; name2 = "Betty"
+# a = matchFirstName(name1, name2)
+# print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+# name1 =  "Will"; name2 = "Billy"
+# a = matchFirstName(name1, name2)
+# print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+# name1 =  "Rob"; name2 = "Bobby"
+# a = matchFirstName(name1, name2)
+# print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+# name1 =  "Meg"; name2 = "Peggy"
+# a = matchFirstName(name1, name2)
+# print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+# name1 =  "Meg"; name2 = "Peggie"
+# a = matchFirstName(name1, name2)
+# print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+# name1 =  "Jack"; name2 = "Johnny"
+# a = matchFirstName(name1, name2)
+# print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+# name1 =  "Phil"; name2 = "Pho-Pho"
+# a = matchFirstName(name1, name2)
+# print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+# name1 =  "Bert"; name2 = "Fred"
+# a = matchFirstName(name1, name2)
+# print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
+aa= NameDetails("Miss. De Bourg")
+nmr = NickNamer()
+aa=3
+n1Canonicals = nmr.canonicals_of("elizabeth")
+n1Nicknames = nmr.nicknames_of("elizabeth")
+aa= matchFirstName("liz", "beth")
+
+
+
+from thefuzz import fuzz
+
+# Compare two names
+name1 = "Liz"
+name2 = "Beth"
+score = fuzz.ratio(name1, name2)
+
+# A higher score indicates a closer match
+print(f"Similarity Score: {score}")
+
+
+bb=4

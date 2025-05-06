@@ -432,6 +432,26 @@ def consolidate_entity_information(block_info_list):
         "locations": {},
         "organizations": {}
     }
+    # alt_names_dict = {
+    #     "characters": {
+    #         "alt_name": {
+    #             "primary_names": [],
+    #             "indexes": []
+    #         }
+    #     },
+    #     "locations": {
+    #         "alt_name": {
+    #             "primary_names": [],
+    #             "indexes": []
+    #         }
+    #     },
+    #     "organizations": {
+    #         "alt_name": {
+    #             "primary_names": [],
+    #             "indexes": []
+    #         }
+    #     }
+    # }
 
     for category in raw_entities_data:
         name_to_entity_data = raw_entities_data[category]
@@ -474,7 +494,7 @@ def consolidate_entity_information(block_info_list):
     alt_names_dict = getIsAnAltNameDict(prelim_entity_data, primary_name_dict)
     cmd = CharacterMatchData(prelim_entity_data)
     
-    # az=5
+    a = ObjToMindMap(prelim_entity_data)
     # (prelim_entity_data, primary_names_entity_dict, entityData_alt_names_dict, char_match_data, \
     # matchesFound, namesRemoved) = clean_prelim_entity_data_char(prelim_entity_data, primary_names_entity_dict, entityData_alt_names_dict, char_match_data)
 
@@ -559,6 +579,72 @@ def get_primary_entity_names(prelim_entity_data, is_alt_name_dict_in):
     return prelim_primary_names, primary_names_dict, is_an_alt_name_of_dict, has_alt_names_dict
 
 
+class CharacterMatchData:
+    def __init__(self, primary_entity_data):
+        self.full_names_dict = {}
+        self.name_no_title_dict = {}
+        self.first_names_dict = {}
+        self.last_names_dict = {}
+        self.first_and_last_names_dict = {}
+        self.name_details_dict = {}
+        self.name_details_list = []
+        self.full_name_list = []
+
+        self.full_name_list = [item['name'] for item in primary_entity_data['characters']]
+
+        num_names = len(self.full_name_list)
+
+        for i in range(num_names):
+            name = self.full_name_list[i]
+            name_details = NameDetails(name)
+
+            self.name_details_dict[name] = name_details
+            self.name_details_list.append(name_details)
+
+            first_name = name_details.first_name
+            last_name = name_details.last_name
+            name_no_title = name_details.name_no_title
+            first_and_last_name = name_details.first_and_last_name
+
+            self.full_names_dict[name] = i
+            if first_name:
+                self.first_names_dict.setdefault(first_name, []).append(i)
+            if last_name:
+                self.last_names_dict.setdefault(last_name, []).append(i)
+            if name_no_title:
+                self.name_no_title_dict.setdefault(name_no_title, []).append(i)
+            if first_and_last_name:
+                self.first_and_last_names_dict.setdefault(first_and_last_name, []).append(i)
+    
+    # db delete this function
+    def remove_name(self, name: str):
+        # Remove the name itself from all direct mappings
+        self.full_names_dict.pop(name, None)
+        self.name_details_dict.pop(name, None)
+
+        # Retrieve the NameDetails instance to access its components
+        name_details = NameDetails(name)
+
+        self.name_no_title_dict.pop(name_details.name_no_title, None)
+        self.first_names_dict.pop(name_details.first_name, None)
+        self.last_names_dict.pop(name_details.last_name, None)
+        self.first_and_last_names_dict.pop(name_details.first_and_last_name, None)
+
+        # Remove from name_details_list and full_name_list
+        self.name_details_list = [nd for nd in self.name_details_list if nd.input_name != name]
+        self.full_name_list = [n for n in self.full_name_list if n != name]
+    # ed
+    def as_dict(self):
+        return {
+            "full_names_dict": self.full_names_dict,
+            "name_no_title_dict": self.name_no_title_dict,
+            "first_names_dict": self.first_names_dict,
+            "last_names_dict": self.last_names_dict,
+            "first_and_last_names_dict": self.first_and_last_names_dict,
+            "full_name_list": self.full_name_list,
+            "name_details_list": self.name_details_list,
+            "name_details_dict": self.name_details_dict
+        }
 # db
 # def getPrimaryCharsMatchDict(primary_entity_data):
 #     # create a dictionary 'character_name_match_dict' where the keys are the names of the characters and the values are the indexes of the elements in the prelim_primary_names list. The results should be sorted in descending order of the length of the block_list. 
