@@ -212,20 +212,6 @@ def calc_est_tokens_per_call(
         return None
 
 
-def fix_titles_in_names(block_analysis_result):
-    fixed_result = copy.deepcopy(block_analysis_result)
-    
-    characters = fixed_result.get('key_entities_in_block', {}).get('characters', [])
-    
-    for character in characters:
-        if 'name' in character:
-            character['name'] = fix_title_abbreviations(character['name'])
-        
-        if 'alternate_names' in character and isinstance(character['alternate_names'], list):
-            character['alternate_names'] = [fix_title_abbreviations(alt_name) for alt_name in character['alternate_names']]
-
-    return fixed_result
-
 def remove_leading_the(block_analysis_result):
     fixed_result = copy.deepcopy(block_analysis_result)
     

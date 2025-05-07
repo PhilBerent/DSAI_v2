@@ -57,29 +57,14 @@ def run_pipeline(document_path: str):
                     if load_state_flag:
                         large_blocks, block_info_list, raw_text = loadStateLBA()
                     (prelim_entity_data, primary_names_entity_dict, entityData_alt_names_dict, char_match_data) = \
-                        consolidate_entity_information(block_info_list)
-                    #db
+                         consolidate_entity_information(block_info_list)
 
-                    (prelim_entity_data, primary_names_entity_dict, entityData_alt_names_dict, char_match_data, \
-                        matchesFound, namesRemoved) = clean_prelim_entity_data_char(prelim_entity_data, primary_names_entity_dict, entityData_alt_names_dict, char_match_data)
-
-                    elementsToRemove = {}
-                    elementsToRemove["characters"] = []
-                    elementsToRemove["locations"] = []
-                    elementsToRemove["organizations"] = []
-                    altDict = getIsAnAltNameDict(prelim_entity_data, primary_names_entity_dict)                    
-                    prelim_entity_data, elementsToRemove = combinePrelimCharNames(prelim_entity_data, 
-                        primary_names_entity_dict, "characters", "Miss. Babe Dingo", "Babe Dingo", elementsToRemove)
-                    
-
-                    a=2
-                    #ed
-                    (prelim_primary_names, character_name_match_dict, primary_names_dict, is_an_alt_name_of_dict, 
-                        has_alt_names_dict) =  get_primary_entity_names(prelim_entity_data, entityData_alt_names_dict)
+                    (prelim_primary_names, primary_names_dict, is_an_alt_name_of_dict, has_alt_names_dict) = \
+                        get_primary_entity_names(prelim_entity_data, entityData_alt_names_dict)
                     
                     (comparison_pairs, comp_pair_names) = \
                         get_alias_comparison_pairs(prelim_primary_names,  primary_names_dict, 
-                            is_an_alt_name_of_dict, has_alt_names_dict, character_name_match_dict)
+                            is_an_alt_name_of_dict, has_alt_names_dict, char_match_data)
                     d=4
                     # Stage 2: Iterative Analysis (Reduce Phase)
                     (raw_text, large_blocks, block_info_list, full_entities_list, doc_analysis) = perform_reduce_analysis(file_id, raw_text, large_blocks, block_info_list, full_entities_list)

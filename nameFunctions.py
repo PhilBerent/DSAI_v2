@@ -5,6 +5,9 @@ import uuid
 import sys
 from typing import List, Dict, Any, Optional
 import re
+import copy
+import re
+
 
 # Adjust path to import from parent directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -155,7 +158,7 @@ def getEntityNames(entityData, entityType) -> List[str]:
         entityNames.append(entity['name'])
     return entityNames  
 
-def addToCombos(nameDetails):
+def addCharNameToCombos(nameDetails: NameDetails):
     hasTitle = nameDetails["title"] != ""
     hasFirstName = nameDetails["first_name"] != ""
     hasLastName = nameDetails["last_name"] != ""
@@ -164,22 +167,6 @@ def addToCombos(nameDetails):
         return False
     else:
         return True
-    
-
-
-
-# db
-# def getParsedCharNamesDebug(entityData):
-#     charData = entityData['characters']
-#     output = "full_name\ttitle\tfirst_name\tmiddle_names\tlast_name\n\n"
-#     for entity in charData:
-#         name = entity['name']
-#         nd = NameDetails(name)
-#         thisNameOut = f"{name}\t{parsedName['title']}\t{parsedName['first_name']} \
-#         \t{parsedName['middle_names']}\t{parsedName['last_name']}"
-#         output += thisNameOut + "\n"
-#     return output
-# ed
 
 def checkConsistency(name1: NameDetails, name2: NameDetails):
     name1FirstName = name1.first_name
@@ -340,6 +327,21 @@ def names_match(name1: NameDetails, name2: NameDetails) -> MatchTest:
 
     return MatchTest.UNKNOWN
 
+def fix_titles_in_names(block_analysis_result):
+    fixed_result = copy.deepcopy(block_analysis_result)
+    
+    characters = fixed_result.get('key_entities_in_block', {}).get('characters', [])
+    
+    for character in characters:
+        if 'name' in character:
+            character['name'] = fix_title_abbreviations(character['name'])
+        
+        if 'alternate_names' in character and isinstance(character['alternate_names'], list):
+            character['alternate_names'] = [fix_title_abbreviations(alt_name) for alt_name in character['alternate_names']]
+
+    return fixed_result
+
+
 def fix_title_abbreviations(text):
     for title in ABREVIATION_TITLE_LIST:
         # Only match the title if not already followed by a period
@@ -348,116 +350,4 @@ def fix_title_abbreviations(text):
         text = re.sub(pattern, replacement, text)
     return text
 
-#db
-# def parse_nameOld(name_input):
-#     result = {
-#         "input_name": name_input,
-#         "title": "",
-#         "name_no_title": "",
-#         "first_name": "",
-#         "middle_names": "",
-#         "last_name": "",
-#         "first_and_last_name": "",
-#         "suffix": ""
-#     }
-
-#     if not name_input.strip():
-#         return result
-
-#     words = name_input.strip().split()
-
-#     # Check for suffix
-#     if words and words[-1] in SUFFIX_LIST:
-#         result["suffix"] = words[-1]
-#         words = words[:-1]
-
-#     # Check for title
-#     if words and words[0] in FULL_TITLE_LIST:
-#         result["title"] = words[0]
-#         words = words[1:]
-
-#     # Build name_no_title
-#     result["name_no_title"] = " ".join(words)
-
-#     # Parse name parts
-#     if len(words) == 1:
-#         if result["title"]:
-#             result["last_name"] = words[0]
-#         else:
-#             # one word, no title, set nothing but input_name
-#             pass
-#     elif len(words) >= 2:
-#         result["first_name"] = words[0]
-#         result["last_name"] = words[-1]
-#         if len(words) > 2:
-#             result["middle_names"] = " ".join(words[1:-1])
-
-#     if result["first_name"] and result["last_name"]:
-#         result["first_and_last_name"] = f"{result['first_name']} {result['last_name']}"
-    
-#     return result
-
-# def checkConsistencyOld(parsedName1, parsedName2):
-#     name1FirstName = parsedName1['first_name']
-#     name1LastName = parsedName1['last_name']
-#     name1Title = parsedName1['title']
-#     name2FirstName = parsedName2['first_name']
-#     name2LastName = parsedName2['last_name']
-#     name2Title = parsedName2['title']
-#     name1FirstAndLastName = parsedName1['first_and_last_name']
-#     name2FirstAndLastName = parsedName2['first_and_last_name']
-#     name1hasFirstName = name1FirstName != ""
-#     name1hasLastName = name1LastName != ""
-#     name2hasFirstName = name2FirstName != ""
-#     name2hasLastName = name2LastName != ""
-#     name1hasTitle = name1Title != ""
-#     name2hasTitle = name2Title != ""
-#     name1Gender = getGender(parsedName1)
-#     name2Gender = getGender(parsedName2)
-#     if name1Gender != Gender.UNKNOWN and name2Gender != Gender.UNKNOWN:
-#         if name1Gender != name2Gender:
-#             return False
-#     if name1FirstAndLastName != "" and name2FirstAndLastName != "":
-#         if not matchFirstName(name1FirstName, name1LastName):
-#             return False
-    
-    
-# def getGenderold(parsed_name):
-#     title = parsed_name['title']
-#     if title == "":
-#         ret = Gender.UNKNOWN
-#     elif title in MALE_TITLE_LIST:
-#         ret = Gender.MALE
-#     elif title in FEMALE_TITLE_LIST:
-#         ret = Gender.FEMALE
-#     else:
-#         ret = Gender.UNKNOWN
-#     return ret
-
-# def isMaleold(parsed_name):
-#     title = parsed_name['title']
-#     if title == "":
-#         ret = Answer.DONT_KNOW
-#     elif title in MALE_TITLE_LIST:
-#         ret = Answer.YES
-#     elif title in FEMALE_TITLE_LIST:
-#         ret = Answer.NO
-#     else:
-#         ret = Answer.DONT_KNOW
-#     return ret
-
-# def isFemaleold(parsed_name):
-#     title = parsed_name['title']
-#     if title == "":
-#         ret = Answer.DONT_KNOW
-#     elif title in FEMALE_TITLE_LIST:
-#         ret = Answer.YES
-#     elif title in MALE_TITLE_LIST:
-#         ret = Answer.NO
-#     else:
-#         ret = Answer.DONT_KNOW
-#     return ret
-
-# 
-#ed
 

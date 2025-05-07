@@ -341,31 +341,6 @@ def worker_analyze_chunk(chunk_item: Dict[str, Any], block_index: int,
             {errorCount} retries: {errorMessage}\n{tb_str}")    
         return chunk_item
 
-def getIsAnAltNameDict(prelim_entity_data, primary_names_dict):
-    """
-    Returns a dictionary where the keys are the entity types and the values are dictionaries
-    where the keys are the alternate names and the values are dictionaries with keys 'primary_names' and 'indexes'.
-    The value of 'primary_names' field is a list of names.
-    """
-    is_an_alt_name_of_dict = {}
-    for entity_type in prelim_entity_data:
-        entity_data = prelim_entity_data[entity_type]
-        entityDict = primary_names_dict[entity_type]
-        thisEntAltNameDict = is_an_alt_name_of_dict[entity_type] = {}
-        numEntities = len(entity_data)
-        for i in range(numEntities):
-            entity = entity_data[i]
-            name = entity['name']            
-            alternateNameList = entity['alternate_names']
-            numAltNames = len(alternateNameList)
-            for j in range(numAltNames):
-                alt_name = alternateNameList[j].get('alternate_name', '')
-                if alt_name not in thisEntAltNameDict:
-                    thisEntAltNameDict[alt_name] = {"primary_names": [], "indexes": []}
-                thisEntAltNameDict[alt_name]['primary_names'].append(name)
-                thisEntAltNameDict[alt_name]['indexes'].append(i)
-
-    return is_an_alt_name_of_dict
 
 
 def consolidate_entity_information(block_info_list):
@@ -475,8 +450,9 @@ def consolidate_entity_information(block_info_list):
     cmd = CharacterMatchData(prelim_entity_data)
     
     # az=5
-    # (prelim_entity_data, primary_names_entity_dict, entityData_alt_names_dict, char_match_data, \
-    # matchesFound, namesRemoved) = clean_prelim_entity_data_char(prelim_entity_data, primary_names_entity_dict, entityData_alt_names_dict, char_match_data)
+    (prelim_entity_data, primary_name_dict, alt_names_dict, cmd, \
+    matchesFound, namesRemoved) = clean_prelim_entity_data_char(prelim_entity_data, 
+                                    primary_name_dict, alt_names_dict, cmd)
 
 
     return prelim_entity_data, primary_name_dict, alt_names_dict, cmd
