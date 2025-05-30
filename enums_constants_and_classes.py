@@ -20,6 +20,9 @@ class DocumentType(Enum):
     BIOGRAPHY = "Biography"
     JOURNAL_ARTICLE = "JournalArticle"
 
+EntityTypes = ["characters", "locations", "organizations"]
+FirstWordsToRemoveFromNames = ["His", "Her", "Their", "My", "Your"]
+
 class CodeStages(Enum):
     Start = "Start"
     LargeBlockAnalysisCompleted = "LargeBlockAnalysisCompleted"

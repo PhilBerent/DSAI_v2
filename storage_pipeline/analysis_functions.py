@@ -354,7 +354,7 @@ def consolidate_entity_information(block_info_list):
         - alternate_names_dict: maps each alternate name to a list of indices where it appears.
     """
 
-    def consolidate_entity_data(entity_list, entity_data_by_name, block_index):
+    def consolidate_entity_data(entity_list, entity_data_by_name, entity_type, block_index):
         """Updates the entity dictionary keyed by primary name."""
         for entity in entity_list:
             name = entity["name"].strip()
@@ -362,27 +362,52 @@ def consolidate_entity_information(block_info_list):
                 continue
 
             alt_names = entity.get("alternate_names", [])
+            if entity_type == "characters":
+                gender = entity.get("gender", None)
             desc = entity.get("description", "")
             if desc:
                 desc = desc.strip()
 
             if name not in entity_data_by_name:
-                entity_data_by_name[name] = {
-                    "primary_name_blocks": set(),
-                    "alt_names_map": collections.defaultdict(set),
-                    "descriptions_map": collections.defaultdict(set)
-                }
-
-            entity_data_by_name[name]["primary_name_blocks"].add(block_index)
-
+                if entity_type == "characters":
+                    thisEntity = {
+                        "primary_name_blocks": set(),
+                        "alt_names_map": collections.defaultdict(set),
+                        "descriptions_map": collections.defaultdict(set),
+                        "gender": gender                        
+                    }
+                    entity_data_by_name[name] = thisEntity
+                else:
+                    thisEntity = {
+                        "primary_name_blocks": set(),
+                        "alt_names_map": collections.defaultdict(set),
+                        "descriptions_map": collections.defaultdict(set)
+                    }
+            else:        
+                thisEntity = entity_data_by_name[name]
+            
+            thisEntity["primary_name_blocks"].add(block_index)
+            if entity_type == "characters":
+                known_gender = thisEntity.get("gender", None)
+                # db
+                # if name == "Pamela":
+                #     print(f"gender: {gender}  - known gender: {known_gender})")
+                #     a=2
+                # # ed
+                if gender:
+                    if known_gender == None:
+                        thisEntity['gender'] = gender
+                    else:
+                        if known_gender != gender and known_gender != "unknown":
+                            thisEntity['gender'] = "unknown"
             for alt_name in alt_names:
                 cleaned_alt_name = alt_name.strip()
                 if cleaned_alt_name:
-                    entity_data_by_name[name]["alt_names_map"][cleaned_alt_name].add(block_index)
+                    thisEntity["alt_names_map"][cleaned_alt_name].add(block_index)
 
             if desc:
-                entity_data_by_name[name]["descriptions_map"][desc].add(block_index)
-
+                thisEntity["descriptions_map"][desc].add(block_index)
+    
     # --- Prepare raw structures ---
     raw_entities_data = {
         "characters": {},
@@ -391,10 +416,12 @@ def consolidate_entity_information(block_info_list):
     }
 
     for block_index, block in enumerate(block_info_list):
-        key_entities = block.get("key_entities_in_block", {})
-        consolidate_entity_data(key_entities.get("characters", []), raw_entities_data["characters"], block_index)
-        consolidate_entity_data(key_entities.get("locations", []), raw_entities_data["locations"], block_index)
-        consolidate_entity_data(key_entities.get("organizations", []), raw_entities_data["organizations"], block_index)
+        key_entities_this_block = block.get("key_entities_in_block", {})
+        for entity_type in EntityTypes:
+            key_entities_this_type = key_entities_this_block.get(entity_type, [])
+            consolidate_entity_data(key_entities_this_type, raw_entities_data[entity_type], 
+                entity_type, block_index)
+            a=2
 
     # --- Now transform into list-based structures ---
     prelim_entity_data = {
@@ -432,12 +459,17 @@ def consolidate_entity_information(block_info_list):
             primary_block_list = sorted(list(data["primary_name_blocks"]))
 
             # --- Create final entity dictionary ---
-            entity_entry = {
-                "name": name,
-                "block_list": primary_block_list,
-                "alternate_names": formatted_alt_names,
-                "descriptions": formatted_descriptions
-            }
+            if category == "characters":
+                gender = data["gender"]
+                if gender == None:
+                    gender = "unknown"
+                entity_entry = {
+                    "name": name,
+                    "gender": gender,
+                    "block_list": primary_block_list,
+                    "alternate_names": formatted_alt_names,
+                    "descriptions": formatted_descriptions
+                }
 
             # --- Update main list ---
             list_index = len(prelim_entity_data[category])
@@ -454,24 +486,8 @@ def consolidate_entity_information(block_info_list):
     matchesFound, namesRemoved) = clean_prelim_entity_data_char(prelim_entity_data, 
                                     primary_name_dict, alt_names_dict, cmd)
 
+    return prelim_entity_data, primary_name_dict, alt_names_dict
 
-    return prelim_entity_data, primary_name_dict, alt_names_dict, cmd
-
-def get_primary_entity_namesOld(prelim_entity_data):
-    # prelim_entity_data is a dictionary with keys 'characters', 'locations', and 'organizations' the values of each of these are also dictionaries for which the keys are the names of the entities. Return a dictionary 'prelim_primary_names' where the keys are 'characters', 'locations', and 'organizations' and the values are a list of tuples with the first element being the keys of each of the elements in the corresponding dictionaries in 'prelim_entity_data', and the second element being the length of the block_list coreresponding to the keys in 'prelim_entity_data'. The results should be sorted in descending order of the length of the block_list. 
-    i=1
-    prelim_primary_names = {}
-    for entity_type in prelim_entity_data:
-        prelim_primary_names[entity_type] = sorted(
-            prelim_entity_data[entity_type].items(),
-            key=lambda x: len(x[1]['block_list']),
-            reverse=True
-        )
-        # Convert to list of tuples (name, block_list_length)
-        prelim_primary_names[entity_type] = [(name, len(data['block_list'])) for name, data in prelim_primary_names[entity_type]]
-        # Sort by block_list length in descending order
-        prelim_primary_names[entity_type].sort(key=lambda x: x[1], reverse=True)
-    return prelim_primary_names
 
 def get_primary_entity_names(prelim_entity_data, is_alt_name_dict_in):
     prelim_primary_names = {}
@@ -501,14 +517,17 @@ def get_primary_entity_names(prelim_entity_data, is_alt_name_dict_in):
         is_an_alt_name_of_dict[entity_type] = {}
         ent_prim_names_dict = primary_names_dict[entity_type]
         
-        for alt_name, data in alt_name_dict.items():
+        for alt_name, entity_data in alt_name_dict.items():
             is_an_alt_name_of_dict[entity_type][alt_name] = []
-            primary_names_list = data['primary_names']
+            primary_names_list = entity_data['primary_names']
+            indexSet = set()
             num_primary_names = len(primary_names_list) 
             for i in range(num_primary_names):
                 name = primary_names_list[i]
                 index_in_prelim_primary_names = ent_prim_names_dict[name]
-                is_an_alt_name_of_dict[entity_type][alt_name].append(index_in_prelim_primary_names)
+                if index_in_prelim_primary_names not in indexSet:
+                    is_an_alt_name_of_dict[entity_type][alt_name].append(index_in_prelim_primary_names)
+                    indexSet.add(index_in_prelim_primary_names)
 
     has_alt_names_dict = {}
     # create has_alt_names_dict = {}. For every name in the prelim_primary_names list where 
@@ -516,6 +535,7 @@ def get_primary_entity_names(prelim_entity_data, is_alt_name_dict_in):
     for entity_type in prelim_entity_data:
         has_alt_names_dict[entity_type] = {}
         for entity in prelim_entity_data[entity_type]:
+            alt_names_set = set()
             name_dict = primary_names_dict[entity_type]
             alt_name_index_list = []
             name = entity['name']
@@ -529,7 +549,10 @@ def get_primary_entity_names(prelim_entity_data, is_alt_name_dict_in):
                 if alt_name in name_dict:
                     index_in_primary_names = name_dict[alt_name]
                     # If it does, check if any of the alternate names are in primary_names_dict
-                    alt_name_index_list.append(index_in_primary_names)    
+                    if index_in_primary_names not in alt_names_set:
+                            # If it does, add the index to the list
+                        alt_name_index_list.append(index_in_primary_names)
+                        alt_names_set.add(index_in_primary_names)
             has_alt_names_dict[entity_type][name] = alt_name_index_list
     
     return prelim_primary_names, primary_names_dict, is_an_alt_name_of_dict, has_alt_names_dict

@@ -56,15 +56,16 @@ def run_pipeline(document_path: str):
                 elif stage == CodeStages.LargeBlockAnalysisCompleted.value:
                     if load_state_flag:
                         large_blocks, block_info_list, raw_text = loadStateLBA()
-                    (prelim_entity_data, primary_names_entity_dict, entityData_alt_names_dict, char_match_data) = \
+                    (prelim_entity_data, entity_dict_by_name, alt_name_of_entity_dict) = \
                          consolidate_entity_information(block_info_list)
 
                     (prelim_primary_names, primary_names_dict, is_an_alt_name_of_dict, has_alt_names_dict) = \
-                        get_primary_entity_names(prelim_entity_data, entityData_alt_names_dict)
+                        get_primary_entity_names(prelim_entity_data, alt_name_of_entity_dict)
                     
+                    char_entity_dict = entity_dict_by_name.get("characters", {})
                     (comparison_pairs, comp_pair_names) = \
-                        get_alias_comparison_pairs(prelim_primary_names,  primary_names_dict, 
-                            is_an_alt_name_of_dict, has_alt_names_dict, char_match_data)
+                        get_alias_comparison_pairs(prelim_primary_names, prelim_entity_data, 
+                            primary_names_dict, is_an_alt_name_of_dict, has_alt_names_dict, char_entity_dict)
                     d=4
                     # Stage 2: Iterative Analysis (Reduce Phase)
                     (raw_text, large_blocks, block_info_list, full_entities_list, doc_analysis) = perform_reduce_analysis(file_id, raw_text, large_blocks, block_info_list, full_entities_list)

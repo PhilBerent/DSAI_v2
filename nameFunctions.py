@@ -7,6 +7,8 @@ from typing import List, Dict, Any, Optional
 import re
 import copy
 import re
+import traceback
+import globals as g
 
 
 # Adjust path to import from parent directory
@@ -24,13 +26,17 @@ from nicknames import NickNamer
 
 nmr = NickNamer()
 
-TITLE_LIST = ["Mr.", "Mrs.", "Ms.", "Miss.", "M.", "Mr. And Mrs.", "Mr. & Mrs.", "Dr.", "Prof.", "Sir", "Lady", "Lord", "Madam", "Dame"]
+TITLE_LIST = ["Mr.", "Mrs.", "Ms.", "Miss.", "M.", "Mr. And Mrs.", "Mr. & Mrs.", "Dr.", "Prof.", "Sir", "Lady", "Lord", "Madam", "Dame", "Ma", "Pa", "Rabbi", "Imam", "Pastor", "Reverend", "Rev.", "Saint"]
+RELATIONSHIP_LIST = ["Brother", "Sister", "Father", "Mother", "Son", "Daughter", "Aunt", "Uncle", "Cousin", "Nephew"]
+MORE_THAN_ONE_WORD_TITLES = ["Mr. And Mrs.", "Mr. & Mrs."]
+MORE_THAN_ONE_PERSON_TITLES = ["Mr. And Mrs.", "Mr. & Mrs."]
+FAMILY_TITLES = ["Mr. And Mrs.", "Mr. & Mrs."]
 # create a list of military titles and their abbreviations just as a list not a dictionary
 MILITARY_TITLES = ["General", "Colonel", "Major", "Captain", "Commander", "Lieutenant", "Ensign", "Admiral", "Commodore", "Midshipman", "Sergeant", "Corporal", "Specialist", "Private", "Gen.", "Col.", "Maj.", "Capt.", "Cmdr.", "Lt.", "Ens.", "Adm.", "Cdre.", "Midn.", "Sgt.", "Cpl.", "Spc.", "Pvt."]
-FULL_TITLE_LIST = TITLE_LIST + MILITARY_TITLES 
+FULL_TITLE_LIST = TITLE_LIST + MILITARY_TITLES + RELATIONSHIP_LIST
 ABREVIATION_TITLE_LIST = ["Mr", "Mrs", "Ms", "Miss", "M", "Dr", "Prof", "Gen", "Col", "Maj", "Capt", "Cmdr", "Lt", "Ens", "Adm", "Cdre", "Midn", "Sgt", "Cpl", "Spc", "Pvt", "Mr And Mrs", "Mr & Mrs"] 
-MALE_TITLE_LIST = ["Mr.", "Sir", "Lord", "Dame", "Gen.", "Col.", "Maj.", "Capt.", "Cmdr.", "Lt.", "Ens.", "Adm.", "Cdre.", "Midn."]
-FEMALE_TITLE_LIST = ["Mrs.", "Ms.", "Miss.", "Ms.", "Lady", "Madam", "Dame", "Gen.", "Col.", "Maj.", "Capt.", "Cmdr.", "Lt.", "Ens.", "Adm.", "Cdre.", "Midn."]
+MALE_TITLE_LIST = ["Mr.", "Sir", "Lord", "Dame", "Gen.", "Col.", "Maj.", "Capt.", "Cmdr.", "Lt.", "Ens.", "Adm.", "Cdre.", "Midn.", "Pa", "Father", "Brother", "Uncle", "Son", "Nephew"]
+FEMALE_TITLE_LIST = ["Mrs.", "Ms.", "Miss.", "Ms.", "Lady", "Madam", "Dame", "Gen.", "Col.", "Maj.", "Capt.", "Cmdr.", "Lt.", "Ens.", "Adm.", "Cdre.", "Midn.", "Ma", "Mother", "Sister", "Daughter", "Aunt", "Niece"]
 FOLLOWED_BY_FIRST_NAME_TITLES = ["Sir", "Lady", "Dame", "Brother", "Sister", "Father", "Pastor", "Rabbi", "Imam", "Reverend", "Rev.", "Saint"]
 NAME_QUALIFIERS = {"Von", "Van", "De", "Del", "Di", "Da", "Le", "La", "El", "Al", "Mac", "Mc"}
 
@@ -57,6 +63,7 @@ addedNickToCanDict = {
 class Gender(Enum):
     MALE = "Male"
     FEMALE = "Female"
+    MORE_THAN_ONE_PERSON = "More than one person"
     UNKNOWN = "Unknown"
     
 class MatchTest(Enum):
@@ -67,65 +74,126 @@ class MatchTest(Enum):
 
 class NameDetails:
     def __init__(self, name):
-        self.name = name
-        self.title = ""
-        self.name_no_title = ""
-        self.first_name = ""
-        self.middle_names = ""
-        self.last_name = ""
-        self.first_and_last_name = ""
-        self.suffix = ""
+        try:
+            self.name = name
+            self.title = ""
+            self.name_no_title = ""
+            self.first_name = ""
+            self.middle_names = ""
+            self.last_name = ""
+            self.first_and_last_name = ""
+            self.suffix = ""
+            self.gender = "unknown"
+            self.isFamily = False
+            self.is_one_person = True
+            self.is_more_than_one_person = False
+            self.nameIsTitle = False
+            self.prefix = ""
+            self.is_one_word_name = False
+            self.is_two_word_name = False
+            
+            if not name.strip():
+                return
 
-        if not name.strip():
-            return
+            words = name.strip().split()
+            numWords = len(words)
+            self.is_one_word_name = numWords == 1
+            self.is_two_word_name = numWords == 2
 
-        words = name.strip().split()
-
-        # Check for suffix
-        if words and words[-1] in SUFFIX_LIST:
-            self.suffix = words[-1]
-            words = words[:-1]
-
-        # Check for title
-        if words and words[0] in FULL_TITLE_LIST:
-            self.title = words[0]
-            words = words[1:]
-
-        # Build name_no_title
-        self.name_no_title = " ".join(words)
-        numWords = len(words)
-
-        # Parse name parts
-        if numWords == 1:
+            self.title = max((title for title in FULL_TITLE_LIST if title + " " in name), key=len, default="")
             if self.title:
-                if self.title in FOLLOWED_BY_FIRST_NAME_TITLES:
-                    self.first_name = words[0]
-                else:
-                    self.last_name = words[0]
-        elif numWords >= 2:
-            poss_qualifer = words[numWords-2]
-            if poss_qualifer in NAME_QUALIFIERS:
-                self.last_name = words[-2] + " " + words[-1]
-                end_middle = -2
-                if numWords > 2:
-                    self.first_name = words[0]
+                part1, part2 = name.split(self.title, 1)
+                self.prefix = part1
+                words = part2.split()
             else:
+                words = name.split()
+                part1 = ""
+                part2 = name
+
+            # Check for suffix
+            if words and words[-1] in SUFFIX_LIST:
+                self.suffix = words[-1]
+                words = words[:-1]
+                
+            # remove leadinnf ans trailing spaces from part1 and part2 and all words
+            part1 = part1.strip()
+            part2 = part2.strip()
+            words = [word.strip() for word in words]
+
+            # IF name contains any of the elements of MORE_THAN_ONE_WORD_TITLES then self.title is that element and the rest of the name is self.name_no_title
+            multiWordTitle = False
+            if self.title in MORE_THAN_ONE_WORD_TITLES:
+                multiWordTitle = True
+        
+            if len(words) == 0:
+                self.nameIsTitle = True
+
+            if words and words[0].lower() == "the":
+                if self.is_two_word_name:
+                    # if the last letter of the second word is an 's' then it is a family name
+                    if words[1][-1].lower() == "s":
+                        self.isFamily = True
+                        self.last_name = (words[1][:-1])
+                        words = words[1:]
+                        self.is_more_than_one_person = True
+
+            if self.title in MORE_THAN_ONE_PERSON_TITLES:
+                self.is_more_than_one_person = True
+                self.is_one_person = False
+            
+
+            if self.title in FAMILY_TITLES:
+                self.isFamily = True
                 self.last_name = words[-1]
-                end_middle = -1
-                self.first_name = words[0]
-            if self.first_name != "":
-                self.middle_names = " ".join(words[1:end_middle])
+                self.is_more_than_one_person = True
+                self.is_one_person = False
 
-        if self.first_name and self.last_name:
-            self.first_and_last_name = f"{self.first_name} {self.last_name}"
-        self.has_first_name = self.first_name != ""
-        self.has_last_name = self.last_name != ""
-        self.has_title = self.title != ""
-        self.has_middle_name = self.middle_names != ""
-        self.has_first_and_last_name = self.first_and_last_name != ""
-        self.has_suffix = self.suffix != ""
-        self.has_title_first_and_last_name = self.has_title and self.has_first_and_last_name
+            # Build name_no_title
+            if part1 != "":
+                self.name_no_title = part1 + " " + part2
+            else:
+                self.name_no_title = part2
+            numWords = len(words)
 
+            # Parse name parts
+            if numWords == 1 and not self.nameIsTitle:
+                if self.title:
+                    if self.title in FOLLOWED_BY_FIRST_NAME_TITLES:
+                        self.first_name = words[0]
+                    else:
+                        self.last_name = words[0]
+            elif numWords >= 2:
+                poss_qualifer = words[numWords-2]
+                if poss_qualifer in NAME_QUALIFIERS:
+                    self.last_name = words[-2] + " " + words[-1]
+                    end_middle = -2
+                    if numWords > 2:
+                        self.first_name = words[0]
+                else:
+                    self.last_name = words[-1]
+                    end_middle = -1
+                    self.first_name = words[0]
+                if self.first_name != "":
+                    self.middle_names = " ".join(words[1:end_middle])
+
+            if self.first_name and self.last_name:
+                self.first_and_last_name = f"{self.first_name} {self.last_name}"
+            self.has_first_name = self.first_name != ""
+            self.has_last_name = self.last_name != ""
+            self.has_title = self.title != ""
+            self.has_middle_name = self.middle_names != ""
+            self.has_first_and_last_name = self.first_and_last_name != ""
+            self.has_suffix = self.suffix != ""
+            self.has_title_first_and_last_name = self.has_title and self.has_first_and_last_name
+            if self.has_title:
+                self.gender = getGenderFromTitle(self.title)
+        except Exception as e:
+            errorMessage = traceback.format_exc()
+            a=3
+    
+    def addGender(self, gender):
+        self.gender = gender
+    
     def as_dict(self):
         return {
             "input_name": self.name,
@@ -138,6 +206,25 @@ class NameDetails:
             "suffix": self.suffix
         }
     
+    def ToString(self):
+        output = f"Name: {self.name}\n"
+        output += f"Title: {self.title}\n"
+        output += f"Name without title: {self.name_no_title}\n"
+        output += f"First name: {self.first_name}\n"
+        output += f"Middle names: {self.middle_names}\n"
+        output += f"Last name: {self.last_name}\n"
+        output += f"First and last name: {self.first_and_last_name}\n"
+        output += f"Prefix: {self.prefix}\n"
+        output += f"Suffix: {self.suffix}\n"
+        output += f"Gender: {self.gender}\n"
+        output += f"Is family: {self.isFamily}\n"
+        output += f"Is more than one person: {self.is_more_than_one_person}\n"
+        return output
+
+    def WriteToFile(self, filename = g.tempOutputFile):
+        output = self.ToString()
+        WriteToFile(output, filename)
+                   
 def selectBestName(nameDetails1: NameDetails, nameDetails2: NameDetails, blockCount1, blockCount2):
     if nameDetails1.has_title_first_and_last_name and not nameDetails2.has_title_first_and_last_name:
         return nameDetails1, 1
@@ -159,10 +246,10 @@ def getEntityNames(entityData, entityType) -> List[str]:
     return entityNames  
 
 def addCharNameToCombos(nameDetails: NameDetails):
-    hasTitle = nameDetails["title"] != ""
-    hasFirstName = nameDetails["first_name"] != ""
-    hasLastName = nameDetails["last_name"] != ""
-    hasMiddleName = nameDetails["middle_names"] != ""
+    hasTitle = nameDetails.title != ""
+    hasFirstName = nameDetails.first_name != ""
+    hasLastName = nameDetails.last_name != ""
+    hasMiddleName = nameDetails.middle_names != ""
     if hasTitle and hasLastName and not hasFirstName and not hasMiddleName:
         return False
     else:
@@ -196,7 +283,32 @@ def checkConsistency(name1: NameDetails, name2: NameDetails):
         if not matchFirstName(name1FirstName, name2FirstName):
             return False
 
+def getGenderFromTitle(title: str):
+    if title == "":
+        return "unknown"
+    elif title in MALE_TITLE_LIST:
+        return "Male"
+    elif title in FEMALE_TITLE_LIST:
+        return "Female"
+    elif title in MORE_THAN_ONE_PERSON_TITLES:
+        return "More than one person"
+    else:
+        return "unknown"
+
 def getGender(name: NameDetails):
+    if name.gender != "" and name.gender != None:
+        nameGender = (name.gender).lower()
+        if nameGender != "unknown":
+            if nameGender == "male":
+                return Gender.MALE
+            elif nameGender == "female":
+                return Gender.FEMALE
+            elif nameGender == "more than one person":
+                return Gender.MORE_THAN_ONE_PERSON
+    # db
+    else:
+        a=4
+    # ed
     title = name.title
     if title == "":
         return Gender.UNKNOWN
@@ -204,6 +316,8 @@ def getGender(name: NameDetails):
         return Gender.MALE
     elif title in FEMALE_TITLE_LIST:
         return Gender.FEMALE
+    elif title in MORE_THAN_ONE_PERSON_TITLES:
+        return Gender.MORE_THAN_ONE_PERSON
     else:
         return Gender.UNKNOWN
 
@@ -305,10 +419,19 @@ def names_match(name1: NameDetails, name2: NameDetails) -> MatchTest:
     hasMiddleName2 = middleName2 != ""
     hasFirstAndLastName1 = hasFirstName1 and hasLastName1
     hasFirstAndLastName2 = hasFirstName2 and hasLastName2
+    isOneWordName1 = name1.is_one_word_name
+    isOneWordName2 = name2.is_one_word_name
+    isTitleName1 = name1.nameIsTitle
+    isTitleName2 = name2.nameIsTitle
+    isMoreThanOnePerson1 = name1.is_more_than_one_person
+    
 
     # Gender check
     gender1 = getGender(name1)
     gender2 = getGender(name2)
+    if isOneWordName1 and isOneWordName2:
+        if not (isTitleName1 or isTitleName2):
+            return MatchTest.UNKNOWN
     if gender1 != Gender.UNKNOWN and gender2 != Gender.UNKNOWN:
         if gender1 != gender2:
             return MatchTest.NO_MATCH
@@ -325,6 +448,14 @@ def names_match(name1: NameDetails, name2: NameDetails) -> MatchTest:
             else:
                 return MatchTest.NO_MATCH
 
+    # if (hasFirstAndLastName1 or hasFirstAndLastName2) and (isOneWordName1 or isOneWordName2) and \
+    #         not (isTitleName1 or isTitleName2):
+    #     oneWordName = name1 if isOneWordName1 else name2
+    #     oneWordNameFullName = oneWordName.name
+    #     multiWordName = name1 if not isOneWordName1 else name2
+    #     if not matchFirstName(multiWordName.first_name, oneWordNameFullName) and \
+    #             multiWordName.last_name != oneWordNameFullName:
+    #         return MatchTest.NO_MATCH
     return MatchTest.UNKNOWN
 
 def fix_titles_in_names(block_analysis_result):

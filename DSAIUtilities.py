@@ -276,3 +276,38 @@ def capitalize_all_words(block_analysis_result):
     
     return fixed_result
 
+def WritePrelimEntityDataNameList(prelim_entity_data, entity_type = "", file_path=g.tempOutputFile):
+    output=""
+    if entity_type:
+        output += f"Entity Type: {entity_type}\n"
+        entityData = prelim_entity_data.get(entity_type, [])
+        for entity in entityData:
+            output += f"  - {entity['name']}\n"
+        
+    for entity_type, entities in prelim_entity_data.items():
+        output += f"{entity_type}:\n"
+        for entity in entities:
+            output += f"  - {entity['name']}\n"
+
+    WriteToFile(output, file_path)
+    
+def GetPrelimEntityDataNameList(prelim_entity_data, entity_type = "", file_path=g.tempOutputFile):
+    output=""
+    try:
+        if entity_type:
+            output += f"Entity Type: {entity_type}\n"
+            entities = prelim_entity_data.get(entity_type, [])
+            for entity in entities:
+                output += f"  - {entity['name']}\n"
+        else:    
+            for entitydata in prelim_entity_data.items():
+                entity_type, entities = entitydata
+                output += f"{entity_type}:\n"
+                for entity in entities:
+                    output += f"  - {entity['name']}\n"
+    except Exception as e:
+        errorMessage = traceback.format_exc()
+        logging.error(f"Error in GetPrelimEntityDataNameList: {e}")
+        output = f"Error in GetPrelimEntityDataNameList: {e}"
+
+    return output

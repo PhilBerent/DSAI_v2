@@ -301,24 +301,35 @@ def correct_name(name):
 # name1 =  "Bert"; name2 = "Fred"
 # a = matchFirstName(name1, name2)
 # print(f"Match result for '{name1}' and '{name2}': {a}")  # Should print True or False based on the match logic
-aa= NameDetails("Miss. De Bourg")
-nmr = NickNamer()
-aa=3
-n1Canonicals = nmr.canonicals_of("elizabeth")
-n1Nicknames = nmr.nicknames_of("elizabeth")
-aa= matchFirstName("liz", "beth")
+# aa= NameDetails("Miss. De Bourg")
+# nmr = NickNamer()
+# aa=3
+# n1Canonicals = nmr.canonicals_of("elizabeth")
+# n1Nicknames = nmr.nicknames_of("elizabeth")
+# aa= matchFirstName("liz", "beth")
 
 
 
-from thefuzz import fuzz
+# from thefuzz import fuzz
 
-# Compare two names
-name1 = "Liz"
-name2 = "Beth"
-score = fuzz.ratio(name1, name2)
+# # Compare two names
+# name1 = "Liz"
+# name2 = "Beth"
+# score = fuzz.ratio(name1, name2)
 
-# A higher score indicates a closer match
-print(f"Similarity Score: {score}")
+# # A higher score indicates a closer match
+# print(f"Similarity Score: {score}")
 
 
-bb=4
+# bb=4
+z1 = NameDetails("Pamela Dingo")
+z2 = NameDetails("Dear Kirsty")
+nm = names_match(z1, z2)
+ee = NameDetails("Father")
+dd = NameDetails("Mr. & Mrs. Thing")
+aa = NameDetails("Late Mr. Darcy")
+bb = NameDetails("The Late Mr. Darcy")
+cc = NameDetails("Mr. Tom Thing")
+
+ee = NameDetails("The Things")
+WriteToFile(aa.ToString()+"\n\n"+bb.ToString()+"\n\n"+cc.ToString()+"\n\n"+dd.ToString()+"\n\n"+ee.ToString())

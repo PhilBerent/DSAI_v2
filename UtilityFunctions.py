@@ -1798,7 +1798,7 @@ def ObjToMindMap(structObj, showDictLables = False, filename=g.tempOutputFile):
         if isinstance(obj, dict):
             # Iterate through dictionary items
             numItems = len(obj)
-            itemNum = 0
+            itemNum = -1
             for k, v in obj.items():
                 itemNum += 1
                 # Clean the key before appending it as a node

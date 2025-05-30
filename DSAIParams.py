@@ -120,8 +120,8 @@ StateStorageList = [
     StateStoragePoints.GraphAnalysisCompleted
 ]
 
-# RunCodeFrom = CodeStages.Start
-RunCodeFrom = CodeStages.LargeBlockAnalysisCompleted
+RunCodeFrom = CodeStages.Start
+# RunCodeFrom = CodeStages.LargeBlockAnalysisCompleted
 # RunCodeFrom = CodeStages.ReduceAnalysisCompleted
 # RunCodeFrom = CodeStages.DetailedBlockAnalysisCompleted
 # RunCodeFrom = CodeStages.EmbeddingsCompleted
