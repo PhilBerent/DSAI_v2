@@ -91,8 +91,8 @@ def consolidate_entity_information(block_info_list):
             if name not in entity_data_by_name:
                 entity_data_by_name[name] = {
                     "primary_name_blocks": set(),
-                    "alt_names_map": collections.defaultdict(set),
-                    "descriptions_map": collections.defaultdict(set)
+                    "alt_names_set": collections.defaultdict(set),
+                    "descriptions_set": collections.defaultdict(set)
                 }
 
             entity_data_by_name[name]["primary_name_blocks"].add(block_index)
@@ -100,10 +100,10 @@ def consolidate_entity_information(block_info_list):
             for alt_name in alt_names:
                 cleaned_alt_name = alt_name.strip()
                 if cleaned_alt_name:
-                    entity_data_by_name[name]["alt_names_map"][cleaned_alt_name].add(block_index)
+                    entity_data_by_name[name]["alt_names_set"][cleaned_alt_name].add(block_index)
 
             if desc:
-                entity_data_by_name[name]["descriptions_map"][desc].add(block_index)
+                entity_data_by_name[name]["descriptions_set"][desc].add(block_index)
 
     # --- Prepare raw structures ---
     raw_entities_data = {
@@ -135,7 +135,7 @@ def consolidate_entity_information(block_info_list):
         for name, data in name_to_entity_data.items():
             # Format alternate names
             formatted_alt_names = []
-            for alt_name, block_indices in data["alt_names_map"].items():
+            for alt_name, block_indices in data["alt_names_set"].items():
                 formatted_alt_names.append({
                     "alternate_name": alt_name,
                     "block_list": sorted(list(block_indices))
@@ -144,7 +144,7 @@ def consolidate_entity_information(block_info_list):
 
             # Format descriptions
             formatted_descriptions = []
-            for description, block_indices in data["descriptions_map"].items():
+            for description, block_indices in data["descriptions_set"].items():
                 formatted_descriptions.append({
                     "description": description,
                     "block_list": sorted(list(block_indices))

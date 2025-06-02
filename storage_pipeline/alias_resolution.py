@@ -88,6 +88,10 @@ class CharacterMatchData:
                 self.name_no_title_dict.setdefault(name_no_title, []).append(i)
             if first_and_last_name:
                 self.first_and_last_names_dict.setdefault(first_and_last_name, []).append(i)
+        
+        # db
+        a=5
+        # ed
 
     def replace_element(self, index_to_replace, new_name_details: NameDetails):
         # db
@@ -102,6 +106,7 @@ class CharacterMatchData:
         self.full_names_dict[new_name] = index_to_replace
         self.name_details_dict[new_name] = new_name_details
         self.name_details_list[index_to_replace] = new_name_details
+
         first_name = new_name_details.first_name
         last_name = new_name_details.last_name
         name_no_title = new_name_details.name_no_title
@@ -114,6 +119,7 @@ class CharacterMatchData:
             self.name_no_title_dict.setdefault(name_no_title, []).append(index_to_replace)
         if first_and_last_name:
             self.first_and_last_names_dict.setdefault(first_and_last_name, []).append(index_to_replace)
+        
     
     def remove_element_by_index(self, index_to_remove):
         name_details = self.name_details_list[index_to_remove]
@@ -125,8 +131,8 @@ class CharacterMatchData:
         
         del self.full_names_dict[name]
         del self.name_details_dict[name]
-        self.full_name_list[index_to_remove] = None
-        self.name_details_list[index_to_remove] = None
+        self.full_name_list[index_to_remove] = None  # cant just delete it because we need to keep the index
+        self.name_details_list[index_to_remove] = None # cant just delete it because we need to keep the index
         if index_to_remove in self.first_names_dict.get(first_name, []):
             self.first_names_dict[first_name].remove(index_to_remove)
         if index_to_remove in self.last_names_dict.get(last_name, []):
@@ -135,7 +141,7 @@ class CharacterMatchData:
             self.name_no_title_dict[name_no_title].remove(index_to_remove)
         if index_to_remove in self.first_and_last_names_dict.get(first_and_last_name, []):
             self.first_and_last_names_dict[first_and_last_name].remove(index_to_remove)
-        del self.first_names_dict[first_name]
+
     
     def WriteNameAndGenderToFile(self, file_path = g.tempOutputFile):
         output = ""
@@ -177,6 +183,17 @@ class CharacterMatchData:
             "name_details_dict": self.name_details_dict
         }
 
+    def WriteToFile(self, file_path = g.tempOutputFile):
+        output = ""
+        numNames = len(self.full_name_list)
+        for i in range(numNames):
+            name_details = self.name_details_list[i]
+            if name_details is None:
+                continue
+            ndString = name_details.ToString()
+            output += f"{ndString}\n\n"
+        WriteToFile(output, file_path)
+            
 def getIsAnAltNameDict(prelim_entity_data, primary_names_dict):
     """
     Returns a dictionary where the keys are the entity types and the values are dictionaries
@@ -295,6 +312,7 @@ def get_comparison_pairs(prelim_primary_names, primary_name_dict, is_an_alt_name
         type_has_alt_names_dict = has_alt_names_dict.get(entity_type, {})
         type_is_an_alt_name_of_dict = is_an_alt_name_of_dict.get(entity_type, {})
         num_elemts = len(entity_list)
+        # region - look for pairs by cycling through primary names 
         for current in range(num_elemts):
             if current in checked_elements:
                 continue
@@ -302,13 +320,10 @@ def get_comparison_pairs(prelim_primary_names, primary_name_dict, is_an_alt_name
             matches_names = set()
             curr_name = entity_list[current][0]
             added_pair_names_this_name = set()
-            curr_name_details = char_name_details_list[current]
-            #db
-            if current ==4:
-                aa=4
-            #ed
+            if entity_type == 'characters':
+                curr_name_details = char_name_details_list[current]
 
-            # === 1. Has Alt Names Match ===
+            # region === 1. Alt Name Matches Another Primary Name ===
             alt_names_index_list = type_has_alt_names_dict.get(curr_name, [])
             alt_names_list = []
             has_alt_names_matches = []
@@ -318,23 +333,18 @@ def get_comparison_pairs(prelim_primary_names, primary_name_dict, is_an_alt_name
             for alt_idx in alt_names_index_list:
                 if alt_idx not in matches and alt_idx != current:
                     alt_name_details = char_name_details_list[alt_idx]
-                    if names_match(curr_name_details, alt_name_details) != MatchTest.NO_MATCH:
-                        has_alt_names_matches.append(alt_idx)
-                        name_to_add = entity_list[alt_idx][0]                        
-                        has_alt_names_match_names.append(name_to_add)                        
-                        #db
-                        if (name_to_add == compStop1 and curr_name == compStop2) or (curr_name == compStop1 and name_to_add == compStop2):
-                            aa=4 
-                        #ed
+                    has_alt_names_matches.append(alt_idx)
+                    name_to_add = entity_list[alt_idx][0]                        
+                    has_alt_names_match_names.append(name_to_add)                        
             
             added_pairs, added_pair_names, added_pair_names_this_name = \
                 addPairs(entity_list, entity_type, char_name_details_list, current, has_alt_names_matches, added_pairs, 
                             added_pair_names, added_pair_names_this_name, addCombos=True, debug_name1=compStop1, debug_name2=compStop2, debug=debug)
             matches.update(has_alt_names_matches)
             matches_names.update(has_alt_names_match_names)
-            
+            # endregion
 
-            # === 2. Is An Alt Name Of Match ===
+            # region === 2. Is An Alt Name Of Match ===
             is_alt_names_matches = []
             is_alt_names_match_names = []
             if curr_name in type_is_an_alt_name_of_dict:
@@ -356,7 +366,7 @@ def get_comparison_pairs(prelim_primary_names, primary_name_dict, is_an_alt_name
                             added_pair_names, added_pair_names_this_name, addCombos=True, debug_name1=compStop1, debug_name2=compStop2, debug=debug)
             matches.update(is_alt_names_matches)
             matches_names.update(is_alt_names_match_names)
-            
+            # endregion
 
             # === 3. Character Name Heuristics ===
             if entity_type == 'characters':
@@ -384,10 +394,6 @@ def get_comparison_pairs(prelim_primary_names, primary_name_dict, is_an_alt_name
                             first_and_last_matches.append(idx)
                             name_to_add = entity_list[idx][0]
                             first_and_last_match_names.append(name_to_add)
-                            #db
-                            if (name_to_add == compStop1 and curr_name == compStop2) or (curr_name == compStop1 and name_to_add == compStop2):
-                                aa=4 
-                            #ed
                     
                     added_pairs, added_pair_names, added_pair_names_this_name = \
                     addPairs(entity_list, entity_type, char_name_details_list, current, 
@@ -425,57 +431,92 @@ def get_comparison_pairs(prelim_primary_names, primary_name_dict, is_an_alt_name
                     # db
                     a=3
                     # ed
+            # endregion end of looking for pairs by cycling through primary names
+  
+        # region - look for pairs by cycling through alternate names
+        alt_name_list = list(type_is_an_alt_name_of_dict.keys())
+        num_alt_names = len(alt_name_list)
+        for alt_index in range(num_alt_names):
+            curr_alt_name = alt_name_list[alt_index]
+            prim_name_indexes_this_alt_name = type_is_an_alt_name_of_dict.get(curr_alt_name, [])
+            num_prim_names_this_alt_name = len(prim_name_indexes_this_alt_name)
+            if num_prim_names_this_alt_name < 2:
+                continue
+            for i in range(num_prim_names_this_alt_name):
+                prim_index1 = prim_name_indexes_this_alt_name[i]
+                prim_name1 = entity_list[prim_index1][0]
+                for j in range(i + 1, num_prim_names_this_alt_name):
+                    prim_index2 = prim_name_indexes_this_alt_name[j]
+                    prim_name2 = entity_list[prim_index2][0]
+                    if (prim_index1, prim_index2) in added_pairs or (prim_index2, prim_index1) in added_pairs:
+                        continue
+                    if entity_type == 'characters':
+                        nameDetails1 = char_name_details_list[prim_index1]
+                        nameDetails2 = char_name_details_list[prim_index2]
+                        if names_match(nameDetails1, nameDetails2) == MatchTest.NO_MATCH:
+                            continue
                     
+                    pair = (min(prim_index1, prim_index2), max(prim_index1, prim_index2))
+                    added_pairs.add(pair)
+                    added_pair_names.add((prim_name1, prim_name2))
+        # endregion
+
         comparison_pairs[entity_type] = list(added_pairs)
         comp_pair_names[entity_type] = list(added_pair_names)
         
     return comparison_pairs, comp_pair_names
 
 
-def combinePrelimCharNames(prelim_enity_data, primary_names_entity_dict, entity_type, 
-        name1Details: NameDetails, name2Details: NameDetails, elementsToRemove:dict[str, list[int]]):
+def combinePrelimCharNames(entity_data, entity_dict, entity_type, 
+        name1Details: NameDetails, name2Details: NameDetails, name1Index, name2Index, 
+        elementsToRemove:dict[str, list[int]], firstElementBad = False):
 
-    entity_dict = primary_names_entity_dict[entity_type]
-    entity_data = prelim_enity_data[entity_type]
     name1 = name1Details.name
     name2 = name2Details.name
-    index1 = entity_dict[name1]
-    index2 = entity_dict[name2]
-    if index1 == index2 or \
-        (index1 in elementsToRemove[entity_type] or index2 in elementsToRemove[entity_type]):
-        return prelim_enity_data, elementsToRemove
-    name1EntityData = entity_data[index1]
-    name2EntityData = entity_data[index2]
+    
+    name1EntityData = entity_data[name1Index]
+    name2EntityData = entity_data[name2Index]
     numEntries1 = len(name1EntityData['block_list'])
     numEntries2 = len(name2EntityData['block_list'])
+    gender1 = gender2 = None
+    if name1Details.gender != 'unknown' and name1Details.gender != None:
+        gender1 = name1Details.gender
+    if name2Details.gender != 'unknown' and name2Details.gender != None:
+        gender2 = name2Details.gender
+    if gender1 and gender2 and gender1 != gender2:
+        raise ValueError(f"Mismatched genders for names {name1} and {name2}:")
+    comboGender = gender1 if gender1 else gender2
+        
     combinedNameEntry = {}
     _, best = selectBestName(name1Details, name2Details, numEntries1, numEntries2)
-    if best == 1:
+    if best == 1 and not firstElementBad:
         nameUsed = name1
-        indexUsed = index1
-        indexNotUsed = index2
+        indexUsed = name1Index
+        indexNotUsed = name2Index
         nameNotUsed = name2
+        comboNameDetails = name1Details
     else:
         nameUsed = name2
-        indexUsed = index2
-        indexNotUsed = index1
+        indexUsed = name2Index
+        indexNotUsed = name1Index
         nameNotUsed = name1
+        comboNameDetails = name2Details
     combinedNameEntry['name'] = nameUsed
     block_list1 = name1EntityData['block_list']
     block_list2 = name2EntityData['block_list']
     newBlockSet = set(block_list1)
     newBlockSet.update(block_list2)
-    alternateNamesList1 = name1EntityData['alternate_names']
-    alternateNamesList2 = name2EntityData['alternate_names']
+    altNameAndBlockList1 = name1EntityData['alternate_names']
+    altNameAndBlockList2 = name2EntityData['alternate_names']
     alternateNameDict1 = {}
     alternateNameDict2 = {}
-    alt_name_list1 = [x['alternate_name'] for x in alternateNamesList1]
-    alt_name_list2 = [x['alternate_name'] for x in alternateNamesList2]
+    alt_name_list1 = [x['alternate_name'] for x in altNameAndBlockList1]
+    alt_name_list2 = [x['alternate_name'] for x in altNameAndBlockList2]
 
-    for alt_name_and_blocks in alternateNamesList1:
+    for alt_name_and_blocks in altNameAndBlockList1:
         thisAltName = alt_name_and_blocks['alternate_name']
         alternateNameDict1[thisAltName] = alt_name_and_blocks
-    for alt_name_and_blocks in alternateNamesList2:
+    for alt_name_and_blocks in altNameAndBlockList2:
         thisAltName = alt_name_and_blocks['alternate_name']
         alternateNameDict2[thisAltName] = alt_name_and_blocks
     combined_alt_name_set = set(alt_name_list1)
@@ -485,37 +526,47 @@ def combinePrelimCharNames(prelim_enity_data, primary_names_entity_dict, entity_
     for alt_name in combined_alt_name_list:
         new_alt_name_and_blocks = {}
         new_alt_name_and_blocks['alternate_name'] = alt_name
-        altNameBlockSet = set()
+        descBlockSet = set()
         if alt_name in alternateNameDict1:
             altName1Data = alternateNameDict1[alt_name]
             if alt_name == nameUsed:
                 newBlockSet.update(altName1Data['block_list'])
             else:
-                altNameBlockSet.update(altName1Data['block_list'])
+                descBlockSet.update(altName1Data['block_list'])
         elif alt_name in alternateNameDict2:
             altName2Data = alternateNameDict2[alt_name]
             if alt_name == nameUsed:
                 newBlockSet.update(altName2Data['block_list'])
             else:
-                altNameBlockSet.update(altName2Data['block_list'])
+                descBlockSet.update(altName2Data['block_list'])
         
-        new_alt_name_and_blocks['block_list'] = list(altNameBlockSet)
+        new_alt_name_and_blocks['block_list'] = list(descBlockSet)
         new_alt_names.append(new_alt_name_and_blocks)
     
     combinedNameEntry['alternate_names'] = new_alt_names
     newBlockList = sorted(list(newBlockSet))
     combinedNameEntry['block_list'] = newBlockList
 
-    descriptionList1 = name1EntityData['descriptions']
-    descriptionList2 = name2EntityData['descriptions']
+    descriptionAndBlockList1 = name1EntityData['descriptions']
+    descriptionAndBlockList2 = name2EntityData['descriptions']
     descriptionDict1 = {}
     descriptionDict2 = {}
-    for desc in descriptionList1:
-        descriptionDict1[desc['description']] = desc
-    for desc in descriptionList2:
-        descriptionDict2[desc['description']] = desc
-    desc_list1 = [x['description'] for x in descriptionList1]
-    desc_list2 = [x['description'] for x in descriptionList2]
+    for desc in descriptionAndBlockList1:
+        description = desc['description']
+        blockList = desc.get('block_list', [])
+        if description in descriptionDict1:
+            descriptionDict1[description]['block_list'].extend(blockList)
+        else:
+            descriptionDict1[description] = desc
+    for desc in descriptionAndBlockList2:
+        description = desc['description']
+        blockList = desc.get('block_list', [])
+        if description in descriptionDict2:
+            descriptionDict2[description]['block_list'].extend(blockList)
+        else:
+            descriptionDict2[description] = desc
+    desc_list1 = [x['description'] for x in descriptionAndBlockList1]
+    desc_list2 = [x['description'] for x in descriptionAndBlockList2]
     new_descriptions = set(desc_list1)
     new_descriptions.update(desc_list2)
     new_descriptionsList = list(new_descriptions)
@@ -523,24 +574,26 @@ def combinePrelimCharNames(prelim_enity_data, primary_names_entity_dict, entity_
     for desc in new_descriptionsList:
         new_description = {}
         new_description['description'] = desc
-        altNameBlockSet = set()
+        descBlockSet = set()
         if desc in descriptionDict1:
             name1DescData = descriptionDict1[desc]
-            altNameBlockSet.update(name1DescData['block_list'])
+            descBlockSet.update(name1DescData['block_list'])
         elif desc in descriptionDict2:
             name2DescData = descriptionDict2[desc]
-            altNameBlockSet.update(name2DescData['block_list'])
+            descBlockSet.update(name2DescData['block_list'])
         
-        new_description['block_list'] = list(altNameBlockSet)
+        new_description['block_list'] = list(descBlockSet)
         new_descriptions.append(new_description)
     
     combinedNameEntry['descriptions'] = new_descriptions
+    combinedNameEntry['gender'] = comboGender
 
     entity_data[indexUsed] = combinedNameEntry
     del entity_dict[nameNotUsed]
+    elementsToRemove[entity_type].add(indexNotUsed)
     
-    return prelim_enity_data, elementsToRemove, primary_names_entity_dict, \
-        nameUsed, nameNotUsed, indexNotUsed, indexUsed
+    return entity_data, elementsToRemove, entity_dict, \
+        nameUsed, nameNotUsed, indexNotUsed, indexUsed, comboNameDetails
     
     
 def removePrelimEntDataElements(prelim_entity_data, primary_names_entity_dict, 
@@ -586,9 +639,10 @@ def adjust_bad_first_word_entities(prelim_entity_data, primary_names_entity_dict
             numNames = len(entityData)
             for name1Index in range(numNames):
                 name1Data = entityData[name1Index]
-                if name1Index in elementsToRemove[entityType]:
-                    continue
                 orig_name = cmd.full_name_list[name1Index]
+                if name1Index in elementsToRemove[entityType] or orig_name is None:
+                    continue
+                    
                 firstWord = orig_name.split()[0]
                 if firstWord in FirstWordsToRemoveFromNames:
                     name1Details = cmd.name_details_list[name1Index]
@@ -596,30 +650,28 @@ def adjust_bad_first_word_entities(prelim_entity_data, primary_names_entity_dict
                         continue
                     bad_name = orig_name
                     nameNoFirstWord = bad_name.replace(firstWord, "", 1).strip()
-                    adjustedNameDetails = NameDetails(nameNoFirstWord)
-                    if adjustedNameDetails.gender is None:
-                        adjustedNameDetails.addGender(name1Data['gender'])
+                    adjName1Details = NameDetails(nameNoFirstWord)
+                    if adjName1Details.gender is None:
+                        adjName1Details.addGender(name1Data['gender'])
                     nameCombined = False
                     if nameNoFirstWord in entityDict:
                         name2Index = entityDict[nameNoFirstWord]
                         if name2Index not in elementsToRemove[entityType]:
-                            name2Data = entityData[name2Index] 
+                            name2Details = cmd.name_details_list[name2Index]
                             if name1Index != name2Index:
-                                (prelim_enity_data, elementsToRemove, primary_names_entity_dict, nameUsed, \
-                                    nameNotUsed, indexNotUsed, indexUsed) = combinePrelimCharNames(prelim_entity_data, 
-                                    primary_names_entity_dict, entityType, name1Data, name2Data, elementsToRemove)
-                                elementsToRemove[entityType].add(indexNotUsed)
-                                entityData[indexUsed]['name'] = nameNoFirstWord
-                                entityDict[nameNoFirstWord] = indexUsed
-                                del entityDict[nameNotUsed]
-                                cmd.replace_element(indexUsed, adjustedNameDetails)
+                                (entityData, elementsToRemove, entityDict, nameUsed, \
+                                    nameNotUsed, indexNotUsed, indexUsed, comboNameDetails) = combinePrelimCharNames(entityData, 
+                                    entityDict, entityType, name1Details, name2Details, 
+                                    name1Index, name2Index, elementsToRemove, True)
+                                cmd.remove_element_by_index(indexNotUsed)
+                                cmd.replace_element(indexUsed, comboNameDetails)
                                 namesRemoved.add(nameNotUsed)
                                 matchesFound.append((bad_name, nameNoFirstWord))
                                 nameCombined = True
 
                     if not nameCombined:
                         entityData[name1Index]['name'] = nameNoFirstWord
-                        cmd.replace_element(name1Index, adjustedNameDetails)
+                        cmd.replace_element(name1Index, adjName1Details)
                         entityDict[nameNoFirstWord] = name1Index
                         del entityDict[bad_name]
                         indexUsed = name1Index
@@ -650,10 +702,9 @@ def adjust_bad_first_word_entities(prelim_entity_data, primary_names_entity_dict
 
 def clean_prelim_entity_data_char(prelim_entity_data, primary_names_entity_dict, 
         alt_name_of_entity_dict, cmd: CharacterMatchData):
-    
     try:
         char_dict = primary_names_entity_dict['characters']
-        charEntityList = prelim_entity_data['characters']
+        charEntityData = prelim_entity_data['characters']
         char_alt_names_dict = alt_name_of_entity_dict['characters']
         char_names_list = cmd.full_name_list
         name_details_list = cmd.name_details_list
@@ -676,20 +727,12 @@ def clean_prelim_entity_data_char(prelim_entity_data, primary_names_entity_dict,
         # go through each element of char_names and if there is an entry with the same  first and last name but where one has a title and the other does not
         num_names = len(char_names_list)
         for name1Index in range(num_names):
-            # db
-            if name1Index == 41:
-                aaz=4
-            # ed
             if name1Index in elementsToRemove['characters']:
                 continue
             name_details1 = cmd.name_details_list[name1Index]
             name1 = name_details1.name
-            # db
-            if name1 == "Miss. Dingo":
-                aaz=4
-            #ed
 
-            charData = charEntityList[name1Index]
+            charData = charEntityData[name1Index]
             alternate_names = charData['alternate_names']
             hasAltNameList = [x['alternate_name'] for x in alternate_names]
             isAltName = char_alt_names_dict.get(name1, [])
@@ -719,38 +762,6 @@ def clean_prelim_entity_data_char(prelim_entity_data, primary_names_entity_dict,
         
             if name1Removed:
                 continue
-            
-        
-            # # get all names for which this is an alt name
-            # if name1 in char_alt_names_dict:
-            #     alt_names = char_alt_names_dict.get(name1, [])
-            #     # alt_names is a list of indexes in char_names get combo list from the list of parsed names for these indexes
-            #     comboIndexes = alt_names['indexes']
-            #     comboNames = alt_names['primary_names']
-            #     numComboNames = len(comboIndexes)
-            #     if numComboNames >= 2:
-            #         # create combinations for all indexes in comboNames
-            #         thisRemoved = False
-            #         for i in range(numComboNames):
-            #             if thisRemoved:
-            #                 break
-            #             alt_name1_index = comboIndexes[i]
-            #             altName1Details = name_details_list[alt_name1_index]
-            #             altName1 = comboNames[i]
-            #             if not can_reject_match(altName1Details):
-            #                 continue
-            #             for j in range(i+1, numComboNames):
-            #                 alt_name2_index = comboIndexes[j]
-            #                 if alt_name2_index == name1Index or alt_name2_index in elementsToRemove['characters']:
-            #                     continue
-            #                 altName2Details = name_details_list[alt_name2_index]
-            #                 altName2 = comboNames[j]
-            #                 matchTest = names_match(altName1Details, altName2Details)
-            #                 if matchTest == MatchTest.NO_MATCH:
-            #                     elementsToRemove['characters'].add(name1Index)
-            #                     namesRemoved.add(name1)
-            #                     thisRemoved = True
-            #                     break
 
         for name1Index in range(num_names):
             lastRemovedName = ""
@@ -783,15 +794,14 @@ def clean_prelim_entity_data_char(prelim_entity_data, primary_names_entity_dict,
                         #db
                         matchesFound.append((name1, name2))
                         #ed
-                        (prelim_enity_data, elementsToRemove, primary_names_entity_dict, nameUsed, \
-                            nameNotUsed, indexNotUsed, indexUsed) = combinePrelimCharNames(prelim_entity_data, 
-                                primary_names_entity_dict, 'characters', name_details1, name_details2, elementsToRemove)
+                        (charEntityData, elementsToRemove, char_dict, nameUsed, \
+                            nameNotUsed, indexNotUsed, indexUsed, comboNameDetails) = combinePrelimCharNames(charEntityData, 
+                                char_dict, 'characters', name_details1, name_details2, 
+                                name1Index, name2Index, elementsToRemove)
                         
-                        elementsToRemove['characters'].add(indexNotUsed)
-                        # db
-                        # cmd.remove_name(nameNotUsed)
+                        cmd.remove_element_by_index(indexNotUsed)
+                        cmd.replace_element(indexUsed, comboNameDetails)
                         namesRemoved.add(nameNotUsed)
-                        #ed
                         lastRemovedName = nameNotUsed
                         if lastRemovedName == name1:
                             break
@@ -824,6 +834,6 @@ def get_alias_comparison_pairs(prelim_primary_names, prelim_entity_data, primary
     comparison_pairs, comp_pair_names = get_comparison_pairs(prelim_primary_names, 
         primary_name_dict, is_an_alt_name_of_dict, has_alt_names_dict, char_match_data)
 
-    return comparison_pairs, comp_pair_names
+    return comparison_pairs, comp_pair_names, char_match_data
 
 

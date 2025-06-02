@@ -22,6 +22,7 @@ from DSAIParams import * # Imports RunCodeFrom, StateStorageList, DocToAddPath e
 from enums_constants_and_classes import CodeStages, StateStoragePoints, Code_Stages_List
 from primary_analysis_stages import *
 from alias_resolution import *
+from entity_comparison import *
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -52,24 +53,31 @@ def run_pipeline(document_path: str):
                 if stage == CodeStages.Start.value:
                     # Stage 1: Initial Processing
                     (raw_text, large_blocks, block_info_list) = large_block_analysis(document_path, file_id)
+                    # db 
                     aa=2
+                    # ed
                 elif stage == CodeStages.LargeBlockAnalysisCompleted.value:
                     if load_state_flag:
                         large_blocks, block_info_list, raw_text = loadStateLBA()
-                    (prelim_entity_data, entity_dict_by_name, alt_name_of_entity_dict) = \
+                    start_time = time.time()  # Reset start time for the next stage
+                    (prelim_entity_data, entity_dict_by_name, is_alt_name_of_dict) = \
                          consolidate_entity_information(block_info_list)
 
-                    (prelim_primary_names, primary_names_dict, is_an_alt_name_of_dict, has_alt_names_dict) = \
-                        get_primary_entity_names(prelim_entity_data, alt_name_of_entity_dict)
+                    (prelim_primary_names, primary_names_dict, is_an_alt_name_of_dict, has_alt_names_dict, 
+                     sorted_entity_data) = \
+                        get_primary_entity_names(prelim_entity_data, entity_dict_by_name, is_alt_name_of_dict)
                     
                     char_entity_dict = entity_dict_by_name.get("characters", {})
-                    (comparison_pairs, comp_pair_names) = \
+                    (comparison_pairs, comp_pair_names, cmd) = \
                         get_alias_comparison_pairs(prelim_primary_names, prelim_entity_data, 
                             primary_names_dict, is_an_alt_name_of_dict, has_alt_names_dict, char_entity_dict)
-                    d=4
+                    
+                    getComparisonPairScores(comparison_pairs, sorted_entity_data)
                     # Stage 2: Iterative Analysis (Reduce Phase)
                     (raw_text, large_blocks, block_info_list, full_entities_list, doc_analysis) = perform_reduce_analysis(file_id, raw_text, large_blocks, block_info_list, full_entities_list)
+                    # db
                     a=4
+                    # ed
                 elif stage == CodeStages.ReduceAnalysisCompleted.value:
                     if load_state_flag:
                         doc_analysis, large_blocks, block_info_list, raw_text, full_entities_list = loadStateIA()

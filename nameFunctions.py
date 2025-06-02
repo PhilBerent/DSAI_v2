@@ -37,7 +37,7 @@ FULL_TITLE_LIST = TITLE_LIST + MILITARY_TITLES + RELATIONSHIP_LIST
 ABREVIATION_TITLE_LIST = ["Mr", "Mrs", "Ms", "Miss", "M", "Dr", "Prof", "Gen", "Col", "Maj", "Capt", "Cmdr", "Lt", "Ens", "Adm", "Cdre", "Midn", "Sgt", "Cpl", "Spc", "Pvt", "Mr And Mrs", "Mr & Mrs"] 
 MALE_TITLE_LIST = ["Mr.", "Sir", "Lord", "Dame", "Gen.", "Col.", "Maj.", "Capt.", "Cmdr.", "Lt.", "Ens.", "Adm.", "Cdre.", "Midn.", "Pa", "Father", "Brother", "Uncle", "Son", "Nephew"]
 FEMALE_TITLE_LIST = ["Mrs.", "Ms.", "Miss.", "Ms.", "Lady", "Madam", "Dame", "Gen.", "Col.", "Maj.", "Capt.", "Cmdr.", "Lt.", "Ens.", "Adm.", "Cdre.", "Midn.", "Ma", "Mother", "Sister", "Daughter", "Aunt", "Niece"]
-FOLLOWED_BY_FIRST_NAME_TITLES = ["Sir", "Lady", "Dame", "Brother", "Sister", "Father", "Pastor", "Rabbi", "Imam", "Reverend", "Rev.", "Saint"]
+FOLLOWED_BY_FIRST_NAME_TITLES = ["Sir", "Dame", "Brother", "Sister", "Father", "Pastor", "Rabbi", "Imam", "Reverend", "Rev.", "Saint"]
 NAME_QUALIFIERS = {"Von", "Van", "De", "Del", "Di", "Da", "Le", "La", "El", "Al", "Mac", "Mc"}
 
 SUFFIX_LIST = ["Jr.", "Sr.", "II", "III", "IV", "V", "PhD", "MD"]
@@ -137,10 +137,14 @@ class NameDetails:
                         words = words[1:]
                         self.is_more_than_one_person = True
 
-            if self.title in MORE_THAN_ONE_PERSON_TITLES:
+            if self.title in MORE_THAN_ONE_PERSON_TITLES: 
                 self.is_more_than_one_person = True
                 self.is_one_person = False
             
+            nameLower = name.lower()
+            if "and" in nameLower or "&" in nameLower:
+                self.is_more_than_one_person = True
+                self.is_one_person = False
 
             if self.title in FAMILY_TITLES:
                 self.isFamily = True
@@ -189,7 +193,6 @@ class NameDetails:
                 self.gender = getGenderFromTitle(self.title)
         except Exception as e:
             errorMessage = traceback.format_exc()
-            a=3
     
     def addGender(self, gender):
         self.gender = gender
@@ -424,6 +427,7 @@ def names_match(name1: NameDetails, name2: NameDetails) -> MatchTest:
     isTitleName1 = name1.nameIsTitle
     isTitleName2 = name2.nameIsTitle
     isMoreThanOnePerson1 = name1.is_more_than_one_person
+    isMoreThanOnePerson2 = name2.is_more_than_one_person
     
 
     # Gender check
@@ -447,7 +451,10 @@ def names_match(name1: NameDetails, name2: NameDetails) -> MatchTest:
                 return MatchTest.MATCH
             else:
                 return MatchTest.NO_MATCH
-
+    
+    if isMoreThanOnePerson1 != isMoreThanOnePerson2:
+        return MatchTest.NO_MATCH
+    
     # if (hasFirstAndLastName1 or hasFirstAndLastName2) and (isOneWordName1 or isOneWordName2) and \
     #         not (isTitleName1 or isTitleName2):
     #     oneWordName = name1 if isOneWordName1 else name2

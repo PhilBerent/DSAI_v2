@@ -186,7 +186,8 @@ def llm_call(
     """
     
     logging.debug(f"Dispatching LLM call via platform: {AIPlatform}")
-    prompt = initialPromptText + prompt  # Prepend initialPromptText to the user prompt
+    if add_initial_prompt:
+        prompt = initialPromptText + prompt  # Prepend initialPromptText to the user prompt
     # Use uppercase comparison for dispatching
     errorCount = 1
     executionError = False

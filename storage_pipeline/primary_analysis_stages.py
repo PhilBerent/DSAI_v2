@@ -85,7 +85,9 @@ def large_block_analysis(document_path: str, file_id: str) -> Tuple[str, List[Di
     logging.info("Step 1.3: Performing Map phase block analysis...")
     try:
         block_info_list = get_block_info_list(large_blocks)        
+        # db
         a=3
+        # ed
         if not block_info_list:
              logging.warning("Map phase analysis returned no results. Check individual block analysis logs.")
         logging.info(f"Map phase analysis complete. Got {len(block_info_list)} results.")

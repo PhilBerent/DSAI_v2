@@ -39,8 +39,8 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 
 # --- Configuration --- (Adjusted)
 CHAPTER_PATTERNS = [
-    # Find anywhere: CHAPTER, spaces, Roman OR Arabic numerals. Capture type and numeral.
-    re.compile(r"(CHAPTER|PART|BOOK|PREFACE|APPENDIX)\s+([IVXLCDM\d]+)", re.IGNORECASE),
+    # Only match at the start of a line, with word boundaries, to avoid false positives like 'ebook is'.
+    re.compile(r"^\s*\b(CHAPTER|PART|BOOK|PREFACE|APPENDIX)\b\s+([IVXLCDM\d]+)\b", re.IGNORECASE | re.MULTILINE),
 ]
 # Keywords to ignore if a potential chapter line starts with them
 IGNORE_PREFIXES = ("to ", "heading to ", "contents:", "illustrations:")
@@ -161,7 +161,7 @@ def coarse_chunk_by_structure(full_text: str) -> List[Dict[str, Any]]:
                 'block_number': i, # 1-based index
                 'start_char': start_pos
             })
-            aa=1
+
         logging.info(f"Coarse chunking resulted in {len(coarse_chunks)} structure-based blocks.")
 
     else: # No reliable structure found, use fallback
@@ -377,7 +377,7 @@ def adaptive_chunking(
 
                 # --- NEW: Enforce hard maximum chunk size ---
                 if current_chunk_token_count + para_token_count > max_chunk_size:
-                    # Force break current_chunk_text if it’s already too big
+                    # Force break current_chunk_text if it's already too big
                     if current_chunk_token_count > 0:
                         chunk_id = str(uuid.uuid4())
                         final_chunks.append({

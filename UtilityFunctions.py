@@ -1811,7 +1811,7 @@ def ObjToMindMap(structObj, showDictLables = False, filename=g.tempOutputFile):
 
         elif isinstance(obj, list):
             # Iterate through list items
-            for i, item in enumerate(obj, 1):
+            for i, item in enumerate(obj, 0):
                 # Create a generic label for the list item
                 label = f"lv_{level}_item_{i}" # Label is already ASCII
                 lines.append(f"{indent}{label}")

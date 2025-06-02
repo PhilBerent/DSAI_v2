@@ -97,11 +97,11 @@ DOCUMENT_ANALYSIS_SCHEMA = {
 
 # --- System Messages ---
 
-system_msg_for_large_block_anal = "You are an expert literary analyst. Analyze the provided text block and extract information strictly according to the provided JSON schema. Only output JSON."
+system_msg_for_large_block_anal = "You are an expert literary analyst. Analyze the provided text block and extract information strictly according to the provided JSON schema. Only output JSON. Only use information from the text block and do not use any knowledge or understanding that you have from your training. Specifically do not use any knowledge you have of the novel 'Pride and Prejudice' or any of its characters in your answer."
 
-chunk_system_message = "You are a detailed text analyst specializing in extracting entities, relationships, and events from text chunks within a larger document context. Output only valid JSON matching the schema."
+chunk_system_message = "You are a detailed text analyst specializing in extracting entities, relationships, and events from text chunks within a larger document context. Output only valid JSON matching the schema. Only use information from the text chunk and do not use any knowledge or understanding that you have from your training. Specifically do not use any knowledge you have of the novel 'Pride and Prejudice' or any of its characters in your answer."
 
-reduce_system_message = "You are an expert synthesizer of document analysis. Based on block summaries and entity lists, perform the requested analysis and output ONLY valid JSON according to the schema."
+reduce_system_message = "You are an expert synthesizer of document analysis. Based on block summaries and entity lists, perform the requested analysis and output ONLY valid JSON according to the schema. Only use information from the input information and do not use any knowledge or understanding that you have from your training. Specifically do not use any knowledge you have of the novel 'Pride and Prejudice' or any of its characters in your answer."
 
 
 # --- Specific Instructions for Reduce Phase (Used by getReducePrompt) ---
@@ -216,12 +216,12 @@ The 'key_entities_in_block' field should be a dictionary with keys 'characters',
 'characters' should include people (individuals or families), and animals; 'locations' should include places, buildings, and geographical features; 
 'organizations' should include companies, institutions, and groups but should NOT include people, families, or family names as the should be included as "characters". For example, "The Jones Family", or "The Joneses" should be included in the 'characters' list and not the 'organizations' list.
 For each entity, include its name, alternate names and a description . The 'alternate_names' field should be a list of all the other names the entity is called in the block. If the entity is refered to by only one name in the block then the "alternate_names" field should be blank. 
-If an entity (character, location or organization) is refered to by more than one name in the block then the 'name' field should contain the name that gives the fullest description of the entity - which might be one of the names given or even a combination of the names given. The other names should go in the alternate_names list. For example if a character is refered to as "Mr Philip Brown" and "Philip" and "Phil" in the block, then the best name for the character would be "Mr Philip Brown" because it provides the fullest description, and so "Mr Philip Brown" would be in the 'name' field, and 'alternate_names' would contain "Mr Brown" and "Philip", and "Phil". 
-If the first name and last name are known then they should be used in the 'name' field. This should always be preceded by the appropriate prefix ("Mr.", "Mrs.", "Miss.", "Ms.", "Doctor", etc.) if this is known. If couple or families are only refered to collectively then it is okay to have the collective as a "character" as for example "Mr. and Mrs. Jones" or the "The Jones Family" or "The Jonses". However if the characters are refered to indivisually they should each have a seperate entry in the character list.
+If an entity (character, location or organization) is refered to by more than one name in the block then the 'name' field should contain the name that gives the fullest description of the entity - which might be one of the names given or even a combination of the names given. The other names should go in the alternate_names list. 
+For example if a character is refered to as "Mr Philip Brown" and "Philip" and "Phil" in the block, then the best name for the character would be "Mr Philip Brown" because it provides the fullest description, and so "Mr Philip Brown" would be in the 'name' field, and 'alternate_names' would contain "Mr Brown" and "Philip", and "Phil".
+If the first name and last name are known then they should be used in the 'name' field. This should always be preceded by the appropriate prefix ("Mr.", "Mrs.", "Miss.", "Ms.", "Doctor", etc.) if this is known. If couple or families are only refered to collectively then it is okay to have the collective as a "character" as for example "Mr. and Mrs. Jones" or the "The Jones Family" or "The Jonses". However if the characters are refered to individually they should each have a seperate entry in the character list.
 
 I an entity is refered to by more than one name in the block, only one entry should be made for that entity in the list character list, location list or organization list. The entry will have the most complete name in the 'name' field, and the other names in the 'alternate_names' field. 
 
-The 'description' field should be a brief description of any information that is learned about the entity in the block. This should be purely descriptive information and should not include page references. For example it might become apparent in a block that Mr Brown lives in a house in Buckinghamshire and that his wife's name is Jane. The description for "Mr Brown" for that block then might read "Mr Brown lives in Buckinghamshire and is married to Jane". A description for the location "32 Aubert Park" might read "The home of Mr and Mrs Jones" the desciption for the organization "The Odeon Cinema" might read "Cinema located on Holloway Road run by Mr Jones and where Alice works at the coatcheck" and so on. If nothing is learned about the entity in the block then the description should be blank. 
 The 'description' field should be a description of any information that is learned about the entity in the block. The description should provide information that is learned in the block and should be as informative as possible about the characteristics of the entity. This should be purely descriptive information and should not include page references. For example a description for "Mr Brown" for a given that block then might read "Mr Brown lives in Buckinghamshire and is married to Jane. He has two cats. He is an accountant and he loves his 3 children". A description for the location "32 Aubert Park" might read "The home of Mr and Mrs Jones. The house has a large garden and is on a busy main street" the desciption for the organization "The Odeon Cinema" might read "The Odeon Cinema located on Holloway Road run by Mr Jones and where Alice works at the coatcheck. The cinema was founded in 1933 and has an air of fade grandeur" and so on. If nothing is learned about the entity in the block then the description should be blank. 
 If the gender of a character is known then this should be included in the "gender" field and should be either "Male" or "Female". If the gender is not known then this field should be blank.
 
@@ -235,39 +235,6 @@ Text Block (Ref: {block_ref}):
 {truncated_text}
 --- END BLOCK ---
 {truncation_note}
-
-Provide the analysis ONLY in the specified JSON format.
-"""
-    return prompt
-
-def get_anal_large_block_promptOld(block_info: Dict[str, Any], additional_data: Any = None) -> str:
-    """Generates the user prompt for analyzing a large text block."""
-    block_text = block_info.get('text', '')
-    block_ref = block_info.get('ref', 'Unknown Reference')
-
-    # Use the globally defined schema
-    schema_string = json.dumps(BLOCK_ANALYSIS_SCHEMA_OLD, indent=2)
-
-    # Truncate block text if necessary (using a reasonable limit)
-    # TODO: Consider making the truncation limit configurable
-    max_chars = 80000
-    truncated_text = block_text[:max_chars]
-    truncation_note = "(Note: Block might be truncated for analysis if excessively long)" if len(block_text) > max_chars else ""
-
-    prompt = f"""
-Analyze the following large text block from a document. Extract a concise summary, key entities primarily featured *in this block*, and identify any structural marker (like Chapter/Part title) found near the beginning of this block. The 'title', field should include the structural marker and a brief, descriptive and reflecting the main event or topic (e.g., "Chapter 10: Johnson returns to London", "Chapter VII: An Alternative Perspective", "Preface: Discussion of main themes"). The 'unit_type' is the type of text represented by the block(e.g., 'Chapter', 'Section', 'Part', 'Introduction', 'Appendix', 'Conclusion')". Use the block number for the number field.
-Adhere strictly to the provided JSON schema.
-
-JSON Schema:
-{schema_string}
-
-Text Block (Ref: {block_ref}):
---- START BLOCK ---
-{truncated_text}
---- END BLOCK ---
-{truncation_note}
-
-Provide the analysis ONLY in the specified JSON format.
 """
     return prompt
 
